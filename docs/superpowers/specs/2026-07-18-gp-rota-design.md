@@ -17,6 +17,9 @@ swap requests, and reports on duty fairness, leave, and staffing levels.
   *flag on an account*, not a separate identity: a GP can also hold admin rights,
   and a practice manager can be an admin with no clinician profile.
 - **GPs** view the published rota and submit leave/swap requests.
+- Each clinician belongs to exactly one **group** (e.g. Partner, Salaried,
+  GPST, Locum — the set is editable data). Groups drive grid layout,
+  within-group availability warnings, and session-type eligibility.
 - Locums can appear on the rota as clinicians without login accounts.
 - Accounts are created by an admin; there is no self-signup.
 
@@ -27,9 +30,10 @@ The rota has two layers:
 1. **Availability pattern** (stable): which sessions (weekday × AM/PM) each GP
    works. Changes rarely; changes are effective-dated to preserve history.
 2. **Allocation** (per period): what each GP does in each of their available
-   sessions — e.g. Routine surgery, Duty, Ward round, Visits, Admin, CPD — or an
-   absence (Annual leave, Study leave, Sick). Rebuilt each rota period, with
-   assisted auto-fill.
+   sessions — e.g. Routine surgery, Duty, Ward round, Baby clinic, Vasectomy
+   clinic, Visits, Admin, CPD — or an absence (Annual leave, Study leave,
+   Sick). Rebuilt each rota period, with assisted auto-fill. Apart from Duty's
+   full-day behaviour, all session types are equal — just data.
 
 The basic unit of the rota is the **session**: a date plus AM or PM.
 
@@ -51,6 +55,24 @@ The basic unit of the rota is the **session**: a date plus AM or PM.
 - Fair share is **weighted by sessions worked**: a GP working 4 sessions/week
   owes half the duty of one working 8.
 
+### Session-type eligibility
+
+- A session type is either open to all clinicians or restricted to named
+  clinicians and/or clinician groups (specialisms — e.g. a vasectomy clinic
+  only Dr A or Dr B can run; both lists empty = anyone).
+- Assisted fill treats eligibility as a hard constraint; manual assignment
+  warns on an ineligible pick but allows override.
+
+### Locum workflow
+
+- A booked locum is a clinician in the Locum group and is allocated sessions
+  like anyone else.
+- Anticipated-but-unbooked demand is tracked per session as a **locum
+  requirement** with a status ladder: *possibly needed* → *advertised* →
+  *booked*. Booking links the locum clinician and creates their rota entry;
+  the earlier states render on the grid in the Locum section so gaps and their
+  recruitment status are visible at a glance.
+
 ## Architecture
 
 - **Stack:** Python 3.12, Django 5.x (LTS), SQLite (WAL mode), htmx for grid
@@ -68,11 +90,16 @@ The basic unit of the rota is the **session**: a date plus AM or PM.
 ## Data model
 
 - **User** — Django auth user (email + password) with an `is_rota_admin` flag.
-- **Clinician** — name, initials (grid display), active flag, optional link to a
-  User, annual leave entitlement in sessions per leave year.
+- **ClinicianGroup** — name (Partner, Salaried, GPST, Locum, …), display order,
+  optional minimum clinicians present per session (drives within-group
+  availability warnings), and an `is_locum_group` flag (exactly one group) so
+  the locum workflow doesn't depend on a magic name.
+- **Clinician** — name, initials (grid display), group, active flag, optional
+  link to a User, annual leave entitlement in sessions per leave year.
 - **SessionType** — name, category (clinical / non-clinical / absence), display
-  colour, short code, `fairness_tracked` flag (v1: on for Duty only). Managed as
-  data via the setup screens, not code.
+  colour, short code, `fairness_tracked` flag (v1: on for Duty only), optional
+  eligibility restriction to named clinicians and/or groups (empty = anyone).
+  Managed as data via the setup screens, not code.
 - **Site** — practice sites; optional field on a rota entry.
 - **PatternSlot** — clinician × weekday × AM/PM × effective-from date: the
   availability layer.
@@ -95,9 +122,13 @@ The basic unit of the rota is the **session**: a date plus AM or PM.
   applied; a decline by either party ends it. A linked duty-day pair swaps as a
   whole day.
 - **CoverageRule** — session type, applicable days, unit (*per-session* or
-  *per-full-day*), required count. Initial defaults (to confirm against real
-  practice data, editable as data): Duty = 1 per day (full-day unit, every open
-  day); Ward round = 1 per session on its scheduled days.
+  *per-full-day*), required count, fill priority. Initial rule: Duty = 1 per
+  day (full-day unit, every open day). Further rules for any session type
+  (baby clinic, vasectomy clinic, ward round, …) are added as data.
+- **LocumRequirement** — date, AM/PM, session type needed, status
+  (*possibly needed* → *advertised* → *booked*), free-text details (agency,
+  rate, name), and once booked, links to the locum clinician and their created
+  rota entry.
 - **ClosedDay** — bank holidays and practice closures; greyed on the grid,
   skipped by assisted fill. Manually maintained.
 - **Practice settings** — minimum clinical GPs per session (drives staffing
@@ -110,12 +141,18 @@ stored, so they cannot drift out of sync.
 
 ## Screens
 
-1. **Rota grid** (the heart): week view, clinicians as rows, days × AM/PM as
-   columns. Colour-coded session codes; merged cell for a linked duty day;
-   greyed cells outside a GP's pattern; day headers carry DayNotes, closed days,
-   and live warnings (no duty cover, below minimum staffing). Week navigation
-   plus jump-to-date.
-   - *Admin:* click a cell → popover to set session type / site / note; drafts
+1. **Rota grid** (the heart): week view, clinicians as rows **grouped by
+   clinician group** (Partner, Salaried, GPST, Locum) with group header rows,
+   days × AM/PM as columns. Colour-coded session codes; merged cell for a
+   linked duty day; greyed cells outside a GP's pattern; the Locum section also
+   shows unbooked locum requirements with their status. Day headers carry
+   DayNotes, closed days, and live warnings — no duty cover, below minimum
+   staffing, a group below its minimum — and a gap with a locum requirement
+   shows its recruitment status (e.g. "gap — locum advertised"). Week
+   navigation plus jump-to-date.
+   - *Admin:* click a cell → popover to set session type / site / note (types
+     the clinician isn't eligible for are marked and warn on selection); mark a
+     session as needing a locum and step its status through to booked; drafts
      rendered hatched until published; publish-period action.
    - *GP:* read-only published view, own sessions highlighted, buttons to
      request leave or a swap.
@@ -135,21 +172,29 @@ stored, so they cannot drift out of sync.
 
 A deliberately simple, explainable greedy algorithm — not a constraint solver:
 
-1. Walk each slot required by coverage rules across the chosen range in date
-   order.
+1. Process coverage rules in **priority order** (duty first, so scarce GPs
+   land on the most important slots), walking each rule's slots across the
+   chosen range in date order.
 2. **Eligibility:** available per pattern for the whole allocation unit (both
-   sessions for a full duty day), not on leave, not a closed day, and not
-   already holding a duty allocation that day (prevents the filler stacking two
-   duty halves on one GP in a day).
-3. **Duty ranking:** eligible GPs ranked by fairness deficit — weighted fair
-   share minus actual duty sessions over the previous 3 months plus the current
-   draft. Tie-break: longest time since last duty.
-4. **Ward round (not fairness-tracked):** filled by simple rotation among
-   eligible GPs.
-5. All output is **draft** entries, visible only to admins until published.
+   sessions for a full duty day), not on leave, not a closed day, eligible for
+   the session type (clinician/group restrictions), and not already holding a
+   fairness-tracked allocation that day (prevents the filler stacking two duty
+   halves on one GP in a day).
+3. **Selection:** fairness-tracked types (v1: Duty) rank eligible GPs by
+   fairness deficit — weighted fair share minus actual sessions over the
+   previous 3 months plus the current draft, tie-broken by longest time since
+   last. All other rule-filled types use **simple rotation** (longest since
+   last did that type).
+4. All output is **draft** entries, visible only to admins until published.
    Slots with no eligible GP are flagged red for manual resolution.
-6. Optional final pass fills remaining empty available cells with the default
+5. Optional final pass fills remaining empty available cells with the default
    session type (Routine surgery).
+
+**Extending fill is data, not code:** a new rule like "Baby clinic: 1 GP,
+Tuesday AMs, only Dr A or Dr B" is a coverage rule plus a session-type
+eligibility restriction. Code changes are only needed if a future rule cannot
+be expressed as count + eligibility + rotation/fairness; the engine's single
+selection-strategy point is where such logic would slot in.
 
 **What fill may touch:** fill writes only into empty cells and replaces only its
 own previous drafts. It never overwrites published entries or manually-set
@@ -168,8 +213,9 @@ All computed live from entries, filterable by date range:
 2. **Leave** — per GP: entitlement vs taken vs booked-ahead for the leave year;
    plus a "who's off when" overview to spot crunch weeks before approving more
    leave.
-3. **Staffing** — sessions below minimum staffing or missing duty cover, listed
-   forward in time so gaps surface weeks early.
+3. **Staffing** — sessions below minimum staffing, missing duty cover, or below
+   a group minimum, listed forward in time so gaps surface weeks early, each
+   annotated with any locum requirement's recruitment status.
 
 ## Auth and security
 
