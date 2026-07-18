@@ -86,12 +86,18 @@ The basic unit of the rota is the **session**: a date plus AM or PM.
 - **LeaveRequest** — clinician, date range, leave type, message, status
   (pending → approved / declined), admin comment. Approval writes absence
   entries over the GP's patterned sessions in the range.
-- **SwapRequest** — proposer's entry ↔ colleague's entry, status chain:
-  proposed → colleague accepted → admin approved → applied. A decline by either
-  party ends it. Swapping a linked duty-day pair operates on the whole pair.
+- **SwapRequest** — names two sessions: one where the proposer holds the
+  assignment they want to give up, one where the colleague holds theirs. On
+  apply, the two clinicians **exchange session types in both sessions** (e.g. B
+  takes A's Tuesday duty and A takes B's Thursday duty, each absorbing the
+  other's displaced session). Valid only when both GPs work both sessions
+  involved. Status chain: proposed → colleague accepted → admin approved →
+  applied; a decline by either party ends it. A linked duty-day pair swaps as a
+  whole day.
 - **CoverageRule** — session type, applicable days, unit (*per-session* or
-  *per-full-day*), required count. V1 rules: Duty = 1 per day (full-day unit,
-  every open day); Ward round = 1 per session (weekday AMs). Editable as data.
+  *per-full-day*), required count. Initial defaults (to confirm against real
+  practice data, editable as data): Duty = 1 per day (full-day unit, every open
+  day); Ward round = 1 per session on its scheduled days.
 - **ClosedDay** — bank holidays and practice closures; greyed on the grid,
   skipped by assisted fill. Manually maintained.
 - **Practice settings** — minimum clinical GPs per session (drives staffing
@@ -145,9 +151,10 @@ A deliberately simple, explainable greedy algorithm — not a constraint solver:
 6. Optional final pass fills remaining empty available cells with the default
    session type (Routine surgery).
 
-**Re-run safety:** re-running replaces only its own drafts; manually-set entries
-(flagged `manually_set`) are preserved. Draft cells show their reasoning on
-hover ("Dr K: 1.5 duty sessions below fair share").
+**What fill may touch:** fill writes only into empty cells and replaces only its
+own previous drafts. It never overwrites published entries or manually-set
+entries (flagged `manually_set`), so re-running is always safe. Draft cells show
+their reasoning on hover ("Dr K: 1.5 duty sessions below fair share").
 
 Design bet: a transparent rule the admin can predict beats a clever solver they
 have to fight. Hand-tweaking the draft on the grid is expected and cheap.
