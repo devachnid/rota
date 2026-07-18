@@ -1,0 +1,29 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Rota{% endblock %}</title>
+<link rel="stylesheet" href="{% static 'rota.css' %}">
+<script src="{% static 'htmx.min.js' %}" defer></script>
+</head>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+<nav>
+  <a href="/rota/">Rota</a>
+  <a href="/me/">My schedule</a>
+  {% if user.is_rota_admin %}
+    <a href="/requests/">Requests</a>
+    <a href="/rota/fill/">Assisted fill</a>
+  {% endif %}
+  <a href="/reports/fairness/">Reports</a>
+  <span class="spacer"></span>
+  {% if user.is_authenticated %}
+    <span>{{ user.email }}</span>
+    <form method="post" action="/accounts/logout/">{% csrf_token %}<button>Log out</button></form>
+  {% endif %}
+</nav>
+{% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}
+<main>{% block content %}{% endblock %}</main>
+</body>
+</html>
