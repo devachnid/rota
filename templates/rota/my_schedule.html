@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}My schedule{% endblock %}
+{% block content %}
+{% if not clinician %}
+<p>No clinician profile is linked to this account. Ask an admin to link one.</p>
+{% else %}
+<h1>{{ clinician.name }}</h1>
+<p><a href="/me/leave/new/">Request leave</a> · <a href="/me/swap/new/">Propose a swap</a></p>
+
+<h2>Leave</h2>
+<p>Entitlement {{ leave.entitlement }} sessions — taken {{ leave.taken }},
+   booked {{ leave.booked }}, remaining {{ leave.remaining }}.</p>
+
+{% if to_accept %}
+<h2>Swaps awaiting your response</h2>
+{% for s in to_accept %}
+<div class="request">
+  <p>{{ s.proposer.name }} proposes swapping their
+     {{ s.proposer_day|date:"D j M" }} {{ s.proposer_part }} with your
+     {{ s.colleague_day|date:"D j M" }} {{ s.colleague_part }}. {{ s.message }}</p>
+  <form method="post" action="/me/swap/{{ s.pk }}/accept/" style="display:inline">
+    {% csrf_token %}<button>Accept</button></form>
+  <form method="post" action="/me/swap/{{ s.pk }}/decline/" style="display:inline">
+    {% csrf_token %}<button>Decline</button></form>
+</div>
+{% endfor %}
+{% endif %}
+
+<h2>Next four weeks</h2>
+<table class="report">
+  {% for e in entries %}
+  <tr><td>{{ e.day|date:"D j M" }}</td><td>{{ e.part }}</td>
+      <td>{{ e.session_type.code }}</td><td>{{ e.site|default:"" }}</td>
+      <td>{{ e.note }}</td></tr>
+  {% empty %}<tr><td>No published sessions in the next four weeks.</td></tr>
+  {% endfor %}
+</table>
+
+{% if my_leave_requests or my_swaps %}
+<h2>My requests</h2>
+<ul>
+  {% for r in my_leave_requests %}
+  <li>Leave {{ r.start_date|date:"j M" }}–{{ r.end_date|date:"j M" }}
+      ({{ r.session_type.name }}) — {{ r.get_status_display }}</li>
+  {% endfor %}
+  {% for s in my_swaps %}
+  <li>Swap with {{ s.colleague.name }}
+      ({{ s.proposer_day|date:"j M" }} {{ s.proposer_part }} &harr;
+       {{ s.colleague_day|date:"j M" }} {{ s.colleague_part }})
+      — {{ s.get_status_display }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% endif %}
+{% endblock %}

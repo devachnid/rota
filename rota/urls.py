@@ -1,6 +1,6 @@
 from django.urls import path
 
-from rota.views import edit, fill, grid, requests as requests_views
+from rota.views import edit, fill, grid, my_schedule, requests as requests_views
 
 urlpatterns = [
     path("rota/", grid.grid, name="grid"),
@@ -15,6 +15,7 @@ urlpatterns = [
     path("rota/locum/<int:pk>/form/", edit.locum_form, name="locum-form"),
     path("rota/locum/save/", edit.locum_save, name="locum-save"),
     path("rota/fill/", fill.fill, name="fill"),
+    path("me/", my_schedule.my_schedule, name="my-schedule"),
     path("me/leave/new/", requests_views.leave_new, name="leave-new"),
     path("requests/", requests_views.inbox, name="inbox"),
     path("requests/leave/<int:pk>/approve/", requests_views.leave_approve,
