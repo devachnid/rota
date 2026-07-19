@@ -3,10 +3,11 @@ from datetime import date, timedelta
 from django.shortcuts import render
 
 from rota.services.fill import run_fill
-from rota.views.decorators import admin_required
+from rota.views.decorators import admin_required, parse_errors_as_400
 
 
 @admin_required
+@parse_errors_as_400
 def fill(request):
     today = date.today()
     next_monday = today + timedelta(days=(7 - today.weekday()) % 7 or 7)

@@ -33,3 +33,9 @@ def test_unfilled_slots_reported(admin_client):
     resp = admin_client.post("/rota/fill/", {
         "start": MON.isoformat(), "end": MON.isoformat()})
     assert b"no eligible clinician" in resp.content
+
+
+def test_malformed_fill_post_returns_400(admin_client):
+    resp = admin_client.post("/rota/fill/", {"start": "junk", "end": "junk"})
+    assert resp.status_code == 400
+    assert admin_client.post("/rota/fill/", {}).status_code == 400
