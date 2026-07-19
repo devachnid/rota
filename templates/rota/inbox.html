@@ -24,4 +24,21 @@
   </form>
 </div>
 {% empty %}<p>No pending leave requests.</p>{% endfor %}
+<h2>Swaps (accepted by colleague)</h2>
+{% for item in pending_swaps %}
+<div class="request">
+  <p><strong>{{ item.req.proposer.name }}</strong>
+     ({{ item.req.proposer_day|date:"D j M" }} {{ item.req.proposer_part }})
+     &harr; <strong>{{ item.req.colleague.name }}</strong>
+     ({{ item.req.colleague_day|date:"D j M" }} {{ item.req.colleague_part }}).
+     {{ item.req.message }}</p>
+  {% for p in item.problems %}<p class="warn">{{ p }}</p>{% endfor %}
+  <form method="post" action="/requests/swap/{{ item.req.pk }}/approve/" style="display:inline">
+    {% csrf_token %}<button {% if item.problems %}disabled{% endif %}>Approve &amp; apply</button>
+  </form>
+  <form method="post" action="/requests/swap/{{ item.req.pk }}/decline/" style="display:inline">
+    {% csrf_token %}<input name="comment" placeholder="comment (optional)"><button>Decline</button>
+  </form>
+</div>
+{% empty %}<p>No swaps awaiting approval.</p>{% endfor %}
 {% endblock %}

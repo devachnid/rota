@@ -63,3 +63,35 @@ class LeaveRequest(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+
+
+class SwapRequest(models.Model):
+    class Status(models.TextChoices):
+        PROPOSED = "PROPOSED", "Awaiting colleague"
+        ACCEPTED = "ACCEPTED", "Awaiting admin"
+        APPROVED = "APPROVED", "Applied"
+        DECLINED = "DECLINED", "Declined"
+
+    proposer = models.ForeignKey(
+        "rota.Clinician", on_delete=models.CASCADE, related_name="swaps_proposed"
+    )
+    proposer_day = models.DateField()
+    proposer_part = models.CharField(max_length=2, choices=Part.choices)
+    colleague = models.ForeignKey(
+        "rota.Clinician", on_delete=models.CASCADE, related_name="swaps_received"
+    )
+    colleague_day = models.DateField()
+    colleague_part = models.CharField(max_length=2, choices=Part.choices)
+    message = models.TextField(blank=True)
+    status = models.CharField(max_length=10, choices=Status.choices,
+                              default=Status.PROPOSED)
+    admin_comment = models.TextField(blank=True)
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="+",
+    )
+    decided_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]

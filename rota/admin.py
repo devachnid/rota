@@ -59,7 +59,7 @@ class RotaEntryLogAdmin(admin.ModelAdmin):
     readonly_fields = [f.name for f in RotaEntryLog._meta.fields]
 
 
-from .models import LeaveRequest, LocumRequirement  # noqa: E402
+from .models import LeaveRequest, LocumRequirement, SwapRequest  # noqa: E402
 
 
 @admin.register(LocumRequirement)
@@ -71,4 +71,10 @@ class LocumRequirementAdmin(admin.ModelAdmin):
 @admin.register(LeaveRequest)
 class LeaveRequestAdmin(admin.ModelAdmin):
     list_display = ("clinician", "session_type", "start_date", "end_date", "status")
+    list_filter = ("status",)
+
+
+@admin.register(SwapRequest)
+class SwapRequestAdmin(admin.ModelAdmin):
+    list_display = ("proposer", "colleague", "status", "created_at")
     list_filter = ("status",)

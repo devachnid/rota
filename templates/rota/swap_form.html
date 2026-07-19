@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Propose a swap{% endblock %}
+{% block content %}
+<h1>Propose a swap</h1>
+<form method="post">{% csrf_token %}
+  <label>My session
+    <select name="my_entry_id">
+      {% for e in mine %}
+      <option value="{{ e.id }}">{{ e.day|date:"D j M" }} {{ e.part }} — {{ e.session_type.name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Colleague's session
+    <select name="their_entry_id">
+      {% for e in theirs %}
+      <option value="{{ e.id }}">{{ e.clinician.name }}: {{ e.day|date:"D j M" }} {{ e.part }} — {{ e.session_type.name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Message <textarea name="message" rows="2"></textarea></label>
+  <button>Propose swap</button>
+</form>
+<p>You exchange session types in both sessions, so you must both normally work
+both of the sessions involved. A full duty day swaps as a whole day.</p>
+{% endblock %}

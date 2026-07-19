@@ -21,4 +21,12 @@ urlpatterns = [
          name="leave-approve"),
     path("requests/leave/<int:pk>/decline/", requests_views.leave_decline,
          name="leave-decline"),
+    path("me/swap/new/", requests_views.swap_new, name="swap-new"),
+    path("me/swap/<int:pk>/accept/", requests_views.swap_accept, name="swap-accept"),
+    path("me/swap/<int:pk>/decline/", requests_views.swap_colleague_decline,
+         name="swap-colleague-decline"),
+    path("requests/swap/<int:pk>/approve/", requests_views.swap_approve,
+         name="swap-approve"),
+    path("requests/swap/<int:pk>/decline/", requests_views.swap_decline,
+         name="swap-decline"),
 ]
