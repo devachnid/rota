@@ -46,13 +46,13 @@ def assign(actor, clinician, day, part, session_type, *, site=None, note="",
 
 
 @transaction.atomic
-def assign_full_day(actor, clinician, day, session_type, *, published=False,
-                    manually_set=True, fill_reason=""):
+def assign_full_day(actor, clinician, day, session_type, *, site=None, note="",
+                    published=False, manually_set=True, fill_reason=""):
     group = uuid.uuid4()
-    am = assign(actor, clinician, day, "AM", session_type, published=published,
-                manually_set=manually_set, fill_reason=fill_reason)
-    pm = assign(actor, clinician, day, "PM", session_type, published=published,
-                manually_set=manually_set, fill_reason=fill_reason)
+    am = assign(actor, clinician, day, "AM", session_type, site=site, note=note,
+                published=published, manually_set=manually_set, fill_reason=fill_reason)
+    pm = assign(actor, clinician, day, "PM", session_type, site=site, note=note,
+                published=published, manually_set=manually_set, fill_reason=fill_reason)
     RotaEntry.objects.filter(pk__in=[am.pk, pm.pk]).update(allocation_group=group)
     am.refresh_from_db()
     pm.refresh_from_db()

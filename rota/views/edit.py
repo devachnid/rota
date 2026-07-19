@@ -54,7 +54,7 @@ def assign(request):
         ))
     if request.POST.get("full_day"):
         entries_svc.assign_full_day(request.user, clinician, day, st,
-                                    manually_set=True)
+                                    site=site, note=request.POST.get("note", ""), manually_set=True)
     else:
         entries_svc.assign(request.user, clinician, day, part, st, site=site,
                            note=request.POST.get("note", ""), manually_set=True)

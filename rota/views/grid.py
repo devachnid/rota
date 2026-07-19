@@ -22,7 +22,7 @@ def grid(request):
     is_admin = request.user.is_rota_admin
 
     entries = RotaEntry.objects.filter(day__in=days).select_related(
-        "session_type", "clinician"
+        "session_type", "clinician", "site"
     )
     if not is_admin:
         entries = entries.filter(is_published=True)
