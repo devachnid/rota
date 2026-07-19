@@ -22,3 +22,22 @@ class SessionTypeAdmin(admin.ModelAdmin):
 
 
 admin.site.register(Site)
+
+
+from .models import ClosedDay, CoverageRule, DayNote, PatternSlot, PracticeSettings  # noqa: E402
+
+
+@admin.register(PatternSlot)
+class PatternSlotAdmin(admin.ModelAdmin):
+    list_display = ("clinician", "weekday", "part", "works", "effective_from")
+    list_filter = ("clinician",)
+
+
+@admin.register(CoverageRule)
+class CoverageRuleAdmin(admin.ModelAdmin):
+    list_display = ("session_type", "unit", "parts", "weekdays", "count", "priority")
+
+
+admin.site.register(ClosedDay)
+admin.site.register(DayNote)
+admin.site.register(PracticeSettings)

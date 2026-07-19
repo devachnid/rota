@@ -28,3 +28,15 @@ def make_session_type(name="Routine", code=None, **kw):
 
 def make_site(name="Main Surgery"):
     return Site.objects.create(name=name)
+
+
+def make_pattern(clinician, weekdays=(0, 1, 2, 3, 4), parts=("AM", "PM"),
+                 works=True, effective_from=date(2020, 1, 1)):
+    from rota.models import PatternSlot
+    return [
+        PatternSlot.objects.create(
+            clinician=clinician, weekday=w, part=p, works=works,
+            effective_from=effective_from,
+        )
+        for w in weekdays for p in parts
+    ]
