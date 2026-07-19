@@ -49,6 +49,8 @@ def accept(req, user):
 def decline_by_colleague(req, user):
     if req.colleague.user_id != user.id:
         raise PermissionError("Only the named colleague can decline this swap.")
+    if req.status != SwapRequest.Status.PROPOSED:
+        raise ValueError("Swap is no longer awaiting your response.")
     req.status = SwapRequest.Status.DECLINED
     req.save()
 
@@ -79,6 +81,8 @@ def approve(actor, req):
 
 
 def decline(actor, req, comment=""):
+    if req.status not in (SwapRequest.Status.PROPOSED, SwapRequest.Status.ACCEPTED):
+        raise ValueError("Swap has already been decided.")
     req.status = SwapRequest.Status.DECLINED
     req.admin_comment = comment
     req.decided_by = actor

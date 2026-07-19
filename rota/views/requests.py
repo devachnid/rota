@@ -125,7 +125,7 @@ def swap_colleague_decline(request, pk):
     try:
         swaps_svc.decline_by_colleague(req, request.user)
         messages.success(request, "Swap declined.")
-    except PermissionError as e:
+    except (PermissionError, ValueError) as e:
         messages.error(request, str(e))
     return redirect("/me/")
 
@@ -146,7 +146,13 @@ def swap_approve(request, pk):
 @admin_required
 @require_POST
 def swap_decline(request, pk):
-    req = get_object_or_404(SwapRequest, pk=pk)
-    swaps_svc.decline(request.user, req, request.POST.get("comment", ""))
-    messages.success(request, "Swap declined.")
+    req = get_object_or_404(
+        SwapRequest, pk=pk,
+        status__in=[SwapRequest.Status.PROPOSED, SwapRequest.Status.ACCEPTED],
+    )
+    try:
+        swaps_svc.decline(request.user, req, request.POST.get("comment", ""))
+        messages.success(request, "Swap declined.")
+    except ValueError as e:
+        messages.error(request, str(e))
     return redirect("/requests/")

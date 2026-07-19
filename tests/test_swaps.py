@@ -75,3 +75,19 @@ def test_accept_requires_colleague(scenario):
     stranger = User.objects.create_user(email="x@example.com", password="pw")
     with pytest.raises(PermissionError):
         swaps_svc.accept(req, stranger)
+
+
+def test_declining_applied_swap_rejected(scenario, admin_user):
+    a, b, duty, routine = scenario
+    req = _swap(a, b)
+    gp_user = User.objects.create_user(email="beth2@example.com", password="pw")
+    b.user = gp_user
+    b.save()
+    swaps_svc.accept(req, gp_user)
+    swaps_svc.approve(admin_user, req)
+    with pytest.raises(ValueError):
+        swaps_svc.decline(admin_user, req)
+    with pytest.raises(ValueError):
+        swaps_svc.decline_by_colleague(req, gp_user)
+    req.refresh_from_db()
+    assert req.status == SwapRequest.Status.APPROVED
