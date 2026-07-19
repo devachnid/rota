@@ -70,6 +70,7 @@ def clear(actor, clinician, day, part):
     _log(actor, day, part, clinician.name, "cleared", detail)
 
 
+@transaction.atomic
 def publish_range(actor, start, end):
     n = RotaEntry.objects.filter(
         day__range=(start, end), is_published=False

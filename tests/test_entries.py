@@ -56,3 +56,13 @@ def test_publish_range(admin_user):
     n = entries.publish_range(admin_user, MON, MON)
     assert n == 2
     assert RotaEntry.objects.filter(is_published=True).count() == 2
+
+
+def test_clearing_half_splits_pair(admin_user):
+    c = make_clinician()
+    duty = make_session_type("Duty", fairness_tracked=True)
+    am, pm = entries.assign_full_day(admin_user, c, MON, duty)
+    entries.clear(admin_user, c, MON, "PM")
+    am.refresh_from_db()
+    assert am.allocation_group is None
+    assert RotaEntry.objects.count() == 1
