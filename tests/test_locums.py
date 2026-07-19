@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 import pytest
 
 from rota.models import LocumRequirement, RotaEntry
@@ -97,3 +99,16 @@ def test_moving_booked_requirement_rejected(admin_user):
             admin_user, pk=req.pk, day=MON, part="PM", session_type=st,
             status=LocumRequirement.Status.BOOKED,
         )
+
+
+def test_orphaned_booking_can_step_back(admin_user):
+    from rota.services import entries as entries_svc
+    st, locum, req = _book(admin_user)
+    entries_svc.clear(admin_user, locum, MON, "AM")
+    req.refresh_from_db()
+    assert req.rota_entry is None
+    req = locums.save_requirement(
+        admin_user, pk=req.pk, day=MON, part="AM", session_type=st,
+        status=LocumRequirement.Status.ADVERTISED,
+    )
+    assert req.status == LocumRequirement.Status.ADVERTISED

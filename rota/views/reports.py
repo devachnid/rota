@@ -29,7 +29,8 @@ def report_fairness(request):
     clinicians = {c.id: c for c in Clinician.objects.filter(active=True)}
     tables = []
     for st in SessionType.objects.filter(fairness_tracked=True):
-        shares = fairness_svc.fair_shares(st, start, end)
+        shares = fairness_svc.fair_shares(
+            st, start, end, include_drafts=request.user.is_rota_admin)
         rows = [
             {"clinician": clinicians[cid], "share": fs.share,
              "actual": fs.actual, "balance": fs.balance}

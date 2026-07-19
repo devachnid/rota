@@ -91,3 +91,43 @@ def test_declining_applied_swap_rejected(scenario, admin_user):
         swaps_svc.decline_by_colleague(req, gp_user)
     req.refresh_from_db()
     assert req.status == SwapRequest.Status.APPROVED
+
+
+def test_swap_view_chain(scenario, client, admin_client, admin_user):
+    a, b, duty, routine = scenario
+    ua = User.objects.create_user(email="alice@example.com", password="pw")
+    ub = User.objects.create_user(email="beth4@example.com", password="pw")
+    a.user = ua
+    a.save()
+    b.user = ub
+    b.save()
+    my_entry = RotaEntry.objects.get(clinician=a, day=MON, part="AM")
+    their_entry = RotaEntry.objects.get(clinician=b, day=TUE, part="AM")
+    client.force_login(ua)
+    resp = client.post("/me/swap/new/", {
+        "my_entry_id": my_entry.id, "their_entry_id": their_entry.id,
+        "message": "please"})
+    assert resp.status_code == 302
+    req = SwapRequest.objects.get()
+    client.post(f"/me/swap/{req.pk}/accept/")  # proposer, not colleague
+    req.refresh_from_db()
+    assert req.status == SwapRequest.Status.PROPOSED
+    client.force_login(ub)
+    client.post(f"/me/swap/{req.pk}/accept/")
+    req.refresh_from_db()
+    assert req.status == SwapRequest.Status.ACCEPTED
+    admin_client.post(f"/requests/swap/{req.pk}/approve/")
+    req.refresh_from_db()
+    assert req.status == SwapRequest.Status.APPROVED
+    assert RotaEntry.objects.get(clinician=b, day=MON, part="AM").session_type == duty
+
+
+def test_admin_decline_after_decision_404s(scenario, admin_client, admin_user):
+    a, b, duty, routine = scenario
+    req = _swap(a, b)
+    ub = User.objects.create_user(email="beth5@example.com", password="pw")
+    b.user = ub
+    b.save()
+    swaps_svc.accept(req, ub)
+    swaps_svc.approve(admin_user, req)
+    assert admin_client.post(f"/requests/swap/{req.pk}/decline/").status_code == 404

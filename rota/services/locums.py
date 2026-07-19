@@ -9,7 +9,7 @@ def save_requirement(actor, *, pk=None, day, part, session_type, status,
                      details="", clinician=None):
     if pk:
         req = LocumRequirement.objects.get(pk=pk)
-        if req.status == LocumRequirement.Status.BOOKED and (
+        if req.status == LocumRequirement.Status.BOOKED and req.rota_entry_id is not None and (
             status != LocumRequirement.Status.BOOKED
             or (clinician is not None and clinician != req.clinician)
             or day != req.day

@@ -47,3 +47,16 @@ def test_staffing_weeks_clamped(admin_client):
     assert b"next 26 weeks" in resp.content
     resp = admin_client.get("/reports/staffing/?weeks=0")
     assert b"next 1 weeks" in resp.content
+
+
+def test_fairness_report_hides_drafts_from_gps(gp_client, admin_client):
+    PracticeSettings.load()
+    duty = make_session_type("Duty", fairness_tracked=True)
+    a = make_clinician("Alice Adams")
+    make_pattern(a)
+    make_entry(a, day=date.today() - timedelta(days=7), part="AM",
+               session_type=duty, is_published=False)
+    gp_html = gp_client.get("/reports/fairness/").content.decode()
+    admin_html = admin_client.get("/reports/fairness/").content.decode()
+    assert "<td>0</td>" in gp_html and "<td>1</td>" not in gp_html
+    assert "<td>1</td>" in admin_html

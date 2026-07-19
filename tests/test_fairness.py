@@ -52,3 +52,10 @@ def test_last_done(duty):
     make_entry(a, day=MON - timedelta(days=7), part="AM", session_type=duty)
     make_entry(a, day=MON - timedelta(days=3), part="AM", session_type=duty)
     assert fairness.last_done(duty, MON)[a.id] == MON - timedelta(days=3)
+
+
+def test_counts_exclude_drafts_when_asked(duty):
+    c = make_clinician()
+    make_entry(c, day=MON, part="AM", session_type=duty, is_published=False)
+    assert fairness.counts(duty, MON, MON, include_drafts=False) == {}
+    assert fairness.counts(duty, MON, MON) == {c.id: 1}
