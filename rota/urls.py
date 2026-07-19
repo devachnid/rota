@@ -1,6 +1,6 @@
 from django.urls import path
 
-from rota.views import edit, grid
+from rota.views import edit, fill, grid
 
 urlpatterns = [
     path("rota/", grid.grid, name="grid"),
@@ -14,4 +14,5 @@ urlpatterns = [
     path("rota/locum/new/", edit.locum_new, name="locum-new"),
     path("rota/locum/<int:pk>/form/", edit.locum_form, name="locum-form"),
     path("rota/locum/save/", edit.locum_save, name="locum-save"),
+    path("rota/fill/", fill.fill, name="fill"),
 ]

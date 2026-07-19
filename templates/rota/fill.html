@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Assisted fill{% endblock %}
+{% block content %}
+<h1>Assisted fill</h1>
+<form method="post">{% csrf_token %}
+  <label>From <input type="date" name="start" value="{{ start|date:'Y-m-d' }}"></label>
+  <label>To <input type="date" name="end" value="{{ end|date:'Y-m-d' }}"></label>
+  <label><input type="checkbox" name="fill_default" value="1">
+    Fill remaining empty cells with the default session type</label>
+  <button>Run fill</button>
+</form>
+{% if result %}
+<h2>{{ result.created }} draft session(s) created</h2>
+<p>Drafts are visible only to admins until published.
+   <a href="/rota/?week={{ start|date:'Y-m-d' }}">Review on the grid</a></p>
+{% if result.unfilled %}
+<h3>Unfilled slots</h3>
+<ul>
+  {% for u in result.unfilled %}
+  <li class="warn">{{ u.day|date:"D j M" }} {{ u.part|default:"(full day)" }}
+      — {{ u.session_type }}: {{ u.reason }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+<form hx-post="/rota/publish/">
+  <input type="hidden" name="start" value="{{ start|date:'Y-m-d' }}">
+  <input type="hidden" name="end" value="{{ end|date:'Y-m-d' }}">
+  <button>Publish {{ start|date:"j M" }} – {{ end|date:"j M" }}</button>
+</form>
+{% endif %}
+{% endblock %}
