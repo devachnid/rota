@@ -40,3 +40,13 @@ def make_pattern(clinician, weekdays=(0, 1, 2, 3, 4), parts=("AM", "PM"),
         )
         for w in weekdays for p in parts
     ]
+
+
+def make_entry(clinician, day=MON, part="AM", session_type=None, **kw):
+    from rota.models import RotaEntry
+    kw.setdefault("is_published", True)
+    kw.setdefault("manually_set", True)
+    return RotaEntry.objects.create(
+        clinician=clinician, day=day, part=part,
+        session_type=session_type or make_session_type(), **kw,
+    )

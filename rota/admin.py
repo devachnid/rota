@@ -41,3 +41,19 @@ class CoverageRuleAdmin(admin.ModelAdmin):
 admin.site.register(ClosedDay)
 admin.site.register(DayNote)
 admin.site.register(PracticeSettings)
+
+
+from .models import RotaEntry, RotaEntryLog  # noqa: E402
+
+
+@admin.register(RotaEntry)
+class RotaEntryAdmin(admin.ModelAdmin):
+    list_display = ("day", "part", "clinician", "session_type", "is_published",
+                    "manually_set")
+    list_filter = ("is_published", "session_type")
+
+
+@admin.register(RotaEntryLog)
+class RotaEntryLogAdmin(admin.ModelAdmin):
+    list_display = ("at", "actor", "action", "day", "part", "clinician_name", "detail")
+    readonly_fields = [f.name for f in RotaEntryLog._meta.fields]
