@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Leave report{% endblock %}
+{% block content %}
+<h1>Leave</h1>
+<p><a href="/reports/fairness/">Fairness report</a> ·
+   <a href="/reports/staffing/">Staffing report</a></p>
+<table class="report">
+  <tr><th>Clinician</th><th>Entitlement</th><th>Taken</th><th>Booked</th><th>Remaining</th></tr>
+  {% for r in rows %}
+  <tr><td>{{ r.clinician.name }}</td><td>{{ r.entitlement }}</td>
+      <td>{{ r.taken }}</td><td>{{ r.booked }}</td>
+      <td class="{% if r.remaining < 0 %}neg{% endif %}">{{ r.remaining }}</td></tr>
+  {% endfor %}
+</table>
+<h2>Who's off (next 8 weeks)</h2>
+<table class="report">
+  {% for e in upcoming %}
+  <tr><td>{{ e.day|date:"D j M" }}</td><td>{{ e.part }}</td>
+      <td>{{ e.clinician.name }}</td><td>{{ e.session_type.name }}</td></tr>
+  {% empty %}<tr><td>No booked absences.</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Staffing report{% endblock %}
+{% block content %}
+<h1>Staffing gaps (next {{ weeks }} weeks)</h1>
+<p><a href="/reports/fairness/">Fairness report</a> ·
+   <a href="/reports/leave/">Leave report</a></p>
+<form method="get"><label>Weeks ahead
+  <input type="number" name="weeks" value="{{ weeks }}" min="1" max="26"></label>
+  <button>Update</button></form>
+<table class="report">
+  {% for d in days %}
+  <tr><td><a href="/rota/?week={{ d.day|date:'Y-m-d' }}">{{ d.day|date:"D j M Y" }}</a></td>
+      <td>{% for w in d.warnings %}<div class="warn">{{ w.message }}</div>{% endfor %}</td></tr>
+  {% empty %}<tr><td>No gaps found. 🎉</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

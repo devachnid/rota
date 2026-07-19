@@ -1,6 +1,6 @@
 from django.urls import path
 
-from rota.views import edit, fill, grid, my_schedule, requests as requests_views
+from rota.views import edit, fill, grid, my_schedule, reports, requests as requests_views
 
 urlpatterns = [
     path("rota/", grid.grid, name="grid"),
@@ -30,4 +30,7 @@ urlpatterns = [
          name="swap-approve"),
     path("requests/swap/<int:pk>/decline/", requests_views.swap_decline,
          name="swap-decline"),
+    path("reports/fairness/", reports.report_fairness, name="report-fairness"),
+    path("reports/leave/", reports.report_leave, name="report-leave"),
+    path("reports/staffing/", reports.report_staffing, name="report-staffing"),
 ]

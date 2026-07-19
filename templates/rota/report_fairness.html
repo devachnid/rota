@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Fairness report{% endblock %}
+{% block content %}
+<h1>Fairness</h1>
+<p><a href="/reports/leave/">Leave report</a> ·
+   <a href="/reports/staffing/">Staffing report</a></p>
+<form method="get">
+  <label>From <input type="date" name="start" value="{{ start|date:'Y-m-d' }}"></label>
+  <label>To <input type="date" name="end" value="{{ end|date:'Y-m-d' }}"></label>
+  <button>Update</button>
+</form>
+{% for table in tables %}
+<h2>{{ table.session_type.name }} ({{ start|date:"j M" }} – {{ end|date:"j M Y" }})</h2>
+<table class="report">
+  <tr><th>Clinician</th><th>Sessions done</th><th>Fair share</th><th>Balance</th></tr>
+  {% for r in table.rows %}
+  <tr><td>{{ r.clinician.name }}</td><td>{{ r.actual }}</td>
+      <td>{{ r.share|floatformat:1 }}</td>
+      <td class="{% if r.balance < 0 %}neg{% endif %}">{{ r.balance|floatformat:1 }}</td></tr>
+  {% endfor %}
+</table>
+{% empty %}<p>No fairness-tracked session types configured.</p>{% endfor %}
+{% endblock %}
