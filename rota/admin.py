@@ -1,6 +1,9 @@
 from django.contrib import admin
 
-from .models import Clinician, ClinicianGroup, SessionType, Site
+from .models import (Clinician, ClinicianGroup, ClosedDay, CoverageRule,
+                     DayNote, LeaveRequest, LocumRequirement, PatternSlot,
+                     PracticeSettings, RotaEntry, RotaEntryLog, SessionType,
+                     Site, SwapRequest)
 
 
 @admin.register(ClinicianGroup)
@@ -24,9 +27,6 @@ class SessionTypeAdmin(admin.ModelAdmin):
 admin.site.register(Site)
 
 
-from .models import ClosedDay, CoverageRule, DayNote, PatternSlot, PracticeSettings  # noqa: E402
-
-
 @admin.register(PatternSlot)
 class PatternSlotAdmin(admin.ModelAdmin):
     list_display = ("clinician", "weekday", "part", "works", "effective_from")
@@ -43,9 +43,6 @@ admin.site.register(DayNote)
 admin.site.register(PracticeSettings)
 
 
-from .models import RotaEntry, RotaEntryLog  # noqa: E402
-
-
 @admin.register(RotaEntry)
 class RotaEntryAdmin(admin.ModelAdmin):
     list_display = ("day", "part", "clinician", "session_type", "is_published",
@@ -57,9 +54,6 @@ class RotaEntryAdmin(admin.ModelAdmin):
 class RotaEntryLogAdmin(admin.ModelAdmin):
     list_display = ("at", "actor", "action", "day", "part", "clinician_name", "detail")
     readonly_fields = [f.name for f in RotaEntryLog._meta.fields]
-
-
-from .models import LeaveRequest, LocumRequirement, SwapRequest  # noqa: E402
 
 
 @admin.register(LocumRequirement)

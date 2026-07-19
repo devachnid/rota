@@ -112,3 +112,12 @@ def test_orphaned_booking_can_step_back(admin_user):
         status=LocumRequirement.Status.ADVERTISED,
     )
     assert req.status == LocumRequirement.Status.ADVERTISED
+
+
+def test_moving_booked_requirement_day_rejected(admin_user):
+    st, locum, req = _book(admin_user)
+    with pytest.raises(ValueError):
+        locums.save_requirement(
+            admin_user, pk=req.pk, day=MON + timedelta(days=1), part="AM",
+            session_type=st, status=LocumRequirement.Status.BOOKED,
+        )

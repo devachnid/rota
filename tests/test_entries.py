@@ -33,7 +33,7 @@ def test_full_day_pair_is_linked(admin_user):
 
 
 def test_editing_half_splits_pair(admin_user):
-    c, c2 = make_clinician(), make_clinician("Beth Brown")
+    c = make_clinician()
     duty = make_session_type("Duty", fairness_tracked=True)
     am, pm = entries.assign_full_day(admin_user, c, MON, duty)
     entries.assign(admin_user, c, MON, "PM", make_session_type("Routine"))

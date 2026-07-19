@@ -36,7 +36,6 @@ def report_fairness(request):
              "actual": fs.actual, "balance": fs.balance}
             for cid, fs in sorted(shares.items(),
                                   key=lambda kv: kv[1].balance)
-            if cid in clinicians
         ]
         tables.append({"session_type": st, "rows": rows})
     return render(request, "rota/report_fairness.html",

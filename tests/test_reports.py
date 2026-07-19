@@ -3,7 +3,7 @@ from datetime import date, timedelta
 import pytest
 
 from rota.models import CoverageRule, PracticeSettings
-from tests.factories import (MON, make_clinician, make_entry, make_pattern,
+from tests.factories import (make_clinician, make_entry, make_pattern,
                              make_session_type)
 
 pytestmark = pytest.mark.django_db

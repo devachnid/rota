@@ -63,3 +63,21 @@ def test_drafts_excluded_for_gp_view(duty_rule):
     make_entry(c, part="PM", session_type=duty_rule, is_published=False)
     assert not [w for w in day_warnings(MON, include_drafts=True) if w.code == "coverage"]
     assert [w for w in day_warnings(MON, include_drafts=False) if w.code == "coverage"]
+
+
+def test_per_session_single_part_rule():
+    PracticeSettings.objects.update_or_create(pk=1, defaults={"min_clinical_per_session": 0})
+    baby = make_session_type("Baby clinic")
+    CoverageRule.objects.create(session_type=baby, unit=CoverageRule.Unit.PER_SESSION,
+                                parts="AM", weekdays="0")
+    warnings = [w for w in day_warnings(MON) if w.code == "coverage"]
+    assert [w.part for w in warnings] == ["AM"]
+
+
+def test_group_minimum_ignores_absences():
+    PracticeSettings.objects.update_or_create(pk=1, defaults={"min_clinical_per_session": 0})
+    partners = make_group("Partner", min_per_session=1, display_order=1)
+    c = make_clinician("Alice Adams", group=partners)
+    leave = make_session_type("Annual leave", category="ABSENCE")
+    make_entry(c, part="AM", session_type=leave)
+    assert [w for w in day_warnings(MON) if w.code == "group" and w.part == "AM"]

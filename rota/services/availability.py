@@ -1,4 +1,4 @@
-from rota.models import Clinician, Part, PatternSlot
+from rota.models import Part, PatternSlot
 
 
 def _current_slot(clinician, weekday, part, as_of):
@@ -23,7 +23,3 @@ def weekly_sessions(clinician, as_of):
         for part in Part.values
         if (s := _current_slot(clinician, weekday, part, as_of)) and s.works
     )
-
-
-def available_clinicians(day, part):
-    return [c for c in Clinician.objects.filter(active=True) if works_on(c, day, part)]
