@@ -25,6 +25,7 @@ Session-based GP practice rota. Spec: `docs/superpowers/specs/2026-07-18-gp-rota
 
     pip install -r requirements.txt
     DEBUG=0 SECRET_KEY=... python manage.py collectstatic --noinput
+    DEBUG=0 SECRET_KEY=... python manage.py migrate
     cp deploy/gunicorn.service /etc/systemd/system/rota.service   # edit env vars first
     cp deploy/rota-backup.* /etc/systemd/system/
     systemctl daemon-reload && systemctl enable --now rota rota-backup.timer
