@@ -1,0 +1,6 @@
+[Unit]
+Description=Nightly GP rota SQLite backup
+
+[Service]
+Type=oneshot
+ExecStart=/root/rota/deploy/backup.sh

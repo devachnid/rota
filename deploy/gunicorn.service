@@ -1,0 +1,15 @@
+[Unit]
+Description=GP rota gunicorn
+After=network.target
+
+[Service]
+WorkingDirectory=/root/rota
+Environment=DEBUG=0
+Environment=SECRET_KEY=CHANGE-ME
+Environment=ALLOWED_HOSTS=rota.example.org
+Environment=CSRF_TRUSTED_ORIGINS=https://rota.example.org
+ExecStart=/root/rota/.venv/bin/gunicorn config.wsgi --bind 127.0.0.1:8321 --workers 2
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
