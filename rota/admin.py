@@ -57,3 +57,12 @@ class RotaEntryAdmin(admin.ModelAdmin):
 class RotaEntryLogAdmin(admin.ModelAdmin):
     list_display = ("at", "actor", "action", "day", "part", "clinician_name", "detail")
     readonly_fields = [f.name for f in RotaEntryLog._meta.fields]
+
+
+from .models import LocumRequirement  # noqa: E402
+
+
+@admin.register(LocumRequirement)
+class LocumRequirementAdmin(admin.ModelAdmin):
+    list_display = ("day", "part", "session_type", "status", "clinician")
+    list_filter = ("status",)
