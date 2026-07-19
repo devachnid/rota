@@ -12,6 +12,9 @@ def save_requirement(actor, *, pk=None, day, part, session_type, status,
         if req.status == LocumRequirement.Status.BOOKED and (
             status != LocumRequirement.Status.BOOKED
             or (clinician is not None and clinician != req.clinician)
+            or day != req.day
+            or part != req.part
+            or session_type != req.session_type
         ):
             raise ValueError(
                 "Already booked — clear the booked session on the grid and "

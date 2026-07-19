@@ -82,3 +82,18 @@ def test_updating_details_of_booked_requirement_allowed(admin_user):
     )
     assert req.details == "£750 agreed"
     assert req.clinician == locum and RotaEntry.objects.count() == 1
+
+
+def test_moving_booked_requirement_rejected(admin_user):
+    st, locum, req = _book(admin_user)
+    other = make_session_type("Duty", fairness_tracked=True)
+    with pytest.raises(ValueError):
+        locums.save_requirement(
+            admin_user, pk=req.pk, day=MON, part="AM", session_type=other,
+            status=LocumRequirement.Status.BOOKED,
+        )
+    with pytest.raises(ValueError):
+        locums.save_requirement(
+            admin_user, pk=req.pk, day=MON, part="PM", session_type=st,
+            status=LocumRequirement.Status.BOOKED,
+        )
