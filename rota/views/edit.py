@@ -8,7 +8,7 @@ from rota.models import (Clinician, DayNote, LocumRequirement, RotaEntry,
                          SessionType, Site)
 from rota.services import entries as entries_svc
 from rota.services import locums as locums_svc
-from rota.views.decorators import admin_required
+from rota.views.decorators import admin_required, parse_errors_as_400
 
 
 def _refresh():
@@ -29,6 +29,7 @@ def _cell_context(clinician, day, part, **extra):
 
 
 @admin_required
+@parse_errors_as_400
 def cell_form(request, clinician_id, day, part):
     clinician = get_object_or_404(Clinician, pk=clinician_id)
     return render(request, "rota/_cell_form.html",
@@ -36,6 +37,7 @@ def cell_form(request, clinician_id, day, part):
 
 
 @admin_required
+@parse_errors_as_400
 @require_POST
 def assign(request):
     clinician = get_object_or_404(Clinician, pk=request.POST["clinician_id"])
@@ -60,6 +62,7 @@ def assign(request):
 
 
 @admin_required
+@parse_errors_as_400
 @require_POST
 def clear(request):
     clinician = get_object_or_404(Clinician, pk=request.POST["clinician_id"])
@@ -70,6 +73,7 @@ def clear(request):
 
 
 @admin_required
+@parse_errors_as_400
 @require_POST
 def publish(request):
     entries_svc.publish_range(request.user,
@@ -79,6 +83,7 @@ def publish(request):
 
 
 @admin_required
+@parse_errors_as_400
 def daynote_form(request, day):
     d = date.fromisoformat(day)
     note = DayNote.objects.filter(day=d).first()
@@ -86,6 +91,7 @@ def daynote_form(request, day):
 
 
 @admin_required
+@parse_errors_as_400
 @require_POST
 def daynote_save(request):
     d = date.fromisoformat(request.POST["day"])
@@ -110,18 +116,21 @@ def _locum_form_context(req=None, day=None, part=None):
 
 
 @admin_required
+@parse_errors_as_400
 def locum_new(request):
     return render(request, "rota/_locum_form.html", _locum_form_context(
         day=date.fromisoformat(request.GET["day"]), part=request.GET["part"]))
 
 
 @admin_required
+@parse_errors_as_400
 def locum_form(request, pk):
     req = get_object_or_404(LocumRequirement, pk=pk)
     return render(request, "rota/_locum_form.html", _locum_form_context(req=req))
 
 
 @admin_required
+@parse_errors_as_400
 @require_POST
 def locum_save(request):
     st = get_object_or_404(SessionType, pk=request.POST["session_type_id"])
@@ -139,8 +148,14 @@ def locum_save(request):
             clinician=clinician,
         )
     except ValueError as e:
-        ctx = _locum_form_context(day=date.fromisoformat(request.POST["day"]),
-                                  part=request.POST["part"])
+        req = LocumRequirement.objects.filter(
+            pk=request.POST.get("pk") or None
+        ).first()
+        ctx = _locum_form_context(
+            req=req,
+            day=date.fromisoformat(request.POST["day"]),
+            part=request.POST["part"],
+        )
         ctx["warning"] = str(e)
         return render(request, "rota/_locum_form.html", ctx)
     return _refresh()

@@ -3,6 +3,7 @@ import pytest
 from rota.models import DayNote, LocumRequirement, RotaEntry
 from tests.factories import (MON, make_clinician, make_entry, make_group,
                              make_session_type)
+from rota.services import locums as locums_svc
 
 pytestmark = pytest.mark.django_db
 
@@ -77,3 +78,31 @@ def test_locum_save_creates_requirement(admin_client):
         "day": MON.isoformat(), "part": "AM", "session_type_id": st.id,
         "status": "ADVERTISED", "details": "agency emailed"})
     assert LocumRequirement.objects.get().status == "ADVERTISED"
+
+
+def test_malformed_post_returns_400_not_500(admin_client):
+    c = make_clinician()
+    st = make_session_type()
+    resp = admin_client.post("/rota/assign/", {
+        "clinician_id": c.id, "day": "not-a-date", "part": "AM",
+        "session_type_id": st.id})
+    assert resp.status_code == 400
+    assert admin_client.post("/rota/assign/", {}).status_code == 400
+    assert admin_client.post("/rota/clear/", {}).status_code == 400
+    assert admin_client.post("/rota/publish/", {"start": "junk", "end": "junk"}).status_code == 400
+
+
+def test_locum_error_rerender_preserves_pk(admin_client, admin_user):
+    st = make_session_type()
+    locum_group = make_group("Locum", is_locum_group=True, display_order=99)
+    locum = make_clinician("Larry Locum", group=locum_group)
+    req = locums_svc.save_requirement(
+        admin_user, day=MON, part="AM", session_type=st,
+        status=LocumRequirement.Status.BOOKED, clinician=locum)
+    resp = admin_client.post("/rota/locum/save/", {
+        "pk": req.pk, "day": MON.isoformat(), "part": "AM",
+        "session_type_id": st.id, "status": "ADVERTISED"})
+    assert resp.status_code == 200
+    assert b"Already booked" in resp.content
+    assert f'value="{req.pk}"'.encode() in resp.content
+    assert LocumRequirement.objects.count() == 1
