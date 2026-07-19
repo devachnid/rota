@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Requests{% endblock %}
+{% block content %}
+<h1>Pending requests</h1>
+<h2>Leave</h2>
+{% for item in pending_leave %}
+<div class="request">
+  <p><strong>{{ item.req.clinician.name }}</strong> — {{ item.req.session_type.name }},
+     {{ item.req.start_date|date:"j M" }} – {{ item.req.end_date|date:"j M Y" }}
+     ({{ item.n_sessions }} session(s)). {{ item.req.message }}</p>
+  {% if item.overwritten %}
+  <p>Replaces:
+    {% for e in item.overwritten %}
+      {{ e.day|date:"D j M" }} {{ e.part }} {{ e.session_type.name }}{% if e.session_type.fairness_tracked %}
+      <span class="warn">(leaves a {{ e.session_type.name }} gap)</span>{% endif %}{% if not forloop.last %}, {% endif %}
+    {% endfor %}
+  </p>
+  {% endif %}
+  <form method="post" action="/requests/leave/{{ item.req.pk }}/approve/" style="display:inline">
+    {% csrf_token %}<input name="comment" placeholder="comment (optional)"><button>Approve</button>
+  </form>
+  <form method="post" action="/requests/leave/{{ item.req.pk }}/decline/" style="display:inline">
+    {% csrf_token %}<input name="comment" placeholder="comment (optional)"><button>Decline</button>
+  </form>
+</div>
+{% empty %}<p>No pending leave requests.</p>{% endfor %}
+{% endblock %}

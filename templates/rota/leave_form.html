@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Request leave{% endblock %}
+{% block content %}
+<h1>Request leave</h1>
+<form method="post">{% csrf_token %}
+  <label>Type
+    <select name="session_type_id">
+      {% for t in absence_types %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>From <input type="date" name="start_date" required></label>
+  <label>To <input type="date" name="end_date" required></label>
+  <label>Message <textarea name="message" rows="2"></textarea></label>
+  <button>Submit request</button>
+</form>
+{% endblock %}
