@@ -63,6 +63,7 @@ def report_staffing(request):
         weeks = int(request.GET.get("weeks", 8))
     except ValueError:
         weeks = 8
+    weeks = max(1, min(weeks, 26))
     today = date.today()
     include_drafts = request.user.is_rota_admin
     days = []

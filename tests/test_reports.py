@@ -38,3 +38,12 @@ def test_staffing_report_lists_gaps(admin_client):
                                 unit=CoverageRule.Unit.PER_DAY, priority=1)
     html = admin_client.get("/reports/staffing/?weeks=1").content.decode()
     assert "No Duty cover" in html
+
+
+def test_staffing_weeks_clamped(admin_client):
+    PracticeSettings.load()
+    resp = admin_client.get("/reports/staffing/?weeks=5000")
+    assert resp.status_code == 200
+    assert b"next 26 weeks" in resp.content
+    resp = admin_client.get("/reports/staffing/?weeks=0")
+    assert b"next 1 weeks" in resp.content
