@@ -1,0 +1,10 @@
+<form hx-post="/rota/daynote/save/">
+  <strong>Note for {{ day|date:"D j M Y" }}</strong>
+  <input type="hidden" name="day" value="{{ day|date:'Y-m-d' }}">
+  <input name="text" value="{{ note.text|default:'' }}" maxlength="300"
+         placeholder="e.g. Flu clinic — extra pressure">
+  <div>
+    <button>Save</button>
+    <button type="button" onclick="document.getElementById('modal').innerHTML=''">Cancel</button>
+  </div>
+</form>

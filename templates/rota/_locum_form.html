@@ -1,0 +1,33 @@
+<form hx-post="/rota/locum/save/" hx-target="#modal">
+  <strong>Locum — {{ day|date:"D j M" }} {{ part }}</strong>
+  {% if warning %}<div class="warn">{{ warning }}</div>{% endif %}
+  {% if req %}<input type="hidden" name="pk" value="{{ req.pk }}">{% endif %}
+  <input type="hidden" name="day" value="{{ day|date:'Y-m-d' }}">
+  <input type="hidden" name="part" value="{{ part }}">
+  <label>Covers
+    <select name="session_type_id">
+      {% for t in session_types %}
+      <option value="{{ t.id }}" {% if req.session_type_id == t.id %}selected{% endif %}>{{ t.name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Status
+    <select name="status">
+      {% for value, label in statuses %}
+      <option value="{{ value }}" {% if req.status == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Locum (required to book)
+    <select name="clinician_id"><option value="">—</option>
+      {% for l in locums %}
+      <option value="{{ l.id }}" {% if req.clinician_id == l.id %}selected{% endif %}>{{ l.name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Details <textarea name="details" rows="2">{{ req.details|default:'' }}</textarea></label>
+  <div>
+    <button>Save</button>
+    <button type="button" onclick="document.getElementById('modal').innerHTML=''">Cancel</button>
+  </div>
+</form>
