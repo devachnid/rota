@@ -6,7 +6,8 @@ nav a { color: #fff; text-decoration: none; }
 nav .spacer { flex: 1; }
 main { padding: 1rem; }
 .flash { background: #ffb703; padding: .5rem 1rem; }
-table.rota { border-collapse: collapse; font-size: .85rem; }
+table.rota { border-collapse: collapse; font-size: .85rem; table-layout: fixed; width: 100%; }
+table.rota th:first-child, table.rota th.clin { width: 4.5rem; }
 table.rota th, table.rota td { border: 1px solid #ccc; padding: .25rem .4rem;
                                text-align: center; min-width: 3.2rem; }
 table.rota tr.group td { background: #023047; color: #fff; text-align: left;
@@ -20,7 +21,7 @@ tr.mine th.clin { background: #ffb703; }
 .daynote { font-weight: 400; font-size: .75rem; color: #b35c00; }
 .warn { font-weight: 400; font-size: .75rem; color: #c1121f; }
 .badge { border-radius: .5rem; padding: 0 .4rem; font-size: .75rem;
-         background: #eee; cursor: pointer; }
+         background: #eee; cursor: pointer; display: inline-block; white-space: normal; word-wrap: break-word; line-height: 1.2; margin: 1px 0; }
 .badge.POSSIBLE { background: #ffe5e5; }
 .badge.ADVERTISED { background: #fff3cd; }
 .badge.BOOKED { background: #d8f3dc; }
@@ -33,3 +34,18 @@ tr.mine th.clin { background: #ffb703; }
 .grid-header { display: flex; gap: 1rem; align-items: baseline; flex-wrap: wrap; }
 .report th, .report td { padding: .25rem .75rem; text-align: left; }
 .neg { color: #c1121f; }
+
+.site-marker {
+  display: inline-block;
+  width: 1.2rem;
+  height: 1.2rem;
+  line-height: 1.2rem;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.5);
+  color: inherit;
+  font-size: 0.7rem;
+  font-weight: 700;
+  margin-left: 0.3rem;
+  vertical-align: middle;
+  text-align: center;
+}

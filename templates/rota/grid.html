@@ -47,7 +47,7 @@
       {% if is_admin %}hx-get="/rota/cell/{{ row.clinician.id }}/{{ cell.day_str }}/{{ cell.part }}/"
       hx-target="#modal"{% endif %}
       title="{{ cell.entry.fill_reason|default:'' }} {{ cell.entry.note|default:'' }}">
-    {% if cell.entry %}{{ cell.entry.session_type.code }}{% endif %}
+    {% if cell.entry %}{{ cell.entry.session_type.code }}{% if cell.entry.site %}<span class="site-marker">{{ cell.entry.site.name|slice:":1" }}</span>{% endif %}{% endif %}
   </td>
   {% endfor %}
 </tr>
