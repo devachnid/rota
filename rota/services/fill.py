@@ -79,7 +79,13 @@ def run_fill(actor, start, end, fill_default=False):
             slots = [None] if full_day else rule.parts_for()
             for part in slots:
                 parts = ["AM", "PM"] if full_day else [part]
-                for _ in range(rule.count):
+                have = min(
+                    RotaEntry.objects.filter(
+                        day=day, part=p, session_type=st
+                    ).count()
+                    for p in parts
+                )
+                for _ in range(max(rule.count - have, 0)):
                     cands = [c for c in clinicians if _eligible(c, day, parts, st)]
                     if not cands:
                         result.unfilled.append(UnfilledSlot(
