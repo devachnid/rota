@@ -4,7 +4,7 @@ import pytest
 
 from tests.factories import (MON, make_clinician, make_entry, make_group,
                              make_pattern, make_session_type)
-from rota.models import LocumRequirement, PracticeSettings
+from rota.models import ClosedDay, LocumRequirement, PracticeSettings
 
 pytestmark = pytest.mark.django_db
 URL = f"/rota/?week={MON}"
@@ -63,3 +63,27 @@ def test_duty_day_renders_merged(admin_client):
     html = admin_client.get(URL).content.decode()
     # day headers use <th colspan="2">; only a merged duty cell renders a <td> one
     assert '<td colspan="2"' in html
+
+
+def test_week_param_snaps_to_monday(admin_client):
+    PracticeSettings.load()
+    c = make_clinician()
+    make_entry(c, part="AM", session_type=make_session_type("Routine", code="ROUT"))
+    wednesday = MON + timedelta(days=2)
+    html = admin_client.get(f"/rota/?week={wednesday}").content.decode()
+    assert "ROUT" in html
+
+
+def test_closed_day_styled(admin_client):
+    PracticeSettings.load()
+    make_clinician()
+    ClosedDay.objects.create(day=MON, reason="Bank holiday")
+    html = admin_client.get(URL).content.decode()
+    assert "closed" in html
+
+
+def test_own_row_highlighted(gp_client, gp_user):
+    PracticeSettings.load()
+    c = make_clinician(user=gp_user)
+    html = gp_client.get(URL).content.decode()
+    assert "mine" in html

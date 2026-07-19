@@ -1,11 +1,12 @@
 from datetime import date, timedelta
 
 from django.contrib.auth.decorators import login_required
+from django.db.models import Prefetch
 from django.shortcuts import render
 
-from rota.models import (ClinicianGroup, ClosedDay, DayNote, LocumRequirement,
-                         PracticeSettings, RotaEntry)
-from rota.services import availability
+from rota.models import (Clinician, ClinicianGroup, ClosedDay, DayNote,
+                         LocumRequirement, PatternSlot, PracticeSettings,
+                         RotaEntry)
 from rota.services.warnings import day_warnings
 
 
@@ -27,6 +28,21 @@ def grid(request):
         entries = entries.filter(is_published=True)
     cell_map = {(e.clinician_id, e.day, e.part): e for e in entries}
 
+    active = list(Clinician.objects.filter(active=True))
+    pattern_rows = PatternSlot.objects.filter(
+        clinician__in=active
+    ).order_by("effective_from")
+    pattern_map = {}
+    for s in pattern_rows:
+        pattern_map.setdefault((s.clinician_id, s.weekday, s.part), []).append(s)
+
+    def works(clinician_id, d, part):
+        current = None
+        for row in pattern_map.get((clinician_id, d.weekday(), part), []):
+            if row.effective_from <= d:
+                current = row
+        return bool(current and current.works)
+
     closed = set(ClosedDay.objects.filter(day__in=days).values_list("day", flat=True))
     notes = {n.day: n for n in DayNote.objects.filter(day__in=days)}
     day_headers = [
@@ -36,9 +52,12 @@ def grid(request):
     ]
 
     sections = []
-    for group in ClinicianGroup.objects.prefetch_related("clinicians"):
+    groups = ClinicianGroup.objects.prefetch_related(
+        Prefetch("clinicians", queryset=Clinician.objects.filter(active=True))
+    )
+    for group in groups:
         rows = []
-        for clinician in group.clinicians.filter(active=True):
+        for clinician in group.clinicians.all():
             cells = []
             for d in days:
                 am = cell_map.get((clinician.id, d, "AM"))
@@ -51,7 +70,7 @@ def grid(request):
                     cells.append({
                         "day": d, "day_str": d.isoformat(), "part": part,
                         "entry": entry, "merged": merged and part == "AM",
-                        "unavail": not availability.works_on(clinician, d, part),
+                        "unavail": entry is None and not works(clinician.id, d, part),
                         "closed": d in closed,
                     })
             rows.append({
