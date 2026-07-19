@@ -41,3 +41,44 @@ def test_booking_creates_published_entry(admin_user):
     entry = RotaEntry.objects.get()
     assert req.rota_entry == entry and entry.is_published
     assert entry.clinician == locum and entry.session_type == st
+
+
+def _book(admin_user):
+    st = make_session_type("Routine")
+    locum_group = make_group("Locum", is_locum_group=True, display_order=99)
+    locum = make_clinician("Larry Locum", group=locum_group)
+    req = locums.save_requirement(
+        admin_user, day=MON, part="AM", session_type=st,
+        status=LocumRequirement.Status.BOOKED, clinician=locum, details="£700",
+    )
+    return st, locum, req
+
+
+def test_unbooking_is_rejected(admin_user):
+    st, locum, req = _book(admin_user)
+    with pytest.raises(ValueError):
+        locums.save_requirement(
+            admin_user, pk=req.pk, day=MON, part="AM", session_type=st,
+            status=LocumRequirement.Status.ADVERTISED,
+        )
+
+
+def test_rebooking_different_locum_rejected(admin_user):
+    st, locum, req = _book(admin_user)
+    locum2 = make_clinician("Lucy Locum", group=locum.group)
+    with pytest.raises(ValueError):
+        locums.save_requirement(
+            admin_user, pk=req.pk, day=MON, part="AM", session_type=st,
+            status=LocumRequirement.Status.BOOKED, clinician=locum2,
+        )
+    assert RotaEntry.objects.count() == 1
+
+
+def test_updating_details_of_booked_requirement_allowed(admin_user):
+    st, locum, req = _book(admin_user)
+    req = locums.save_requirement(
+        admin_user, pk=req.pk, day=MON, part="AM", session_type=st,
+        status=LocumRequirement.Status.BOOKED, details="£750 agreed",
+    )
+    assert req.details == "£750 agreed"
+    assert req.clinician == locum and RotaEntry.objects.count() == 1
