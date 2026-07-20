@@ -29,3 +29,15 @@ def gp_client(gp_user):
     client = Client()
     client.force_login(gp_user)
     return client
+
+
+@pytest.fixture
+def staff_user(db):
+    return User.objects.create_superuser(email="staff@example.com", password="pw")
+
+
+@pytest.fixture
+def staff_client(staff_user):
+    client = Client()
+    client.force_login(staff_user)
+    return client

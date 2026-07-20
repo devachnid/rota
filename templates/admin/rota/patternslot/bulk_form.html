@@ -1,0 +1,47 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<h1>Bulk edit clinician pattern</h1>
+
+<form method="get" style="margin-bottom:1.5em;">
+  <label>Clinician
+    <select name="clinician_id" onchange="this.form.submit()">
+      <option value="">— choose —</option>
+      {% for c in clinicians %}
+      <option value="{{ c.id }}" {% if clinician.id == c.id %}selected{% endif %}>
+        {{ c.name }}
+      </option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Effective from
+    <input type="date" name="effective_from" value="{{ effective_from|date:'Y-m-d' }}">
+  </label>
+  <input type="submit" value="Load" class="default">
+</form>
+
+{% if clinician %}
+<form method="post">
+  {% csrf_token %}
+  <input type="hidden" name="clinician_id" value="{{ clinician.id }}">
+  <input type="hidden" name="effective_from" value="{{ effective_from|date:'Y-m-d' }}">
+  <p>Ticked boxes are the sessions {{ clinician.name }} works, as of the day
+     before {{ effective_from }}. Save writes only the cells you change.</p>
+  <table>
+    <thead>
+      <tr><th>Day</th><th>AM</th><th>PM</th></tr>
+    </thead>
+    <tbody>
+      {% for row in grid %}
+      <tr>
+        <th>{{ row.label }}</th>
+        <td><input type="checkbox" name="d{{ row.weekday }}_AM"{% if row.am_checked %} checked{% endif %}></td>
+        <td><input type="checkbox" name="d{{ row.weekday }}_PM"{% if row.pm_checked %} checked{% endif %}></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <input type="submit" value="Save pattern" class="default">
+</form>
+{% endif %}
+{% endblock %}
