@@ -61,3 +61,12 @@ def make_trainee(clinician=None, stage="ST2", wte=100, trainer=None,
         clinician=clinician, stage=stage, wte_percent=wte, trainer=trainer,
         placement_start=start, placement_end=end or (start + timedelta(days=364)),
     )
+
+
+def make_commitment(clinician, session_type=None, weekday=0, part="AM", **kw):
+    from rota.models import RecurringCommitment
+    kw.setdefault("active_from", date(2020, 1, 6))  # a Monday
+    return RecurringCommitment.objects.create(
+        clinician=clinician, session_type=session_type or make_session_type(),
+        weekday=weekday, part=part, **kw,
+    )

@@ -80,3 +80,37 @@ def test_weekly_rates_fy2():
     assert rates["vts"][0] == 0.0
     assert rates["sdl"][0] == 2.0
     assert rates["mentoring"][0] == 1.0
+
+
+from datetime import timedelta  # noqa: E402
+
+from tests.factories import make_commitment  # noqa: E402
+
+
+def test_commitment_occurs_on_weekday_in_window():
+    c = make_commitment(make_clinician(), weekday=0, part="AM")
+    assert c.occurs_on(MON)
+    assert not c.occurs_on(MON + timedelta(days=1))
+
+
+def test_commitment_respects_active_window():
+    c = make_commitment(make_clinician(), weekday=0,
+                        active_from=MON + timedelta(days=7))
+    assert not c.occurs_on(MON)
+    assert c.occurs_on(MON + timedelta(days=7))
+    c.active_until = MON + timedelta(days=7)
+    assert not c.occurs_on(MON + timedelta(days=14))
+
+
+def test_commitment_fortnightly_anchored_to_active_from_week():
+    c = make_commitment(make_clinician(), weekday=0, interval_weeks=2,
+                        active_from=MON)
+    assert c.occurs_on(MON)
+    assert not c.occurs_on(MON + timedelta(days=7))
+    assert c.occurs_on(MON + timedelta(days=14))
+
+
+def test_commitment_parts_list():
+    cl = make_clinician()
+    assert make_commitment(cl, part="BOTH").parts_list() == ["AM", "PM"]
+    assert make_commitment(cl, part="PM", weekday=2).parts_list() == ["PM"]

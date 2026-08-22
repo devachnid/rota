@@ -7,7 +7,7 @@ from django.utils.html import format_html
 
 from .models import (Clinician, ClinicianGroup, ClosedDay, CoverageRule,
                      DayNote, LeaveRequest, LocumRequirement, Part,
-                     PatternSlot, PracticeSettings, RotaEntry, RotaEntryLog,
+                     PatternSlot, PracticeSettings, RecurringCommitment, RotaEntry, RotaEntryLog,
                      SessionType, Site, SwapRequest, TraineeProfile, TraineeStageRule)
 from .services.patterns import bulk_set_pattern, current_pattern
 
@@ -131,6 +131,13 @@ class CoverageRuleAdmin(admin.ModelAdmin):
 class TraineeStageRuleAdmin(admin.ModelAdmin):
     list_display = ("stage", "vts_per_week", "sdl_per_week",
                     "mentoring_per_week", "vts_weekday", "vts_part")
+
+
+@admin.register(RecurringCommitment)
+class RecurringCommitmentAdmin(admin.ModelAdmin):
+    list_display = ("clinician", "weekday", "part", "session_type", "site",
+                    "interval_weeks", "active_from", "active_until")
+    list_filter = ("clinician",)
 
 
 admin.site.register(ClosedDay)
