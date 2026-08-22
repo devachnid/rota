@@ -2,7 +2,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from rota.models import CoverageRule, PracticeSettings, RotaEntry
+from rota.models import CoverageRule, PracticeSettings, RotaEntry, Site
 from rota.services.fill import run_fill
 from tests.factories import (MON, make_clinician, make_pattern,
                              make_session_type)
@@ -152,3 +152,19 @@ def test_pool_scoped_fair_shares():
     shares = fairness.fair_shares(vas, MON, MON + timedelta(days=6))
     assert set(shares) == {a.id, b.id}          # outsider not in the table
     assert shares[a.id].share == pytest.approx(1.0)  # 2 sessions / equal weights
+
+
+def test_default_fill_stamps_site(admin_user):
+    s = PracticeSettings.load()
+    site = Site.objects.create(name="Main Surgery")
+    routine = make_session_type("Routine")
+    routine.default_site = site
+    routine.save()
+    s.default_fill_session_type = routine
+    s.save()
+    a = make_clinician("Alice Adams")
+    make_pattern(a, weekdays=(0,), parts=("AM",))
+    run_fill(admin_user, MON, MON, fill_default=True)
+    entry = RotaEntry.objects.get(clinician=a, day=MON, part="AM")
+    assert entry.session_type == routine
+    assert entry.site == site

@@ -31,6 +31,7 @@ def run_fill(actor, start, end, fill_default=False):
                                 and ctx.is_free(c.id, day, part)
                                 and c.id in ctx.eligible_ids(default)):
                             e = entries.assign(actor, c, day, part, default,
+                                               site=default.default_site,
                                                manually_set=False,
                                                fill_reason="default fill")
                             ctx.record(e)
