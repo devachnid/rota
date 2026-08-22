@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import date, timedelta
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -93,16 +93,29 @@ def test_declining_applied_swap_rejected(scenario, admin_user):
     assert req.status == SwapRequest.Status.APPROVED
 
 
-def test_swap_view_chain(scenario, client, admin_client, admin_user):
-    a, b, duty, routine = scenario
+def test_swap_view_chain(client, admin_client, admin_user):
+    # swap_new lists only day__gte=today entries, so this scenario (mirrors
+    # `scenario` above) must use dates relative to the real clock rather than
+    # the fixed MON/TUE constants, which recede into the past as time passes.
+    duty = make_session_type("Duty", fairness_tracked=True)
+    routine = make_session_type("Routine")
+    a, b = make_clinician("Alice Adams"), make_clinician("Beth Brown")
+    today = date.today()
+    day1, day2 = today + timedelta(days=1), today + timedelta(days=2)
+    entries_svc.assign_full_day(None, a, day1, duty, published=True)
+    make_entry(a, day=day2, part="AM", session_type=routine)
+    make_entry(b, day=day1, part="AM", session_type=routine)
+    make_entry(b, day=day1, part="PM", session_type=routine)
+    entries_svc.assign(None, b, day2, "AM", duty, published=True)
+
     ua = User.objects.create_user(email="alice@example.com", password="pw")
     ub = User.objects.create_user(email="beth4@example.com", password="pw")
     a.user = ua
     a.save()
     b.user = ub
     b.save()
-    my_entry = RotaEntry.objects.get(clinician=a, day=MON, part="AM")
-    their_entry = RotaEntry.objects.get(clinician=b, day=TUE, part="AM")
+    my_entry = RotaEntry.objects.get(clinician=a, day=day1, part="AM")
+    their_entry = RotaEntry.objects.get(clinician=b, day=day2, part="AM")
     client.force_login(ua)
     resp = client.post("/me/swap/new/", {
         "my_entry_id": my_entry.id, "their_entry_id": their_entry.id,
@@ -119,7 +132,7 @@ def test_swap_view_chain(scenario, client, admin_client, admin_user):
     admin_client.post(f"/requests/swap/{req.pk}/approve/")
     req.refresh_from_db()
     assert req.status == SwapRequest.Status.APPROVED
-    assert RotaEntry.objects.get(clinician=b, day=MON, part="AM").session_type == duty
+    assert RotaEntry.objects.get(clinician=b, day=day1, part="AM").session_type == duty
 
 
 def test_admin_decline_after_decision_404s(scenario, admin_client, admin_user):
