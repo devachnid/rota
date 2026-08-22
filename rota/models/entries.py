@@ -20,6 +20,11 @@ class RotaEntry(models.Model):
     is_published = models.BooleanField(default=False)
     manually_set = models.BooleanField(default=False)
     allocation_group = models.UUIDField(null=True, blank=True)
+    companion_group = models.UUIDField(
+        null=True, blank=True,
+        help_text="Links the two clinicians' entries of a paired session "
+                  "(e.g. mentoring). Distinct from allocation_group.",
+    )
     fill_reason = models.CharField(max_length=200, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

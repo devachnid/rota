@@ -22,7 +22,7 @@ class ClinicianGroupAdmin(admin.ModelAdmin):
 
 @admin.register(Clinician)
 class ClinicianAdmin(admin.ModelAdmin):
-    list_display = ("name", "initials", "group", "active",
+    list_display = ("name", "initials", "group", "active", "is_trainer",
                     "leave_entitlement_sessions", "pattern_link")
     list_filter = ("group", "active")
 
@@ -38,7 +38,7 @@ class ClinicianAdmin(admin.ModelAdmin):
 class SessionTypeAdmin(admin.ModelAdmin):
     list_display = ("name", "code", "category", "fairness_tracked",
                     "counts_toward_entitlement")
-    filter_horizontal = ("allowed_clinicians", "allowed_groups")
+    filter_horizontal = ("allowed_clinicians", "allowed_groups", "blocks_same_day")
 
 
 admin.site.register(Site)
@@ -116,7 +116,8 @@ class PatternSlotAdmin(admin.ModelAdmin):
 
 @admin.register(CoverageRule)
 class CoverageRuleAdmin(admin.ModelAdmin):
-    list_display = ("session_type", "unit", "parts", "weekdays", "count", "priority")
+    list_display = ("session_type", "unit", "frequency", "parts", "weekdays",
+                    "months", "count", "priority")
 
 
 admin.site.register(ClosedDay)
