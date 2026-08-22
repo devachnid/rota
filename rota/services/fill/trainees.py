@@ -82,11 +82,8 @@ def run_sdl(ctx, actor, result):
                     if ctx.works_on(cid, day, part) and ctx.is_free(cid, day, part):
                         candidates.append((day, part))
             candidates.sort(key=lambda dp: (-impact_score(ctx, dp[0], dp[1]), dp[0], dp[1]))
-            if not candidates:
-                result.unfilled.append(UnfilledSlot(
-                    wm, None, "SDL", "no free session"))
-                continue
-            for day, part in candidates[:need]:
+            placed = min(need, len(candidates))
+            for day, part in candidates[:placed]:
                 entry = entries.assign(
                     actor, profile.clinician, day, part, sdl,
                     site=sdl.default_site, manually_set=False,
@@ -94,3 +91,7 @@ def run_sdl(ctx, actor, result):
                 ctx.record(entry)
                 result.created += 1
                 done += 1
+            # Report each unplaced session
+            for _ in range(need - placed):
+                result.unfilled.append(UnfilledSlot(
+                    wm, None, "SDL", "no free session"))

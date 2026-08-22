@@ -121,3 +121,15 @@ def test_sdl_avoids_vts_anchor_slot(admin_user):
     run_fill(admin_user, MON, MON + timedelta(days=4))
     assert RotaEntry.objects.get(session_type=vts).part == "AM"
     assert RotaEntry.objects.get(session_type=sdl).part == "PM"
+
+
+def test_sdl_partial_shortfall_reported(admin_user):
+    sdl = _setup_sdl()
+    t = make_clinician("Freya FY2")
+    # Works only Monday AM: one candidate session, but FY2 full-time needs 2/wk
+    make_pattern(t, weekdays=(0,), parts=("AM",))
+    make_trainee(clinician=t, stage="FY2", wte=100, start=MON)
+    result = run_fill(admin_user, MON, MON + timedelta(days=4))
+    assert RotaEntry.objects.filter(session_type=sdl).count() == 1
+    shortfalls = [u for u in result.unfilled if u.session_type == "SDL"]
+    assert len(shortfalls) == 1, f"expected 1 SDL shortfall, got {len(shortfalls)}"
