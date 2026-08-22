@@ -78,20 +78,29 @@ def run(ctx, actor, result):
     entries.assign(_full_day), then ctx.record(...) keeps the prefetched
     state in sync for the rest of the run.
     """
-    total_weight = sum(ctx.weights.values()) or 1
     open_day_set = set(ctx.open_days)
 
     for rule in CoverageRule.objects.select_related("session_type").order_by(
         "priority", "id"
     ):
         if rule.frequency == CoverageRule.Frequency.PER_SLOT:
-            _run_slot_rule(ctx, actor, result, rule, total_weight)
+            _run_slot_rule(ctx, actor, result, rule)
         else:
-            _run_quota_rule(ctx, actor, result, rule, total_weight, open_day_set)
+            _run_quota_rule(ctx, actor, result, rule, open_day_set)
 
 
-def _run_slot_rule(ctx, actor, result, rule, total_weight):
+def _pool_total_weight(ctx, st):
+    """Sum of weights across this type's eligible pool only, so fairness
+    shares are computed within the pool rather than diluted by clinicians
+    who can never be assigned this type (e.g. vas/coil/minor-ops skills
+    pools). Unrestricted types have eligible_ids == all active clinicians,
+    so this is numerically identical to the old global total for them."""
+    return sum(ctx.weights.get(cid, 0) for cid in ctx.eligible_ids(st)) or 1
+
+
+def _run_slot_rule(ctx, actor, result, rule):
     st = rule.session_type
+    total_weight = _pool_total_weight(ctx, st)
     state = _seed_fairness_state(st, ctx.start, total_weight)
     full_day = rule.unit == CoverageRule.Unit.PER_DAY
 
@@ -113,12 +122,13 @@ def _run_slot_rule(ctx, actor, result, rule, total_weight):
                 n = len(parts)
                 if full_day:
                     am, pm = entries.assign_full_day(
-                        actor, pick, day, st,
+                        actor, pick, day, st, site=st.default_site,
                         manually_set=False, fill_reason=reason)
                     ctx.record(am)
                     ctx.record(pm)
                 else:
                     e = entries.assign(actor, pick, day, parts[0], st,
+                                       site=st.default_site,
                                        manually_set=False, fill_reason=reason)
                     ctx.record(e)
                 result.created += n
@@ -172,7 +182,8 @@ def _try_full_day(ctx, actor, result, st, state, day):
         return False
     pick, reason = _pick(ctx, cands, st, state)
     am, pm = entries.assign_full_day(
-        actor, pick, day, st, manually_set=False, fill_reason=reason)
+        actor, pick, day, st, site=st.default_site,
+        manually_set=False, fill_reason=reason)
     ctx.record(am)
     ctx.record(pm)
     result.created += 2
@@ -185,7 +196,7 @@ def _try_single(ctx, actor, result, st, state, day, part):
     if not cands:
         return False
     pick, reason = _pick(ctx, cands, st, state)
-    e = entries.assign(actor, pick, day, part, st,
+    e = entries.assign(actor, pick, day, part, st, site=st.default_site,
                        manually_set=False, fill_reason=reason)
     ctx.record(e)
     result.created += 1
@@ -193,7 +204,7 @@ def _try_single(ctx, actor, result, st, state, day, part):
     return True
 
 
-def _run_quota_rule(ctx, actor, result, rule, total_weight, open_day_set):
+def _run_quota_rule(ctx, actor, result, rule, open_day_set):
     st = rule.session_type
     rate = accrual.weekly_rate(rule)
     anchor = accrual.epoch_for(ctx.start)
@@ -202,6 +213,7 @@ def _run_quota_rule(ctx, actor, result, rule, total_weight, open_day_set):
         return
 
     boundary_counts = _boundary_existing_counts(ctx, st, weeks)
+    total_weight = _pool_total_weight(ctx, st)
     state = _seed_fairness_state(st, ctx.start, total_weight)
 
     for wm in weeks:

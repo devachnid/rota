@@ -102,3 +102,53 @@ def test_month_window_rule_skips_out_of_window(admin_user):
     jan_mon = date(2026, 1, 5)
     run_fill(admin_user, jan_mon, jan_mon + timedelta(days=4))
     assert RotaEntry.objects.filter(session_type=pmc).count() == 10
+
+
+def test_blocks_same_day_excludes_from_duty(admin_user):
+    PracticeSettings.load()
+    pmc = make_session_type("PMC - Routine")
+    duty = make_session_type("Duty", fairness_tracked=True)
+    pmc.blocks_same_day.add(duty)
+    a, b = _pool("Alice Adams", "Beth Brown")
+    CoverageRule.objects.create(session_type=pmc,
+                                unit=CoverageRule.Unit.PER_SESSION,
+                                parts="AM", weekdays="0", priority=1)
+    CoverageRule.objects.create(session_type=duty,
+                                unit=CoverageRule.Unit.PER_DAY, weekdays="0",
+                                priority=2)
+    run_fill(admin_user, MON, MON)
+    pmc_holder = RotaEntry.objects.get(session_type=pmc).clinician
+    duty_holders = set(RotaEntry.objects.filter(session_type=duty)
+                       .values_list("clinician", flat=True))
+    assert pmc_holder.id not in duty_holders
+    assert duty_holders  # duty still placed, on the other clinician
+
+
+def test_default_site_stamped(admin_user):
+    from rota.models import Site
+    PracticeSettings.load()
+    site = Site.objects.create(name="PMC")
+    pmc = make_session_type("PMC - Urgent")
+    pmc.default_site = site
+    pmc.save()
+    a = make_clinician("Alice Adams")
+    make_pattern(a)
+    CoverageRule.objects.create(session_type=pmc,
+                                unit=CoverageRule.Unit.PER_DAY,
+                                weekdays="0", priority=1)
+    run_fill(admin_user, MON, MON)
+    assert all(e.site == site
+               for e in RotaEntry.objects.filter(session_type=pmc))
+
+
+def test_pool_scoped_fair_shares():
+    from rota.services import fairness
+    from tests.factories import make_entry
+    vas = make_session_type("Vas Clinic", fairness_tracked=True)
+    a, b, outsider = _pool("Alice Adams", "Beth Brown", "Carl Cole")
+    vas.allowed_clinicians.add(a, b)
+    make_entry(a, day=MON, part="AM", session_type=vas)
+    make_entry(b, day=MON, part="PM", session_type=vas)
+    shares = fairness.fair_shares(vas, MON, MON + timedelta(days=6))
+    assert set(shares) == {a.id, b.id}          # outsider not in the table
+    assert shares[a.id].share == pytest.approx(1.0)  # 2 sessions / equal weights
