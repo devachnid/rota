@@ -109,19 +109,42 @@ def test_blocks_same_day_excludes_from_duty(admin_user):
     pmc = make_session_type("PMC - Routine")
     duty = make_session_type("Duty", fairness_tracked=True)
     pmc.blocks_same_day.add(duty)
-    a, b = _pool("Alice Adams", "Beth Brown")
+    a = make_clinician("Alice Adams")
+    make_pattern(a)
     CoverageRule.objects.create(session_type=pmc,
                                 unit=CoverageRule.Unit.PER_SESSION,
                                 parts="AM", weekdays="0", priority=1)
     CoverageRule.objects.create(session_type=duty,
-                                unit=CoverageRule.Unit.PER_DAY, weekdays="0",
-                                priority=2)
+                                unit=CoverageRule.Unit.PER_SESSION,
+                                parts="PM", weekdays="0", priority=2)
+    result = run_fill(admin_user, MON, MON)
+    # Alice takes the AM PMC session; her PM cell is free, so only
+    # blocks_same_day can stop her also taking the PM duty.
+    assert RotaEntry.objects.get(session_type=pmc).clinician_id == a.id
+    assert not RotaEntry.objects.filter(session_type=duty).exists()
+    assert any(u.session_type == "Duty" for u in result.unfilled)
+
+
+def test_blocking_is_directional(admin_user):
+    """Holding PMC blocks Duty; holding Duty does NOT block PMC."""
+    PracticeSettings.load()
+    pmc = make_session_type("PMC - Routine")
+    duty = make_session_type("Duty", fairness_tracked=True)
+    pmc.blocks_same_day.add(duty)
+    a = make_clinician("Alice Adams")
+    make_pattern(a)
+    # Duty first (priority 1) this time, PMC second.
+    CoverageRule.objects.create(session_type=duty,
+                                unit=CoverageRule.Unit.PER_SESSION,
+                                parts="AM", weekdays="0", priority=1)
+    CoverageRule.objects.create(session_type=pmc,
+                                unit=CoverageRule.Unit.PER_SESSION,
+                                parts="PM", weekdays="0", priority=2)
     run_fill(admin_user, MON, MON)
-    pmc_holder = RotaEntry.objects.get(session_type=pmc).clinician
-    duty_holders = set(RotaEntry.objects.filter(session_type=duty)
-                       .values_list("clinician", flat=True))
-    assert pmc_holder.id not in duty_holders
-    assert duty_holders  # duty still placed, on the other clinician
+    # Alice holds Duty AM; PMC does not appear in Duty's block list, so
+    # she can still take PMC in the PM.
+    assert RotaEntry.objects.get(session_type=duty).clinician_id == a.id
+    assert RotaEntry.objects.get(session_type=pmc).clinician_id == a.id
 
 
 def test_default_site_stamped(admin_user):
