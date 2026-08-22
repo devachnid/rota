@@ -61,3 +61,30 @@ def test_commitment_skips_when_not_working(admin_user):
                     weekday=0, part="AM")
     run_fill(admin_user, MON, FRI)
     assert not RotaEntry.objects.filter(session_type__name="Vision").exists()
+
+
+def test_commitments_pass_has_no_n_plus_one(admin_user):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    from rota.models import Site
+
+    PracticeSettings.load()
+    site = Site.objects.create(name="Main Surgery")
+    vision = make_session_type("Vision")
+    vision.default_site = site
+    vision.save()
+    for name in ("Alice Adams", "Beth Brown", "Carl Cole", "Dana Dee"):
+        c = make_clinician(name)
+        make_pattern(c)
+        make_commitment(c, session_type=vision, weekday=0, part="AM")
+
+    with CaptureQueriesContext(connection) as ctx:
+        run_fill(admin_user, MON, MON)
+
+    site_queries = [q for q in ctx.captured_queries
+                    if "rota_site" in q["sql"] and q["sql"].lstrip().upper().startswith("SELECT")]
+    assert len(site_queries) <= 1, (
+        f"expected at most one Site query, got {len(site_queries)}:\n"
+        + "\n".join(q["sql"] for q in site_queries))
+    assert RotaEntry.objects.filter(session_type=vision).count() == 4
