@@ -65,6 +65,7 @@ class FillContext:
             if calendar.is_open(d):
                 self.open_days.append(d)
             d += timedelta(days=1)
+        self.open_day_set = set(self.open_days)
 
     def _index_entry(self, entry):
         self._cells[(entry.clinician_id, entry.day, entry.part)] = entry
