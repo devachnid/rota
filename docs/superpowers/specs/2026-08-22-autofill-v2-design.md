@@ -106,10 +106,10 @@ admin-configured data, never code. Support an every-N-weeks interval
 - **PracticeSettings**: `vts_session_type`, `sdl_session_type`,
   `mentoring_session_type` (FKs, nullable — the trainee engine is wired by
   configuration, not hardcoded names; passes no-op when unset).
-- **RotaEntry**: `companion` — nullable self-OneToOne linking the two halves of
-  a mentoring pair (distinct from `allocation_group`, which means "one
-  clinician's AM+PM pair" and drives swap-expansion; reusing it would corrupt
-  swap semantics). Clearing either companion entry clears both (service-level,
+- **RotaEntry**: `companion_group` — nullable UUID shared by the two halves of
+  a mentoring pair, mirroring the proven `allocation_group` mechanism (which
+  stays reserved for "one clinician's AM+PM pair" and swap-expansion; reusing
+  it would corrupt swap semantics). Clearing either companion entry clears both (service-level,
   logged). Swaps involving a companion-linked entry are rejected with a clear
   message in v2 (swap the mentoring session by re-running fill or manual edit
   instead); revisit if it proves annoying.
@@ -161,11 +161,16 @@ Stateless, computed from the DB each run (like fairness):
   coverage rules, the Monday of the ISO week containing Jan 1 of the year of
   the fill range's `start` date (fixed epoch → deterministic re-runs, defined
   even when the range spans New Year).
-- For each week in the fill range, deficit = (rate × whole weeks since anchor,
-  floored) − (actual entries of that type since anchor, for that
-  trainee/pool). Place while deficit ≥ 1. This yields the alternate-week
-  LTFT pattern, self-corrects around leave, and goes quiet when the admin
-  has manually over-delivered (negative deficit places nothing).
+- **Trainee requirements (cumulative):** deficit = (rate × whole weeks since
+  placement start, floored) − (actual entries since placement start). Place
+  while deficit ≥ 1. Placement start is a true anchor with real history, so
+  this self-corrects around leave and manual over-delivery with no cold-start
+  burst.
+- **PER_WEEK / PER_MONTH coverage rules (incremental):** each week's quota =
+  due-through(this week) − due-through(previous week), minus entries of the
+  type already in that week. The epoch supplies only the rounding phase — a
+  fresh install mid-year does NOT owe a backlog of sessions accrued since
+  January.
 
 ### Placement details
 
