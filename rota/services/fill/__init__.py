@@ -22,6 +22,7 @@ def run_fill(actor, start, end, fill_default=False):
     commitments.run(ctx, actor, result)
     trainees.run_vts(ctx, actor, result)
     coverage.run(ctx, actor, result)
+    trainees.run_sdl(ctx, actor, result)
 
     if fill_default:
         default = ctx.settings.default_fill_session_type

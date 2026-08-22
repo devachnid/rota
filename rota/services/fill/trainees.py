@@ -4,6 +4,7 @@ from rota.models import RotaEntry, TraineeProfile
 from rota.services import entries
 
 from .accrual import due_through, week_monday
+from .scoring import impact_score
 from .types import UnfilledSlot
 
 
@@ -53,3 +54,43 @@ def run_vts(ctx, actor, result):
             else:
                 result.unfilled.append(UnfilledSlot(
                     day, part, "VTS", "anchored slot unavailable"))
+
+
+def run_sdl(ctx, actor, result):
+    sdl = ctx.settings.sdl_session_type
+    if sdl is None:
+        return
+    for profile in _profiles(ctx):
+        rate, _weekday, _part = profile.weekly_rates()["sdl"]
+        if rate == 0:
+            continue
+        anchor = week_monday(profile.placement_start)
+        done = _done_before(ctx, profile, sdl)
+        cid = profile.clinician_id
+        for wm in ctx.weeks():
+            need = due_through(rate, anchor, wm) - done
+            if need < 1:
+                continue
+            candidates = []
+            for i in range(7):
+                day = wm + timedelta(days=i)
+                if not (ctx.start <= day <= ctx.end
+                        and profile.placement_start <= day <= profile.placement_end
+                        and day in ctx.open_day_set):
+                    continue
+                for part in ("AM", "PM"):
+                    if ctx.works_on(cid, day, part) and ctx.is_free(cid, day, part):
+                        candidates.append((day, part))
+            candidates.sort(key=lambda dp: (-impact_score(ctx, dp[0], dp[1]), dp[0], dp[1]))
+            if not candidates:
+                result.unfilled.append(UnfilledSlot(
+                    wm, None, "SDL", "no free session"))
+                continue
+            for day, part in candidates[:need]:
+                entry = entries.assign(
+                    actor, profile.clinician, day, part, sdl,
+                    site=sdl.default_site, manually_set=False,
+                    fill_reason="SDL")
+                ctx.record(entry)
+                result.created += 1
+                done += 1

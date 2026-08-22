@@ -79,3 +79,45 @@ def test_no_vts_type_configured_is_noop(admin_user):
     make_trainee(clinician=c, stage="ST2", start=MON)
     run_fill(admin_user, MON, MON + timedelta(days=4))  # must not crash
     assert not RotaEntry.objects.exclude(session_type__name="Routine").exists()
+
+
+def _setup_sdl():
+    s = PracticeSettings.load()
+    sdl = make_session_type("SDL", category="NON_CLINICAL")
+    s.sdl_session_type = sdl
+    s.save()
+    return sdl
+
+
+def test_sdl_placed_where_cover_is_thickest(admin_user):
+    sdl = _setup_sdl()
+    t = make_clinician("Terry Trainee")
+    make_pattern(t)
+    make_trainee(clinician=t, stage="FY2", wte=50, start=MON)  # 1 SDL/wk at 50%...
+    # FY2 at 50% -> 2 * 0.5 = 1 SDL/week due from week 1?  due_through(1.0, w1)=1: yes.
+    # Cover: three colleagues work Thursday only -> Thursday sessions score highest.
+    for name in ("Alice Adams", "Beth Brown", "Carl Cole"):
+        make_pattern(make_clinician(name), weekdays=(3,))
+    run_fill(admin_user, MON, MON + timedelta(days=4))
+    e = RotaEntry.objects.get(session_type=sdl)
+    assert e.day == MON + timedelta(days=3)  # Thursday
+
+
+def test_fy2_full_time_gets_two_sdl_per_week(admin_user):
+    sdl = _setup_sdl()
+    t = make_clinician("Freya FY2")
+    make_pattern(t)
+    make_trainee(clinician=t, stage="FY2", wte=100, start=MON)
+    run_fill(admin_user, MON, MON + timedelta(days=4))
+    assert RotaEntry.objects.filter(session_type=sdl).count() == 2
+
+
+def test_sdl_avoids_vts_anchor_slot(admin_user):
+    vts = _setup_vts()
+    sdl = _setup_sdl()
+    t = make_clinician("Terry Trainee")
+    make_pattern(t, weekdays=(1,))  # Tuesday only: VTS takes AM
+    make_trainee(clinician=t, stage="ST2", start=MON)
+    run_fill(admin_user, MON, MON + timedelta(days=4))
+    assert RotaEntry.objects.get(session_type=vts).part == "AM"
+    assert RotaEntry.objects.get(session_type=sdl).part == "PM"
