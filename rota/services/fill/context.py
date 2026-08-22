@@ -1,0 +1,112 @@
+from datetime import timedelta
+
+from rota.models import (Clinician, PatternSlot, PracticeSettings, RotaEntry,
+                         SessionType)
+from rota.services import calendar, fairness
+
+
+class FillContext:
+    """Prefetches everything the fill engine reads per-candidate-per-slot in
+    v1 (availability, existing entries, per-type/day/part counts, per-day
+    held types, session-type eligibility and same-day blocks) so the fill
+    passes can answer those questions from memory instead of hitting the DB
+    in inner loops.
+    """
+
+    def __init__(self, start, end):
+        self.start = start
+        self.end = end
+
+        self.clinicians = list(Clinician.objects.filter(active=True).order_by("name"))
+        self.by_id = {c.id: c for c in self.clinicians}
+        self._active_ids = set(self.by_id)
+
+        pattern_rows = PatternSlot.objects.filter(
+            clinician__in=self.clinicians
+        ).order_by("effective_from")
+        self._pattern_map = {}
+        for row in pattern_rows:
+            self._pattern_map.setdefault(
+                (row.clinician_id, row.weekday, row.part), []
+            ).append(row)
+
+        self._cells = {}
+        self._type_count = {}
+        self._day_types = {}
+        for entry in RotaEntry.objects.filter(day__range=(start, end)):
+            self._index_entry(entry)
+
+        session_types = SessionType.objects.all().prefetch_related(
+            "allowed_clinicians", "allowed_groups", "blocks_same_day"
+        )
+        self._allowed = {}
+        self._blocks = {}
+        self.fairness_type_ids = set()
+        for st in session_types:
+            allowed_clinicians = list(st.allowed_clinicians.all())
+            allowed_groups = list(st.allowed_groups.all())
+            if not allowed_clinicians and not allowed_groups:
+                self._allowed[st.id] = None
+            else:
+                group_ids = {g.id for g in allowed_groups}
+                ids = {c.id for c in allowed_clinicians}
+                ids |= {c.id for c in self.clinicians if c.group_id in group_ids}
+                self._allowed[st.id] = ids
+            self._blocks[st.id] = {t.id for t in st.blocks_same_day.all()}
+            if st.fairness_tracked:
+                self.fairness_type_ids.add(st.id)
+
+        self.settings = PracticeSettings.load()
+        self.weights = fairness.weights(end)
+
+        self.open_days = []
+        d = start
+        while d <= end:
+            if calendar.is_open(d):
+                self.open_days.append(d)
+            d += timedelta(days=1)
+
+    def _index_entry(self, entry):
+        self._cells[(entry.clinician_id, entry.day, entry.part)] = entry
+        key = (entry.session_type_id, entry.day, entry.part)
+        self._type_count[key] = self._type_count.get(key, 0) + 1
+        self._day_types.setdefault(
+            (entry.clinician_id, entry.day), set()
+        ).add(entry.session_type_id)
+
+    def works_on(self, cid, day, part):
+        current = None
+        for row in self._pattern_map.get((cid, day.weekday(), part), []):
+            if row.effective_from <= day:
+                current = row
+        return bool(current and current.works)
+
+    def is_free(self, cid, day, part):
+        return (cid, day, part) not in self._cells
+
+    def count_type(self, st_id, day, part):
+        return self._type_count.get((st_id, day, part), 0)
+
+    def day_type_ids(self, cid, day):
+        return self._day_types.get((cid, day), set())
+
+    def eligible_ids(self, st):
+        ids = self._allowed.get(st.id)
+        return self._active_ids if ids is None else ids
+
+    def blocked(self, cid, day, st):
+        held = self.day_type_ids(cid, day)
+        return any(st.id in self._blocks.get(tid, set()) for tid in held)
+
+    def record(self, entry):
+        self._index_entry(entry)
+
+    def weeks(self):
+        first_monday = self.start - timedelta(days=self.start.weekday())
+        last_monday = self.end - timedelta(days=self.end.weekday())
+        out = []
+        d = first_monday
+        while d <= last_monday:
+            out.append(d)
+            d += timedelta(days=7)
+        return out
