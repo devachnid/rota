@@ -72,28 +72,53 @@ def _capped_need(rate, due, done):
     return min(due - done, math.ceil(rate) + 1)
 
 
-def run_vts(ctx, actor, result):
-    vts = ctx.settings.vts_session_type
-    if vts is None:
+def _run_trainee_pass(ctx, actor, result, session_type, rate_key,
+                      extra_skip, make_placer):
+    """Shared skeleton for the trainee-education passes (VTS, SDL, and —
+    via mentoring.py — mentoring): walk each active trainee profile,
+    compute the per-week accrual need against `_seed_weekly_done`'s
+    pre-window/per-week `done` split, and delegate the actual placement to
+    a strategy-specific `place(wm, need)` closure built once per profile by
+    `make_placer(profile, weekday, part)`. The closure places whatever it
+    can, reports its own shortfalls via result.unfilled, and returns how
+    many sessions it placed this week so `done` stays in sync for the
+    weeks that follow.
+
+    `extra_skip(weekday, part)` lets a strategy opt a profile out entirely
+    beyond the universal `rate == 0` check — VTS needs an anchored weekday,
+    the other passes don't use weekday/part at all.
+    """
+    if session_type is None:
         return
     for profile in _profiles(ctx):
-        rate, weekday, part = profile.weekly_rates()["vts"]
-        if rate == 0 or weekday is None:
+        rate, weekday, part = profile.weekly_rates()[rate_key]
+        if rate == 0 or extra_skip(weekday, part):
             continue
         anchor = _anchor(profile)
         weeks = ctx.weeks()
-        done, existing_by_week = _seed_weekly_done(ctx, profile, vts, anchor, weeks)
-        cid = profile.clinician_id
+        done, existing_by_week = _seed_weekly_done(
+            ctx, profile, session_type, anchor, weeks)
+        place = make_placer(profile, weekday, part)
         for wm in weeks:
             done += existing_by_week.get(wm, 0)
             need = _capped_need(rate, due_through(rate, anchor, wm), done)
             if need < 1:
                 continue
+            done += place(wm, need)
+
+
+def run_vts(ctx, actor, result):
+    vts = ctx.settings.vts_session_type
+
+    def make_placer(profile, weekday, part):
+        cid = profile.clinician_id
+
+        def place(wm, need):
             day = wm + timedelta(days=weekday)
             if not (ctx.start <= day <= ctx.end
                     and profile.placement_start <= day <= profile.placement_end
                     and day in ctx.open_day_set):
-                continue
+                return 0
             if ctx.works_on(cid, day, part) and ctx.is_free(cid, day, part):
                 entry = entries.assign(
                     actor, profile.clinician, day, part, vts,
@@ -101,29 +126,24 @@ def run_vts(ctx, actor, result):
                     fill_reason="VTS")
                 ctx.record(entry)
                 result.created += 1
-                done += 1
-            else:
-                result.unfilled.append(UnfilledSlot(
-                    day, part, "VTS", "anchored slot unavailable"))
+                return 1
+            result.unfilled.append(UnfilledSlot(
+                day, part, "VTS", "anchored slot unavailable"))
+            return 0
+        return place
+
+    _run_trainee_pass(ctx, actor, result, vts, "vts",
+                      extra_skip=lambda weekday, part: weekday is None,
+                      make_placer=make_placer)
 
 
 def run_sdl(ctx, actor, result):
     sdl = ctx.settings.sdl_session_type
-    if sdl is None:
-        return
-    for profile in _profiles(ctx):
-        rate, _weekday, _part = profile.weekly_rates()["sdl"]
-        if rate == 0:
-            continue
-        anchor = _anchor(profile)
-        weeks = ctx.weeks()
-        done, existing_by_week = _seed_weekly_done(ctx, profile, sdl, anchor, weeks)
+
+    def make_placer(profile, _weekday, _part):
         cid = profile.clinician_id
-        for wm in weeks:
-            done += existing_by_week.get(wm, 0)
-            need = _capped_need(rate, due_through(rate, anchor, wm), done)
-            if need < 1:
-                continue
+
+        def place(wm, need):
             candidates = []
             for i in range(7):
                 day = wm + timedelta(days=i)
@@ -143,8 +163,13 @@ def run_sdl(ctx, actor, result):
                     fill_reason="SDL")
                 ctx.record(entry)
                 result.created += 1
-                done += 1
             # Report each unplaced session
             for _ in range(need - placed):
                 result.unfilled.append(UnfilledSlot(
                     wm, None, "SDL", "no free session"))
+            return placed
+        return place
+
+    _run_trainee_pass(ctx, actor, result, sdl, "sdl",
+                      extra_skip=lambda weekday, part: False,
+                      make_placer=make_placer)
