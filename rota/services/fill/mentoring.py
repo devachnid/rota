@@ -6,7 +6,7 @@ from rota.services import entries
 from .accrual import due_through
 from .scoring import impact_score
 from .trainees import _anchor, _capped_need, _profiles, _seed_weekly_done
-from .types import UnfilledSlot
+from .types import UnfilledSlot, site_for
 
 
 def _trainee_free_sessions(ctx, cid, wm, profile):
@@ -80,7 +80,7 @@ def run(ctx, actor, result):
                 _, day, part, trainer = candidates[0]
                 e1, e2 = entries.assign_pair(
                     actor, day, part, profile.clinician, trainer, ment,
-                    site=ment.default_site, manually_set=False,
+                    site=site_for(ment), manually_set=False,
                     fill_reason="mentoring")
                 ctx.record(e1)
                 ctx.record(e2)

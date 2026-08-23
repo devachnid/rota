@@ -4,7 +4,7 @@ from rota.models import CoverageRule, RotaEntry
 from rota.services import entries, fairness
 
 from . import accrual
-from .types import UnfilledSlot
+from .types import UnfilledSlot, site_for
 
 WINDOW_DAYS = 91
 
@@ -217,7 +217,7 @@ def _try_full_day(ctx, actor, result, st, state, day):
         return False
     pick, reason = _pick(ctx, cands, st, state)
     am, pm = entries.assign_full_day(
-        actor, pick, day, st, site=st.default_site,
+        actor, pick, day, st, site=site_for(st),
         manually_set=False, fill_reason=reason)
     ctx.record(am)
     ctx.record(pm)
@@ -231,7 +231,7 @@ def _try_single(ctx, actor, result, st, state, day, part):
     if not cands:
         return False
     pick, reason = _pick(ctx, cands, st, state)
-    e = entries.assign(actor, pick, day, part, st, site=st.default_site,
+    e = entries.assign(actor, pick, day, part, st, site=site_for(st),
                        manually_set=False, fill_reason=reason)
     ctx.record(e)
     result.created += 1

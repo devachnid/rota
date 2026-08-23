@@ -5,7 +5,7 @@ from rota.services import entries
 
 from . import commitments, coverage, mentoring, trainees
 from .context import FillContext
-from .types import FillResult, UnfilledSlot
+from .types import FillResult, UnfilledSlot, site_for
 
 __all__ = ["run_fill", "FillResult", "UnfilledSlot"]
 
@@ -35,7 +35,7 @@ def run_fill(actor, start, end, fill_default=False):
                                 and ctx.is_free(c.id, day, part)
                                 and c.id in ctx.eligible_ids(default)):
                             e = entries.assign(actor, c, day, part, default,
-                                               site=default.default_site,
+                                               site=site_for(default),
                                                manually_set=False,
                                                fill_reason="default fill")
                             ctx.record(e)

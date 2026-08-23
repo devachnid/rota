@@ -6,7 +6,7 @@ from rota.services import entries
 
 from .accrual import due_through, week_monday
 from .scoring import impact_score
-from .types import UnfilledSlot
+from .types import UnfilledSlot, site_for
 
 
 def _profiles(ctx):
@@ -97,7 +97,7 @@ def run_vts(ctx, actor, result):
             if ctx.works_on(cid, day, part) and ctx.is_free(cid, day, part):
                 entry = entries.assign(
                     actor, profile.clinician, day, part, vts,
-                    site=vts.default_site, manually_set=False,
+                    site=site_for(vts), manually_set=False,
                     fill_reason="VTS")
                 ctx.record(entry)
                 result.created += 1
@@ -139,7 +139,7 @@ def run_sdl(ctx, actor, result):
             for day, part in candidates[:placed]:
                 entry = entries.assign(
                     actor, profile.clinician, day, part, sdl,
-                    site=sdl.default_site, manually_set=False,
+                    site=site_for(sdl), manually_set=False,
                     fill_reason="SDL")
                 ctx.record(entry)
                 result.created += 1
