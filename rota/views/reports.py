@@ -84,10 +84,16 @@ def report_staffing(request):
 
 
 def _accrual_targets(today, include_drafts=True):
-    """Trailing-4-whole-weeks accrual check for demand-driven CoverageRules."""
+    """Trailing-4-whole-weeks accrual check for demand-driven CoverageRules.
+
+    Measures only completed weeks: the current, in-flight week is excluded
+    from both sides so a rule doesn't read "behind target" purely because
+    today is early in the week and this week's session hasn't happened yet.
+    """
     epoch = epoch_for(today)
     wm_now = week_monday(today)
-    wm_prev = wm_now - timedelta(days=28)
+    wm_this_week_start = wm_now - timedelta(days=7)
+    wm_prev = wm_now - timedelta(days=35)
     rows = []
     rules = CoverageRule.objects.filter(
         frequency__in=[CoverageRule.Frequency.PER_WEEK,
@@ -95,12 +101,13 @@ def _accrual_targets(today, include_drafts=True):
     ).select_related("session_type")
     for rule in rules:
         rate = weekly_rate(rule)
-        expected = due_through(rate, epoch, wm_now) - due_through(rate, epoch, wm_prev)
-        # `expected` covers the four weeks starting wm_now-21 .. wm_now, i.e.
-        # the calendar span [wm_now-21, wm_now+6]; `actual` must match that
-        # span, not the week-earlier [wm_prev, wm_now-1].
+        expected = (due_through(rate, epoch, wm_this_week_start)
+                    - due_through(rate, epoch, wm_prev))
+        # `expected` covers the four completed weeks starting wm_now-28 ..
+        # wm_now-7, i.e. the calendar span [wm_now-28, wm_now-1]; `actual`
+        # must match that same span exactly.
         actual = sum(fairness_svc.counts(
-            rule.session_type, wm_now - timedelta(days=21), wm_now + timedelta(days=6),
+            rule.session_type, wm_now - timedelta(days=28), wm_now - timedelta(days=1),
             include_drafts=include_drafts,
         ).values())
         behind = expected - actual
