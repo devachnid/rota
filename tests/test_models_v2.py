@@ -108,6 +108,34 @@ def test_stage_rules_seeded():
     assert rules["ST1"].vts_part == rules["ST2"].vts_part == "AM"
 
 
+def test_stage_rule_admin_forbids_delete(staff_client):
+    # The four rows are seeded reference data, not user content — deleting
+    # one from the admin should not be possible (see stage_rule() above for
+    # what happens if it does).
+    rule = TraineeStageRule.objects.get(stage="ST2")
+    resp = staff_client.get(f"/admin/rota/traineestagerule/{rule.pk}/delete/")
+    assert resp.status_code == 403
+    resp = staff_client.post(f"/admin/rota/traineestagerule/{rule.pk}/delete/",
+                             {"post": "yes"})
+    assert resp.status_code == 403
+    assert TraineeStageRule.objects.filter(pk=rule.pk).exists()
+
+
+def test_stage_rule_deleted_yields_zero_rates_not_a_crash():
+    # Deleting a seeded TraineeStageRule row (nothing at the DB level
+    # prevents it) used to raise DoesNotExist from stage_rule(), 500ing the
+    # trainee report and any fill for a trainee at that stage.
+    c = make_clinician("Terry Trainee")
+    profile = make_trainee(clinician=c, stage="ST2")
+    TraineeStageRule.objects.filter(stage="ST2").delete()
+    assert profile.stage_rule() is None
+    assert profile.weekly_rates() == {
+        "vts": (0.0, None, None),
+        "sdl": (0.0, None, None),
+        "mentoring": (0.0, None, None),
+    }
+
+
 def test_weekly_rates_scaled_by_wte():
     t = make_trainee(stage="ST3", wte=60)
     rates = t.weekly_rates()

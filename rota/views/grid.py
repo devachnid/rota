@@ -20,6 +20,7 @@ def grid(request):
     settings = PracticeSettings.load()
     days = [monday + timedelta(days=i) for i in settings.open_weekday_list()]
     is_admin = request.user.is_rota_admin
+    has_clinician = getattr(request.user, "clinician", None) is not None
 
     entries = RotaEntry.objects.filter(day__in=days).select_related(
         "session_type", "clinician", "site"
@@ -114,6 +115,7 @@ def grid(request):
         "sections": sections,
         "locum_cells": locum_cells,
         "is_admin": is_admin,
+        "has_clinician": has_clinician,
         "colspan": len(days) * 2 + 1,
         "week_end": days[-1] if days else monday,
     })

@@ -132,6 +132,12 @@ class TraineeStageRuleAdmin(admin.ModelAdmin):
     list_display = ("stage", "vts_per_week", "sdl_per_week",
                     "mentoring_per_week", "vts_weekday", "vts_part")
 
+    def has_delete_permission(self, request, obj=None):
+        # The four rows are reference data seeded by migration, not user
+        # content — deleting one 500s the trainee report and every fill for
+        # trainees at that stage (rota/models/trainees.py::stage_rule).
+        return False
+
 
 @admin.register(RecurringCommitment)
 class RecurringCommitmentAdmin(admin.ModelAdmin):

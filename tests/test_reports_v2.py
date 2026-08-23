@@ -32,6 +32,20 @@ def test_trainee_report_requires_login(client):
     assert client.get("/reports/trainees/").status_code == 302
 
 
+def test_trainee_report_survives_deleted_stage_rule(admin_client):
+    from rota.models import TraineeStageRule
+    s = PracticeSettings.load()
+    vts = make_session_type("VTS", category="NON_CLINICAL")
+    s.vts_session_type = vts
+    s.save()
+    c = make_clinician("Terry Trainee")
+    make_trainee(clinician=c, stage="ST2", start=MON)
+    TraineeStageRule.objects.filter(stage="ST2").delete()
+    resp = admin_client.get("/reports/trainees/")
+    assert resp.status_code == 200
+    assert b"Terry Trainee" in resp.content
+
+
 def test_trainee_report_respects_requirements_tracked_from(admin_client):
     # placement_start is 8 weeks ago (genuine backlog territory), but
     # requirements_tracked_from moves the anchor to 1 week before this
