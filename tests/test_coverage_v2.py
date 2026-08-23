@@ -38,6 +38,28 @@ def test_per_week_full_day_preferred_lands_on_thursday(admin_user):
     assert len(groups) == 1 and None not in groups  # one clinician, full day
 
 
+def test_quota_spills_onto_remaining_weekdays_when_preferred_cant_absorb(admin_user):
+    PracticeSettings.load()
+    vas = make_session_type("Vas Clinic", fairness_tracked=True)
+    pool = _pool("Alice Adams", "Beth Brown", "Carl Cole")
+    vas.allowed_clinicians.add(*pool)
+    # Only 2 preferred weekdays (Thu, Tue) but count=6 needs 3 full days
+    # (6 sessions) this week — more than the preferred days alone (4
+    # sessions) can absorb, so the third full day must spill onto the
+    # earliest remaining allowed weekday (Monday) rather than the rule
+    # stopping short at 4 sessions placed.
+    CoverageRule.objects.create(
+        session_type=vas, unit=CoverageRule.Unit.FULL_DAY_PREFERRED,
+        frequency=CoverageRule.Frequency.PER_WEEK, count=6,
+        weekdays="0,1,2,3,4", preferred_weekdays="3,1", priority=5)
+    run_fill(admin_user, MON, FRI)
+    entries = RotaEntry.objects.filter(session_type=vas)
+    assert entries.count() == 6, "expected 3 full days (6 sessions) placed"
+    tue = MON + timedelta(days=1)
+    thu = MON + timedelta(days=3)
+    assert set(entries.values_list("day", flat=True)) == {MON, tue, thu}
+
+
 def test_full_day_preferred_splits_when_no_full_day_possible(admin_user):
     PracticeSettings.load()
     vas = make_session_type("Vas Clinic", fairness_tracked=True)
@@ -278,6 +300,21 @@ def test_eligible_ids_excludes_inactive_individually_allowed_clinician():
     # restricted type — only the group-membership half of the M2M was
     # previously filtered to active, leaving this a latent trap.
     assert ctx.eligible_ids(vas) == {active.id}
+
+
+def test_eligible_ids_restricted_solely_to_deactivated_clinician_is_empty():
+    from rota.services.fill.context import FillContext
+    vas = make_session_type("Vas Clinic", fairness_tracked=True)
+    other_active = make_clinician("Alice Adams")
+    make_pattern(other_active)
+    inactive = make_clinician("Ines Inactive", active=False)
+    vas.allowed_clinicians.add(inactive)
+    ctx = FillContext(MON, MON + timedelta(days=6))
+    # vas has an allowed_clinicians row, so it IS restricted — but that
+    # row's only clinician has since gone inactive. The pool must end up
+    # empty, not silently fall back to "unrestricted" (which would wrongly
+    # offer up other_active, who was never granted access to this type).
+    assert ctx.eligible_ids(vas) == set()
 
 
 def test_default_fill_stamps_site(admin_user):

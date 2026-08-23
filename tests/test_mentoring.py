@@ -2,10 +2,11 @@ from datetime import timedelta
 
 import pytest
 
-from rota.models import PracticeSettings, RotaEntry
+from rota.models import PracticeSettings, RotaEntry, TraineeStageRule
 from rota.services import entries as entries_svc
 from rota.services import swaps as swaps_svc
 from rota.services.fill import run_fill
+from rota.services.fill.accrual import week_monday
 from tests.factories import (MON, make_clinician, make_pattern,
                              make_session_type, make_trainee)
 
@@ -105,12 +106,13 @@ def test_mentoring_backlog_reports_each_shortfall(admin_user):
     ment, trainer, trainee, profile = _setup(trainer_days=(0,))
     # Trainee works only Monday AM; trainer only Mondays. One candidate session
     # per week. Owed sessions are capped per week (Finding A2) at
-    # ceil(rate)+1, so bump the rate (via wte) to 3/week -> cap 4, to still
-    # exercise per-shortfall reporting with only 1 session available.
+    # ceil(rate)+1, so bump the stage rule's rate to 3/week -> cap 4, to
+    # still exercise per-shortfall reporting with only 1 session available.
+    # (Not wte_percent=300 — a trainee can't have a 300% contract.)
     PatternSlot.objects.filter(clinician=trainee).delete()
     make_pattern(trainee, weekdays=(0,), parts=("AM",))
+    TraineeStageRule.objects.filter(stage=profile.stage).update(mentoring_per_week=3)
     profile.placement_start = MON - timedelta(days=14)
-    profile.wte_percent = 300
     profile.save()
     result = run_fill(admin_user, MON, MON + timedelta(days=4))
     placed = RotaEntry.objects.filter(session_type=ment).count()
@@ -139,6 +141,31 @@ def test_post_leave_mentoring_does_not_pair_out_whole_week(admin_user):
         f"trainer should not be paired out of their whole week, "
         f"got {trainer_entries.count()} mentoring sessions")
     assert trainee_entries.count() == 2
+
+
+def test_mentoring_accrual_seeds_done_per_week_not_whole_range(admin_user):
+    # Same regression as VTS/SDL (Finding B4) but for mentoring: a
+    # hand-booked pair sitting in a *later* week must not suppress a
+    # pairing the trainee is still owed in an *earlier* week.
+    ment, trainer, trainee, profile = _setup()  # full week for both, 1/wk
+    week4_mon = MON + timedelta(days=21)
+    entries_svc.assign_pair(admin_user, week4_mon, "AM", trainee, trainer,
+                            ment, published=True)
+    run_fill(admin_user, MON, MON + timedelta(days=27))  # 4-week fill
+    days = sorted(RotaEntry.objects.filter(
+        session_type=ment, clinician=trainee).values_list("day", flat=True))
+    weeks_seen = sorted({week_monday(d) for d in days})
+    # Exactly one mentoring session in each of the 4 weeks: weeks 1-3
+    # filled by this pass, week 4's pre-existing pair left alone. Seeding
+    # `done` from the whole range up front (counting week 4's pair from
+    # week one) would wrongly satisfy week 1's need — week 1 would be
+    # skipped (and a later week would over-place to catch up, since the
+    # per-week cap allows more than one session once behind), so simply
+    # counting total sessions wouldn't catch that: check week-by-week.
+    assert len(days) == 4, f"expected exactly 4 mentoring sessions, got {days}"
+    assert weeks_seen == [MON, MON + timedelta(days=7), MON + timedelta(days=14),
+                          week4_mon], (
+        f"expected one mentoring session in each of the 4 weeks, got {days}")
 
 
 def test_refill_overlapping_window_no_duplicate_mentoring_pair(admin_user):
