@@ -9,7 +9,9 @@ def to_tints(apps, schema_editor):
     SessionType = apps.get_model("rota", "SessionType")
     for st in SessionType.objects.all():
         old = (st.colour or "").strip()
-        st.legacy_colour = old if old.startswith("#") else ""
+        if old in palette.TINTS:
+            continue  # already migrated — leave legacy_colour alone
+        st.legacy_colour = old[:7]
         st.colour = palette.nearest_tint(old)
         st.save(update_fields=["colour", "legacy_colour"])
 
@@ -17,9 +19,8 @@ def to_tints(apps, schema_editor):
 def back_to_hex(apps, schema_editor):
     SessionType = apps.get_model("rota", "SessionType")
     for st in SessionType.objects.all():
-        if st.legacy_colour:
-            st.colour = st.legacy_colour
-            st.save(update_fields=["colour"])
+        st.colour = st.legacy_colour
+        st.save(update_fields=["colour"])
 
 
 class Migration(migrations.Migration):
