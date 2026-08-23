@@ -61,15 +61,21 @@ def test_nearest_tint_is_stable_for_near_identical_colours():
     assert palette.nearest_tint("#8ecae6") == palette.nearest_tint("#8fcbe7")
 
 
-@pytest.mark.parametrize("hex_value,expected_hues", [
-    ("#cdb4db", {"violet", "purple", "magenta", "indigo"}),   # pale lavender
-    ("#bde0fe", {"sky", "azure", "cyan", "blue", "indigo"}),  # pale blue
-    ("#ffadad", {"red", "vermilion", "orange", "pink"}),      # pale red
-    ("#caffbf", {"lime", "green", "emerald", "jade"}),        # pale green
+@pytest.mark.parametrize("hex_value,expected_key", [
+    ("#cdb4db", "violet-strong"),   # pale lavender — the original bug case
+    ("#bde0fe", "indigo-strong"),   # pale blue
+    ("#a0c4ff", "blue-strong"),     # pale periwinkle
+    ("#ffadad", "vermilion-strong"), # pale red
+    ("#caffbf", "emerald-soft"),    # pale green
 ])
-def test_nearest_tint_keeps_pastels_in_their_hue_family(hex_value, expected_hues):
-    key = palette.nearest_tint(hex_value)
-    assert key.rsplit("-", 1)[0] in expected_hues, f"{hex_value} -> {key}"
+def test_nearest_tint_maps_pastels_exactly(hex_value, expected_key):
+    """Pastels are what a colour picker produces, so they are the input class
+    the migration will actually meet. Exact keys, not hue-family sets: the
+    palette is deterministic, and an over-broad set would let the hue-blind
+    bug this replaced pass unnoticed. If this fails, the palette moved —
+    re-verify the mapping rather than widening the assertion.
+    """
+    assert palette.nearest_tint(hex_value) == expected_key
 
 
 def test_nearest_tint_distinguishes_far_apart_colours():
