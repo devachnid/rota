@@ -2,7 +2,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from rota.models import ClosedDay, PracticeSettings
+from rota.models import ClosedDay, PatternSlot, PracticeSettings
 from rota.services import availability, calendar
 from tests.factories import MON, make_clinician, make_pattern
 
@@ -29,6 +29,49 @@ def test_latest_effective_row_wins():
                  effective_from=date(2026, 7, 1))
     assert not availability.works_on(c, MON, "AM")
     assert availability.works_on(c, date(2026, 6, 1), "AM")
+
+
+def test_pattern_resolver_agrees_with_works_on():
+    """The batched PatternResolver (used by FillContext and the grid view)
+    must agree with the per-call availability.works_on() across the cases
+    that exercise the "greatest effective_from on or before the day" rule:
+    no rows, a single row, a day falling between two rows, a works=False
+    row overriding an earlier works=True row, and a day before any row's
+    effective_from.
+    """
+    # Patterns are keyed by weekday, so every test day below is a Monday
+    # (weekday 0), matching weekdays=(0,) on the rows created here.
+    no_rows = make_clinician("Nora NoRows")
+
+    single = make_clinician("Sam Single")
+    make_pattern(single, weekdays=(0,), parts=("AM",), effective_from=MON)
+
+    multi = make_clinician("Mia Multi")
+    make_pattern(multi, weekdays=(0,), parts=("AM",),
+                 effective_from=MON - timedelta(weeks=52))
+    make_pattern(multi, weekdays=(0,), parts=("AM",), works=False,
+                 effective_from=MON)
+
+    clinicians = [no_rows, single, multi]
+    resolver = availability.PatternResolver(
+        PatternSlot.objects.filter(clinician__in=clinicians)
+        .order_by("effective_from")
+    )
+
+    cases = [
+        (no_rows, MON, False),                            # no rows at all
+        (single, MON + timedelta(weeks=4), True),         # single row, day on/after it
+        (single, MON - timedelta(weeks=4), False),        # single row, day before its effective_from
+        (multi, MON - timedelta(weeks=104), False),       # before any row's effective_from
+        (multi, MON - timedelta(weeks=26), True),         # between the two rows: earlier works=True applies
+        (multi, MON, False),                              # later works=False row overrides the earlier works=True
+    ]
+    for clinician, day, expected in cases:
+        from_resolver = resolver.works_on(clinician.id, day, "AM")
+        from_direct = availability.works_on(clinician, day, "AM")
+        assert from_resolver == expected, (clinician.name, day)
+        assert from_direct == expected, (clinician.name, day)
+        assert from_resolver == from_direct, (clinician.name, day)
 
 
 def test_weekly_sessions_counts_current_pattern():
