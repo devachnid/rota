@@ -144,3 +144,30 @@ def test_admin_decline_after_decision_404s(scenario, admin_client, admin_user):
     swaps_svc.accept(req, ub)
     swaps_svc.approve(admin_user, req)
     assert admin_client.post(f"/requests/swap/{req.pk}/decline/").status_code == 404
+
+
+def test_swap_new_excludes_clinicians_with_no_login(client):
+    # A swap proposed against a clinician with no linked User can never be
+    # accepted (only that user can accept it) and sits at PROPOSED forever.
+    # `theirs` must exclude such clinicians entirely.
+    routine = make_session_type("Routine")
+    a, b = make_clinician("Alice Adams"), make_clinician("Beth Brown")  # b: no user
+    today = date.today()
+    day1 = today + timedelta(days=1)
+    make_entry(a, day=day1, part="AM", session_type=routine, is_published=True)
+    their_entry = make_entry(b, day=day1, part="AM", session_type=routine,
+                             is_published=True)
+
+    ua = User.objects.create_user(email="alice6@example.com", password="pw")
+    a.user = ua
+    a.save()
+    client.force_login(ua)
+
+    resp = client.get("/me/swap/new/")
+    assert b"Beth Brown" not in resp.content
+
+    my_entry = RotaEntry.objects.get(clinician=a, day=day1, part="AM")
+    resp = client.post("/me/swap/new/", {
+        "my_entry_id": my_entry.id, "their_entry_id": their_entry.id})
+    assert resp.status_code == 404
+    assert not SwapRequest.objects.exists()
