@@ -36,7 +36,13 @@ class _FairnessState:
     def record(self, cid, day, n):
         self.actuals[cid] = self.actuals.get(cid, 0) + n
         self.total_assigned += n
-        self.last[cid] = day
+        # Quota rules can visit days out of chronological order within a
+        # week (preferred_weekdays first). Keep last[cid] monotonic so a
+        # clinician placed on a later-visited-but-earlier-calendar day
+        # doesn't regress their recorded recency backwards for the rest
+        # of the week's tie-breaks.
+        if cid not in self.last or day > self.last[cid]:
+            self.last[cid] = day
 
 
 def _pick(ctx, cands, st, fairness_state):
@@ -71,6 +77,17 @@ def _seed_fairness_state(ctx, st, start, total_weight):
     # every pool member's fair share.
     pool_ids = ctx.eligible_ids(st)
     actuals = {cid: n for cid, n in actuals.items() if cid in pool_ids}
+    # The pre-window query above only reaches back to `start - 1`, so
+    # entries of this type already sitting *inside* the fill window
+    # (published or manually placed before this pass ran) are otherwise
+    # invisible to the deficit maths. Blend in ctx's own prefetched count
+    # for [ctx.start, ctx.end] — entries this pass places are added
+    # separately via record(), so add each pool member's pre-existing
+    # in-window count exactly once here rather than double-counting.
+    for cid in pool_ids:
+        n = ctx.clinician_type_count(cid, st.id)
+        if n:
+            actuals[cid] = actuals.get(cid, 0) + n
     total_assigned = sum(actuals.values())
     last = fairness.last_done(st, start)
     return _FairnessState(actuals, last, total_assigned, total_weight)

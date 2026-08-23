@@ -50,7 +50,16 @@ class FillContext:
                 self._allowed[st.id] = None
             else:
                 group_ids = {g.id for g in allowed_groups}
-                ids = {c.id for c in allowed_clinicians}
+                # An M2M row for a clinician who has since been
+                # deactivated must not leak into eligible_ids() — the
+                # group-membership half below is already scoped to
+                # self.clinicians, which is active-only. The "is this
+                # type restricted at all" check just above stays
+                # unfiltered (matches SessionType.is_eligible()): a type
+                # whose only individually-allowed clinician has gone
+                # inactive is still restricted, just to nobody, not
+                # silently unrestricted.
+                ids = {c.id for c in allowed_clinicians if c.active}
                 ids |= {c.id for c in self.clinicians if c.group_id in group_ids}
                 self._allowed[st.id] = ids
             self._blocks[st.id] = {t.id for t in st.blocks_same_day.all()}
