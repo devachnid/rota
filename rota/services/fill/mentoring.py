@@ -71,10 +71,7 @@ def run(ctx, actor, result):
                                 break  # one trainer per session is enough
 
                 if not candidates:
-                    reason = ("no trainer available" if fixed_trainer is None
-                              else "no session with trainer free")
-                    result.unfilled.append(UnfilledSlot(wm, None, "Mentoring", reason))
-                    break
+                    break  # Stop trying to place; will report shortfalls below
 
                 candidates.sort(key=lambda c: (c[0], -impact_score(ctx, c[1], c[2]),
                                                c[1], c[2]))
@@ -88,3 +85,9 @@ def run(ctx, actor, result):
                 result.created += 2
                 done += 1
                 placed_this_week += 1
+
+            # Report each unplaced session
+            for _ in range(need - placed_this_week):
+                reason = ("no trainer available" if fixed_trainer is None
+                          else "no session with trainer free")
+                result.unfilled.append(UnfilledSlot(wm, None, "Mentoring", reason))

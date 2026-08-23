@@ -97,3 +97,22 @@ def test_swap_rejects_paired_entries(admin_user):
         proposer=trainee, proposer_day=e.day, proposer_part=e.part,
         colleague=other, colleague_day=e.day, colleague_part=e.part)
     assert any("paired session" in p for p in swaps_svc.validate(req))
+
+
+def test_mentoring_backlog_reports_each_shortfall(admin_user):
+    from rota.models import PatternSlot
+    ment, trainer, trainee, profile = _setup(trainer_days=(0,))
+    # Trainee works only Monday AM; trainer only Mondays. One candidate session
+    # per week, but make the trainee owed 3 (from 2 weeks prior + current week)
+    # with only 1 session available, to test per-shortfall reporting.
+    PatternSlot.objects.filter(clinician=trainee).delete()
+    make_pattern(trainee, weekdays=(0,), parts=("AM",))
+    profile.placement_start = MON - timedelta(days=14)
+    profile.save()
+    result = run_fill(admin_user, MON, MON + timedelta(days=4))
+    placed = RotaEntry.objects.filter(session_type=ment).count()
+    shortfalls = [u for u in result.unfilled if u.session_type == "Mentoring"]
+    assert placed == 2, f"expected one pair (2 entries), got {placed}"
+    assert len(shortfalls) == 2, (
+        f"expected 2 mentoring shortfalls, got {len(shortfalls)}: "
+        f"{[u.reason for u in shortfalls]}")
