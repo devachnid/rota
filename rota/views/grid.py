@@ -26,7 +26,20 @@ def grid(request):
     )
     if not is_admin:
         entries = entries.filter(is_published=True)
+    entries = list(entries)
     cell_map = {(e.clinician_id, e.day, e.part): e for e in entries}
+
+    companion_partner = {}
+    by_companion_group = {}
+    for e in entries:
+        if e.companion_group:
+            by_companion_group.setdefault(e.companion_group, []).append(e)
+    for group_entries in by_companion_group.values():
+        if len(group_entries) != 2:
+            continue
+        e1, e2 = group_entries
+        companion_partner[(e1.clinician_id, e1.day, e1.part)] = e2.clinician.name
+        companion_partner[(e2.clinician_id, e2.day, e2.part)] = e1.clinician.name
 
     active = list(Clinician.objects.filter(active=True))
     pattern_rows = PatternSlot.objects.filter(
@@ -72,6 +85,7 @@ def grid(request):
                         "entry": entry, "merged": merged and part == "AM",
                         "unavail": entry is None and not works(clinician.id, d, part),
                         "closed": d in closed,
+                        "partner": companion_partner.get((clinician.id, d, part)),
                     })
             rows.append({
                 "clinician": clinician,

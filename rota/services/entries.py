@@ -20,12 +20,21 @@ def _split_pair(entry):
         entry.allocation_group = None
 
 
+def _split_companion(entry):
+    if entry.companion_group:
+        RotaEntry.objects.filter(companion_group=entry.companion_group).update(
+            companion_group=None
+        )
+        entry.companion_group = None
+
+
 @transaction.atomic
 def assign(actor, clinician, day, part, session_type, *, site=None, note="",
            published=False, manually_set=True, fill_reason=""):
     existing = RotaEntry.objects.filter(day=day, part=part, clinician=clinician).first()
     if existing:
         _split_pair(existing)
+        _split_companion(existing)
         detail = f"{existing.session_type.code} -> {session_type.code}"
         existing.session_type = session_type
         existing.site = site
@@ -60,10 +69,35 @@ def assign_full_day(actor, clinician, day, session_type, *, site=None, note="",
 
 
 @transaction.atomic
+def assign_pair(actor, day, part, first, second, session_type, *, site=None,
+                published=False, manually_set=True, fill_reason=""):
+    group = uuid.uuid4()
+    e1 = assign(actor, first, day, part, session_type, site=site,
+                published=published, manually_set=manually_set,
+                fill_reason=fill_reason)
+    e2 = assign(actor, second, day, part, session_type, site=site,
+                published=published, manually_set=manually_set,
+                fill_reason=fill_reason)
+    RotaEntry.objects.filter(pk__in=[e1.pk, e2.pk]).update(companion_group=group)
+    e1.refresh_from_db()
+    e2.refresh_from_db()
+    return e1, e2
+
+
+@transaction.atomic
 def clear(actor, clinician, day, part):
     entry = RotaEntry.objects.filter(day=day, part=part, clinician=clinician).first()
     if not entry:
         return
+    if entry.companion_group:
+        partner = RotaEntry.objects.filter(
+            companion_group=entry.companion_group
+        ).exclude(pk=entry.pk).select_related("clinician", "session_type").first()
+        if partner:
+            p_day, p_part, p_name = partner.day, partner.part, partner.clinician.name
+            p_detail = partner.session_type.code
+            partner.delete()
+            _log(actor, p_day, p_part, p_name, "cleared", p_detail)
     _split_pair(entry)
     detail = entry.session_type.code
     entry.delete()

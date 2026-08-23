@@ -37,6 +37,8 @@ class Clinician(models.Model):
         on_delete=models.SET_NULL, related_name="clinician",
     )
     active = models.BooleanField(default=True)
+    is_trainer = models.BooleanField(
+        default=False, help_text="May supervise trainee mentoring sessions.")
     leave_entitlement_sessions = models.PositiveIntegerField(default=0)
 
     class Meta:

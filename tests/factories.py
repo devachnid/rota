@@ -50,3 +50,24 @@ def make_entry(clinician, day=MON, part="AM", session_type=None, **kw):
         clinician=clinician, day=day, part=part,
         session_type=session_type or make_session_type(), **kw,
     )
+
+
+def make_trainee(clinician=None, stage="ST2", wte=100, trainer=None,
+                 start=MON, end=None, requirements_tracked_from=None):
+    from datetime import timedelta
+    from rota.models import TraineeProfile
+    clinician = clinician or make_clinician("Terry Trainee")
+    return TraineeProfile.objects.create(
+        clinician=clinician, stage=stage, wte_percent=wte, trainer=trainer,
+        placement_start=start, placement_end=end or (start + timedelta(days=364)),
+        requirements_tracked_from=requirements_tracked_from,
+    )
+
+
+def make_commitment(clinician, session_type=None, weekday=0, part="AM", **kw):
+    from rota.models import RecurringCommitment
+    kw.setdefault("active_from", date(2020, 1, 6))  # a Monday
+    return RecurringCommitment.objects.create(
+        clinician=clinician, session_type=session_type or make_session_type(),
+        weekday=weekday, part=part, **kw,
+    )

@@ -7,8 +7,8 @@ from django.utils.html import format_html
 
 from .models import (Clinician, ClinicianGroup, ClosedDay, CoverageRule,
                      DayNote, LeaveRequest, LocumRequirement, Part,
-                     PatternSlot, PracticeSettings, RotaEntry, RotaEntryLog,
-                     SessionType, Site, SwapRequest)
+                     PatternSlot, PracticeSettings, RecurringCommitment, RotaEntry, RotaEntryLog,
+                     SessionType, Site, SwapRequest, TraineeProfile, TraineeStageRule)
 from .services.patterns import bulk_set_pattern, current_pattern
 
 WEEKDAY_LABELS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday",
@@ -20,11 +20,18 @@ class ClinicianGroupAdmin(admin.ModelAdmin):
     list_display = ("name", "display_order", "min_per_session", "is_locum_group")
 
 
+class TraineeProfileInline(admin.StackedInline):
+    model = TraineeProfile
+    fk_name = "clinician"
+    extra = 0
+
+
 @admin.register(Clinician)
 class ClinicianAdmin(admin.ModelAdmin):
-    list_display = ("name", "initials", "group", "active",
+    list_display = ("name", "initials", "group", "active", "is_trainer",
                     "leave_entitlement_sessions", "pattern_link")
     list_filter = ("group", "active")
+    inlines = [TraineeProfileInline]
 
     def pattern_link(self, obj):
         url = reverse("admin:rota_patternslot_bulk")
@@ -38,7 +45,7 @@ class ClinicianAdmin(admin.ModelAdmin):
 class SessionTypeAdmin(admin.ModelAdmin):
     list_display = ("name", "code", "category", "fairness_tracked",
                     "counts_toward_entitlement")
-    filter_horizontal = ("allowed_clinicians", "allowed_groups")
+    filter_horizontal = ("allowed_clinicians", "allowed_groups", "blocks_same_day")
 
 
 admin.site.register(Site)
@@ -116,7 +123,21 @@ class PatternSlotAdmin(admin.ModelAdmin):
 
 @admin.register(CoverageRule)
 class CoverageRuleAdmin(admin.ModelAdmin):
-    list_display = ("session_type", "unit", "parts", "weekdays", "count", "priority")
+    list_display = ("session_type", "unit", "frequency", "parts", "weekdays",
+                    "months", "count", "priority")
+
+
+@admin.register(TraineeStageRule)
+class TraineeStageRuleAdmin(admin.ModelAdmin):
+    list_display = ("stage", "vts_per_week", "sdl_per_week",
+                    "mentoring_per_week", "vts_weekday", "vts_part")
+
+
+@admin.register(RecurringCommitment)
+class RecurringCommitmentAdmin(admin.ModelAdmin):
+    list_display = ("clinician", "weekday", "part", "session_type", "site",
+                    "interval_weeks", "active_from", "active_until")
+    list_filter = ("clinician",)
 
 
 admin.site.register(ClosedDay)

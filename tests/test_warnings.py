@@ -74,6 +74,31 @@ def test_per_session_single_part_rule():
     assert [w.part for w in warnings] == ["AM"]
 
 
+def test_per_week_quota_rule_produces_no_day_warning():
+    # A PER_WEEK quota rule's count is a weekly total, not a per-day
+    # requirement, so an empty day must not warn even though `have < count`.
+    PracticeSettings.objects.update_or_create(pk=1, defaults={"min_clinical_per_session": 0})
+    vas = make_session_type("Vas Clinic", fairness_tracked=True)
+    CoverageRule.objects.create(
+        session_type=vas, unit=CoverageRule.Unit.PER_SESSION,
+        frequency=CoverageRule.Frequency.PER_WEEK, count=2,
+        weekdays="0,1,2,3,4", priority=5)
+    warnings = [w for w in day_warnings(MON) if w.code == "coverage"]
+    assert warnings == []
+
+
+def test_per_slot_rule_still_warns_alongside_per_week_rule():
+    # A PER_SLOT rule on the same shape of session type must still warn.
+    PracticeSettings.objects.update_or_create(pk=1, defaults={"min_clinical_per_session": 0})
+    coil = make_session_type("Coil Clinic", fairness_tracked=True)
+    CoverageRule.objects.create(
+        session_type=coil, unit=CoverageRule.Unit.PER_SESSION,
+        frequency=CoverageRule.Frequency.PER_SLOT, count=1,
+        weekdays="0,1,2,3,4", priority=5)
+    warnings = [w for w in day_warnings(MON) if w.code == "coverage"]
+    assert any("Coil Clinic" in w.message for w in warnings)
+
+
 def test_group_minimum_ignores_absences():
     PracticeSettings.objects.update_or_create(pk=1, defaults={"min_clinical_per_session": 0})
     partners = make_group("Partner", min_per_session=1, display_order=1)

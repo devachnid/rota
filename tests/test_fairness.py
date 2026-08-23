@@ -47,6 +47,28 @@ def test_fair_shares_weighted(duty):
     assert shares[b.id].balance == pytest.approx(0.0)
 
 
+def test_pool_scoped_fair_shares_ignore_outsider_actuals():
+    vas = make_session_type("Vas Clinic", fairness_tracked=True)
+    a, b = make_clinician("Alice Adams"), make_clinician("Beth Brown")
+    make_pattern(a)                 # 10 sessions/week -> equal weight
+    make_pattern(b)                 # 10 sessions/week -> equal weight
+    vas.allowed_clinicians.add(a, b)
+    outsider = make_clinician("Carl Cole")
+    make_pattern(outsider)
+    make_entry(a, day=MON, part="AM", session_type=vas)
+    # An out-of-pool clinician holding a session of this fairness-tracked
+    # type (manual assignment, or later dropped from the pool) must not
+    # inflate the pool's total_assigned numerator.
+    make_entry(outsider, day=MON, part="PM", session_type=vas)
+    shares = fairness.fair_shares(vas, MON, MON + timedelta(days=6))
+    assert set(shares) == {a.id, b.id}
+    # total_assigned should be 1 (a's session only), so with equal weights
+    # each pool member's share is 0.5, not 1.0 (which the outsider's extra
+    # session would produce if counted in the numerator).
+    assert shares[a.id].share == pytest.approx(0.5)
+    assert shares[b.id].share == pytest.approx(0.5)
+
+
 def test_last_done(duty):
     a = make_clinician()
     make_entry(a, day=MON - timedelta(days=7), part="AM", session_type=duty)

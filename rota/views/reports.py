@@ -3,10 +3,14 @@ from datetime import date, timedelta
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 
-from rota.models import Clinician, RotaEntry, SessionType
+from rota.models import (Clinician, CoverageRule, PracticeSettings, RotaEntry,
+                         SessionType, TraineeProfile, TraineeStageRule)
 from rota.services import fairness as fairness_svc
 from rota.services import leave as leave_svc
 from rota.services.calendar import is_open
+from rota.services.fill.accrual import (due_through, epoch_for, week_monday,
+                                        weekly_rate)
+from rota.services.fill.trainees import _anchor as trainee_anchor
 from rota.services.warnings import day_warnings
 
 
@@ -75,4 +79,103 @@ def report_staffing(request):
         if warnings:
             days.append({"day": d, "warnings": warnings})
     return render(request, "rota/report_staffing.html",
-                  {"days": days, "weeks": weeks})
+                  {"days": days, "weeks": weeks,
+                   "accrual_rows": _accrual_targets(today, include_drafts=include_drafts)})
+
+
+def _accrual_targets(today, include_drafts=True):
+    """Trailing-4-whole-weeks accrual check for demand-driven CoverageRules."""
+    epoch = epoch_for(today)
+    wm_now = week_monday(today)
+    wm_prev = wm_now - timedelta(days=28)
+    rows = []
+    rules = CoverageRule.objects.filter(
+        frequency__in=[CoverageRule.Frequency.PER_WEEK,
+                       CoverageRule.Frequency.PER_MONTH],
+    ).select_related("session_type")
+    for rule in rules:
+        rate = weekly_rate(rule)
+        expected = due_through(rate, epoch, wm_now) - due_through(rate, epoch, wm_prev)
+        # `expected` covers the four weeks starting wm_now-21 .. wm_now, i.e.
+        # the calendar span [wm_now-21, wm_now+6]; `actual` must match that
+        # span, not the week-earlier [wm_prev, wm_now-1].
+        actual = sum(fairness_svc.counts(
+            rule.session_type, wm_now - timedelta(days=21), wm_now + timedelta(days=6),
+            include_drafts=include_drafts,
+        ).values())
+        behind = expected - actual
+        if behind > 0:
+            rows.append({"name": rule.session_type.name, "behind": behind})
+    return rows
+
+
+_TRAINEE_REQUIREMENTS = (("vts", "VTS"), ("sdl", "SDL"), ("mentoring", "Mentoring"))
+
+
+@login_required
+def report_trainees(request):
+    today = date.today()
+    settings = PracticeSettings.load()
+    type_for = {
+        "vts": settings.vts_session_type,
+        "sdl": settings.sdl_session_type,
+        "mentoring": settings.mentoring_session_type,
+    }
+    configured_type_ids = [st.id for st in type_for.values() if st]
+
+    include_drafts = request.user.is_rota_admin
+
+    profiles = list(
+        TraineeProfile.objects.filter(
+            clinician__active=True, placement_start__lte=today,
+            placement_end__gte=today,
+        ).select_related("clinician").order_by("clinician__name")
+    )
+
+    # weekly_rates() calls stage_rule(), which otherwise runs one query per
+    # trainee; there are only a handful of stages, so prefetch them all and
+    # short-circuit the per-instance lookup to keep this page query-flat.
+    stage_rules = {r.stage: r for r in TraineeStageRule.objects.all()}
+    for profile in profiles:
+        cached = stage_rules.get(profile.stage)
+        if cached is not None:
+            profile.stage_rule = lambda cached=cached: cached
+
+    # One query for every delivered entry across all trainees/types, bucketed
+    # in Python by (clinician, session_type) to avoid N+1 across the table.
+    delivered_days = {}
+    if profiles and configured_type_ids:
+        clinician_ids = [p.clinician_id for p in profiles]
+        entries_qs = RotaEntry.objects.filter(
+            clinician_id__in=clinician_ids, session_type_id__in=configured_type_ids,
+        )
+        if not include_drafts:
+            entries_qs = entries_qs.filter(is_published=True)
+        for row in entries_qs.values("clinician_id", "session_type_id", "day"):
+            key = (row["clinician_id"], row["session_type_id"])
+            delivered_days.setdefault(key, []).append(row["day"])
+
+    rows = []
+    for profile in profiles:
+        rates = profile.weekly_rates()
+        anchor = trainee_anchor(profile)
+        as_of = min(today, profile.placement_end)
+        wm = week_monday(as_of)
+        reqs = []
+        for key, label in _TRAINEE_REQUIREMENTS:
+            st = type_for[key]
+            if st is None:
+                reqs.append({"label": label, "configured": False})
+                continue
+            rate, _weekday, _part = rates[key]
+            expected = due_through(rate, anchor, wm)
+            days = delivered_days.get((profile.clinician_id, st.id), [])
+            delivered = sum(1 for d in days if anchor <= d <= as_of)
+            reqs.append({
+                "label": label, "configured": True,
+                "expected": expected, "delivered": delivered,
+                "diff": delivered - expected,
+            })
+        rows.append({"profile": profile, "reqs": reqs})
+
+    return render(request, "rota/report_trainees.html", {"rows": rows})

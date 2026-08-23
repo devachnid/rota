@@ -37,7 +37,14 @@ def weights(as_of):
 
 def fair_shares(session_type, start, end, include_drafts=True):
     actuals = counts(session_type, start, end, include_drafts)
-    w = weights(end)
+    pool = [c for c in Clinician.objects.filter(active=True)
+            if session_type.is_eligible(c)]
+    pool_ids = {c.id for c in pool}
+    # An out-of-pool clinician (manual assignment, or later removed from the
+    # pool) must not inflate every pool member's share — the numerator has
+    # to be scoped to the same pool as the denominator.
+    actuals = {cid: n for cid, n in actuals.items() if cid in pool_ids}
+    w = {c.id: availability.weekly_sessions(c, end) for c in pool}
     total_weight = sum(w.values())
     total_assigned = sum(actuals.values())
     result = {}
