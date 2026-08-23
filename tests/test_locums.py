@@ -114,6 +114,24 @@ def test_orphaned_booking_can_step_back(admin_user):
     assert req.status == LocumRequirement.Status.ADVERTISED
 
 
+def test_orphaned_booking_can_be_rebooked_directly(admin_user):
+    from rota.services import entries as entries_svc
+    st, locum, req = _book(admin_user)
+    entries_svc.clear(admin_user, locum, MON, "AM")
+    req.refresh_from_db()
+    assert req.status == LocumRequirement.Status.BOOKED and req.rota_entry is None
+
+    req = locums.save_requirement(
+        admin_user, pk=req.pk, day=MON, part="AM", session_type=st,
+        status=LocumRequirement.Status.BOOKED, clinician=locum, details="£700",
+    )
+    assert req.status == LocumRequirement.Status.BOOKED
+    assert req.rota_entry is not None
+    entry = RotaEntry.objects.get()
+    assert req.rota_entry == entry
+    assert entry.clinician == locum and entry.session_type == st and entry.is_published
+
+
 def test_moving_booked_requirement_day_rejected(admin_user):
     st, locum, req = _book(admin_user)
     with pytest.raises(ValueError):

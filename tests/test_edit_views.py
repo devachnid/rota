@@ -2,7 +2,7 @@ import pytest
 
 from rota.models import DayNote, LocumRequirement, RotaEntry
 from tests.factories import (MON, make_clinician, make_entry, make_group,
-                             make_session_type)
+                             make_session_type, make_site)
 from rota.services import locums as locums_svc
 
 pytestmark = pytest.mark.django_db
@@ -46,6 +46,19 @@ def test_ineligible_warns_then_confirm_overrides(admin_client):
     assert not RotaEntry.objects.exists()
     admin_client.post("/rota/assign/", _assign_data(b, st, confirm="1"))
     assert RotaEntry.objects.count() == 1
+
+
+def test_ineligible_warning_preserves_typed_note_and_site(admin_client):
+    a, b = make_clinician("Alice Adams"), make_clinician("Beth Brown")
+    st = make_session_type("Vasectomy")
+    st.allowed_clinicians.add(a)
+    site = make_site("Branch Surgery")
+    resp = admin_client.post("/rota/assign/", _assign_data(
+        b, st, note="please double-check", site_id=str(site.id)))
+    assert resp.status_code == 200 and b"not usually eligible" in resp.content
+    assert not RotaEntry.objects.exists()
+    assert b"please double-check" in resp.content
+    assert f'value="{site.id}" selected'.encode() in resp.content
 
 
 def test_clear_endpoint(admin_client):

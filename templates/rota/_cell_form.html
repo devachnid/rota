@@ -14,11 +14,11 @@
   <label>Site
     <select name="site_id"><option value="">—</option>
       {% for s in sites %}
-      <option value="{{ s.id }}" {% if entry.site_id == s.id %}selected{% endif %}>{{ s.name }}</option>
+      <option value="{{ s.id }}" {% if site_id == s.id %}selected{% endif %}>{{ s.name }}</option>
       {% endfor %}
     </select>
   </label>
-  <label>Note <input name="note" value="{{ entry.note|default:'' }}" maxlength="200"></label>
+  <label>Note <input name="note" value="{{ note|default:'' }}" maxlength="200"></label>
   <label><input type="checkbox" name="full_day" value="1"> Apply to full day (AM+PM)</label>
   {% if confirm %}<input type="hidden" name="confirm" value="1">{% endif %}
   <input type="hidden" name="clinician_id" value="{{ clinician.id }}">

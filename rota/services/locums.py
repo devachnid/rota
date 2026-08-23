@@ -26,7 +26,8 @@ def save_requirement(actor, *, pk=None, day, part, session_type, status,
     req.session_type = session_type
     req.details = details
     if (status == LocumRequirement.Status.BOOKED
-            and req.status != LocumRequirement.Status.BOOKED):
+            and (req.status != LocumRequirement.Status.BOOKED
+                 or req.rota_entry_id is None)):
         if clinician is None or not clinician.group.is_locum_group:
             raise ValueError("Booking requires a clinician in the locum group.")
         entry = entries.assign(
