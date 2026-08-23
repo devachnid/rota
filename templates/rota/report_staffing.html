@@ -3,7 +3,8 @@
 {% block content %}
 <h1>Staffing gaps (next {{ weeks }} weeks)</h1>
 <p><a href="/reports/fairness/">Fairness report</a> ·
-   <a href="/reports/leave/">Leave report</a></p>
+   <a href="/reports/leave/">Leave report</a> ·
+   <a href="/reports/trainees/">Trainees report</a></p>
 <form method="get"><label>Weeks ahead
   <input type="number" name="weeks" value="{{ weeks }}" min="1" max="26"></label>
   <button>Update</button></form>
@@ -14,4 +15,12 @@
   {% empty %}<tr><td>No gaps found. 🎉</td></tr>
   {% endfor %}
 </table>
+{% if accrual_rows %}
+<h2>Accrual targets</h2>
+<table class="report">
+  {% for r in accrual_rows %}
+  <tr><td>{{ r.name }}</td><td class="warn">{{ r.behind }} behind target</td></tr>
+  {% endfor %}
+</table>
+{% endif %}
 {% endblock %}
