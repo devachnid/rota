@@ -28,22 +28,40 @@ def _anchor(profile):
                            or profile.placement_start))
 
 
-def _existing_count(ctx, profile, session_type, anchor):
-    """Sessions of this type already on the rota for this trainee, from
-    `anchor` through ctx.end (Finding B): a DB query for the portion before
-    ctx.start (not covered by ctx's own prefetch) plus ctx's already-loaded
-    count for [ctx.start, ctx.end], which mirrors coverage.py's
-    _boundary_existing_counts and also picks up entries placed earlier in
-    this same pass via ctx.record() — without querying for them twice.
+def _seed_weekly_done(ctx, profile, session_type, anchor, weeks):
+    """Existing (already-on-the-rota-before-this-pass) sessions of this
+    type for this trainee, split into a pre-window running total plus a
+    per-week bucket for entries dated inside the fill window.
+
+    A hand-booked entry sitting in a *later* week must not suppress a
+    placement in an *earlier* week: seeding `done` once from the whole
+    [anchor, ctx.end] range up front (as a single scalar) does exactly
+    that, since a week-4 entry counts against week 1's need too. Instead,
+    return the pre-window count (everything strictly before `weeks[0]` —
+    always "done" from week one onward, mirroring the pre-window half of
+    coverage.py's _boundary_existing_counts) separately from a per-week
+    dict, so the caller can add each week's own bucket to the running
+    `done` total only once its loop reaches that week — i.e. "up to and
+    including this week", not the entire range.
+
+    One query covers the whole span; entries this pass places itself are
+    NOT included here (they're added via the caller's own `done += 1`
+    after each placement) so nothing is double-counted.
     """
+    first_week = weeks[0] if weeks else None
     pre_window = 0
-    if anchor < ctx.start:
-        pre_window = RotaEntry.objects.filter(
-            clinician=profile.clinician, session_type=session_type,
-            day__gte=anchor, day__lt=ctx.start,
-        ).count()
-    return pre_window + ctx.clinician_type_count(profile.clinician_id,
-                                                  session_type.id)
+    by_week = {}
+    days = RotaEntry.objects.filter(
+        clinician=profile.clinician, session_type=session_type,
+        day__gte=anchor, day__lte=ctx.end,
+    ).values_list("day", flat=True)
+    for day in days:
+        wk = week_monday(day)
+        if first_week is not None and wk < first_week:
+            pre_window += 1
+        else:
+            by_week[wk] = by_week.get(wk, 0) + 1
+    return pre_window, by_week
 
 
 def _capped_need(rate, due, done):
@@ -63,9 +81,11 @@ def run_vts(ctx, actor, result):
         if rate == 0 or weekday is None:
             continue
         anchor = _anchor(profile)
-        done = _existing_count(ctx, profile, vts, anchor)
+        weeks = ctx.weeks()
+        done, existing_by_week = _seed_weekly_done(ctx, profile, vts, anchor, weeks)
         cid = profile.clinician_id
-        for wm in ctx.weeks():
+        for wm in weeks:
+            done += existing_by_week.get(wm, 0)
             need = _capped_need(rate, due_through(rate, anchor, wm), done)
             if need < 1:
                 continue
@@ -96,9 +116,11 @@ def run_sdl(ctx, actor, result):
         if rate == 0:
             continue
         anchor = _anchor(profile)
-        done = _existing_count(ctx, profile, sdl, anchor)
+        weeks = ctx.weeks()
+        done, existing_by_week = _seed_weekly_done(ctx, profile, sdl, anchor, weeks)
         cid = profile.clinician_id
-        for wm in ctx.weeks():
+        for wm in weeks:
+            done += existing_by_week.get(wm, 0)
             need = _capped_need(rate, due_through(rate, anchor, wm), done)
             if need < 1:
                 continue
