@@ -38,9 +38,12 @@ def run(ctx, actor, result):
     def make_placer(profile, _weekday, _part):
         cid = profile.clinician_id
         fixed_trainer = profile.trainer
-        substitutes = [c for c in all_trainers
-                      if c.id != cid and (fixed_trainer is None
-                                          or c.id != fixed_trainer.id)]
+        # Substitutes are only tried once the fixed trainer's own
+        # availability check has failed on every session this week (see
+        # `if not candidates:` below), so fixed_trainer would fail that
+        # identical _trainer_free() check again here too — no need to
+        # exclude them from `substitutes` by id as well.
+        substitutes = [c for c in all_trainers if c.id != cid]
 
         def place(wm, need):
             placed_this_week = 0

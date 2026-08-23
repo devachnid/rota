@@ -140,11 +140,12 @@ def locum_save(request):
     st = get_object_or_404(SessionType, pk=request.POST["session_type_id"])
     clinician = Clinician.objects.filter(
         pk=request.POST.get("clinician_id") or None).first()
+    day = date.fromisoformat(request.POST["day"])
     try:
         locums_svc.save_requirement(
             request.user,
             pk=request.POST.get("pk") or None,
-            day=date.fromisoformat(request.POST["day"]),
+            day=day,
             part=request.POST["part"],
             session_type=st,
             status=request.POST["status"],
@@ -157,7 +158,7 @@ def locum_save(request):
         ).first()
         ctx = _locum_form_context(
             req=req,
-            day=date.fromisoformat(request.POST["day"]),
+            day=day,
             part=request.POST["part"],
         )
         ctx["warning"] = str(e)

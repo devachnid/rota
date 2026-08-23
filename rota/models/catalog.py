@@ -43,6 +43,9 @@ class SessionType(models.Model):
                   "any of these types the same day.",
     )
 
+    class Meta:
+        ordering = ["category", "name"]
+
     def is_eligible(self, clinician):
         if not self.allowed_clinicians.exists() and not self.allowed_groups.exists():
             return True

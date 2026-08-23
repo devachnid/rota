@@ -20,8 +20,9 @@ def sessions_affected(req):
     return out
 
 
-def entries_overwritten(req):
-    slots = sessions_affected(req)
+def entries_overwritten(req, slots=None):
+    if slots is None:
+        slots = sessions_affected(req)
     return [
         e for e in RotaEntry.objects.filter(
             clinician=req.clinician,

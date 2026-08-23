@@ -54,7 +54,8 @@ def report_leave(request):
         for c in Clinician.objects.filter(active=True)
     ]
     upcoming = RotaEntry.objects.filter(
-        is_published=True, session_type__category="ABSENCE",
+        is_published=True,
+        session_type__category=SessionType.Category.ABSENCE,
         day__range=(today, today + timedelta(weeks=8)),
     ).select_related("clinician", "session_type")
     return render(request, "rota/report_leave.html",
