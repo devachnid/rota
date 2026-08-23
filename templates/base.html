@@ -1,29 +1,40 @@
-{% load static %}
+{% load static %}{% load design %}
 <!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Rota{% endblock %}</title>
-<link rel="stylesheet" href="{% static 'rota.css' %}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap">
+<link rel="stylesheet" href="{% static 'css/tokens.css' %}">
+<link rel="stylesheet" href="{% static 'css/components.css' %}">
+<link rel="stylesheet" href="{% static 'css/screens.css' %}">
+{% palette_css %}
 <script src="{% static 'htmx.min.js' %}" defer></script>
 </head>
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
-<nav>
-  <a href="/rota/">Rota</a>
-  <a href="/me/">My schedule</a>
+<nav class="nav">
+  <span class="nav-brand">Rota</span>
+  <a href="/rota/" class="nav-link{% if request.path == '/rota/' %} is-active{% endif %}">Week</a>
+  <a href="/me/" class="nav-link{% if request.path == '/me/' %} is-active{% endif %}">My schedule</a>
   {% if user.is_rota_admin %}
-    <a href="/requests/">Requests</a>
-    <a href="/rota/fill/">Assisted fill</a>
+    <a href="/requests/" class="nav-link{% if request.path == '/requests/' %} is-active{% endif %}">Requests</a>
+    <a href="/rota/fill/" class="nav-link{% if request.path == '/rota/fill/' %} is-active{% endif %}">Assisted fill</a>
   {% endif %}
-  <a href="/reports/fairness/">Reports</a>
-  <span class="spacer"></span>
+  <a href="/reports/fairness/" class="nav-link{% if '/reports/' in request.path %} is-active{% endif %}">Reports</a>
+  <span class="nav-spacer"></span>
   {% if user.is_authenticated %}
-    <span>{{ user.email }}</span>
-    <form method="post" action="/accounts/logout/">{% csrf_token %}<button>Log out</button></form>
+    <span class="nav-user">{{ user.email }}</span>
+    <form method="post" action="/accounts/logout/">{% csrf_token %}<button class="btn btn-quiet">Log out</button></form>
   {% endif %}
 </nav>
-{% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}
-<main>{% block content %}{% endblock %}</main>
+{% if messages %}
+<div class="flashes">
+  {% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}
+</div>
+{% endif %}
+<main class="main">{% block content %}{% endblock %}</main>
 </body>
 </html>
