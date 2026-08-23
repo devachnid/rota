@@ -15,15 +15,18 @@ def _refresh():
     return HttpResponse(status=204, headers={"HX-Refresh": "true"})
 
 
-def _cell_context(clinician, day, part, **extra):
+def _cell_context(clinician, day, part, note=None, site_id=None, **extra):
     types = SessionType.objects.all().order_by("category", "name")
+    entry = RotaEntry.objects.filter(
+        clinician=clinician, day=day, part=part).first()
     return {
         "clinician": clinician, "day": day, "part": part,
-        "entry": RotaEntry.objects.filter(
-            clinician=clinician, day=day, part=part).first(),
+        "entry": entry,
         "session_types": types,
         "ineligible_ids": [t.id for t in types if not t.is_eligible(clinician)],
         "sites": Site.objects.all(),
+        "note": note if note is not None else (entry.note if entry else ""),
+        "site_id": site_id if site_id is not None else (entry.site_id if entry else None),
         **extra,
     }
 
@@ -48,6 +51,7 @@ def assign(request):
     if not st.is_eligible(clinician) and not request.POST.get("confirm"):
         return render(request, "rota/_cell_form.html", _cell_context(
             clinician, day, part,
+            note=request.POST.get("note", ""), site_id=site.id if site else None,
             warning=f"{clinician.name} is not usually eligible for {st.name}. "
                     "Save again to override.",
             confirm=True, selected_type=st.id,

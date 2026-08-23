@@ -21,12 +21,19 @@ def leave_new(request):
         return HttpResponseForbidden("No clinician profile linked to this account.")
     absence_types = SessionType.objects.filter(category="ABSENCE")
     if request.method == "POST":
+        start_date = date.fromisoformat(request.POST["start_date"])
+        end_date = date.fromisoformat(request.POST["end_date"])
+        if end_date < start_date:
+            return render(request, "rota/leave_form.html", {
+                "absence_types": absence_types,
+                "warning": "End date must not be before the start date.",
+            })
         LeaveRequest.objects.create(
             clinician=clinician,
             session_type=get_object_or_404(
                 absence_types, pk=request.POST["session_type_id"]),
-            start_date=date.fromisoformat(request.POST["start_date"]),
-            end_date=date.fromisoformat(request.POST["end_date"]),
+            start_date=start_date,
+            end_date=end_date,
             message=request.POST.get("message", ""),
         )
         messages.success(request, "Leave request submitted.")
@@ -88,7 +95,7 @@ def swap_new(request):
         clinician=clinician, is_published=True, day__gte=today
     ).select_related("session_type")
     theirs = RotaEntry.objects.filter(
-        is_published=True, day__gte=today
+        is_published=True, day__gte=today, clinician__user__isnull=False,
     ).exclude(clinician=clinician).select_related("session_type", "clinician")
     if request.method == "POST":
         my_entry = get_object_or_404(mine, pk=request.POST["my_entry_id"])

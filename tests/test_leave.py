@@ -80,3 +80,15 @@ def test_gp_can_submit_and_admin_approves_via_views(annual_leave, gp_client,
 
 def test_inbox_admin_only(gp_client):
     assert gp_client.get("/requests/").status_code == 403
+
+
+def test_leave_new_rejects_backwards_range(annual_leave, gp_client, gp_user):
+    make_clinician(user=gp_user)
+    resp = gp_client.post("/me/leave/new/", {
+        "session_type_id": annual_leave.id,
+        "start_date": (MON + timedelta(days=4)).isoformat(),
+        "end_date": MON.isoformat(),
+        "message": "oops"})
+    assert resp.status_code == 200
+    assert b"must not be before" in resp.content
+    assert not LeaveRequest.objects.exists()

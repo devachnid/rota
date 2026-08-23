@@ -6,8 +6,10 @@
   <h2>Week of {{ monday|date:"j M Y" }}</h2>
   <a href="?week={{ next_week|date:'Y-m-d' }}">Next &rarr;</a>
   <form method="get"><input type="date" name="week"><button>Go</button></form>
+  {% if has_clinician %}
   <a href="/me/leave/new/">Request leave</a>
   <a href="/me/swap/new/">Propose swap</a>
+  {% endif %}
   {% if is_admin %}
   <form hx-post="/rota/publish/">
     <input type="hidden" name="start" value="{{ monday|date:'Y-m-d' }}">

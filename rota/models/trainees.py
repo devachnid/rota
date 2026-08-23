@@ -46,10 +46,20 @@ class TraineeProfile(models.Model):
                   "start.")
 
     def stage_rule(self):
-        return TraineeStageRule.objects.get(stage=self.stage)
+        """The seeded TraineeStageRule for this trainee's stage, or None if
+        an admin has deleted the row (the four rows are reference data,
+        seeded by migration, but nothing at the DB level stops deletion —
+        callers must treat None as "no rates due", not a fatal error)."""
+        return TraineeStageRule.objects.filter(stage=self.stage).first()
 
     def weekly_rates(self):
         rule = self.stage_rule()
+        if rule is None:
+            return {
+                "vts": (0.0, None, None),
+                "sdl": (0.0, None, None),
+                "mentoring": (0.0, None, None),
+            }
         f = self.wte_percent / 100
         return {
             "vts": (float(rule.vts_per_week) * f, rule.vts_weekday, rule.vts_part),

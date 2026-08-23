@@ -2,6 +2,7 @@
 {% block title %}Request leave{% endblock %}
 {% block content %}
 <h1>Request leave</h1>
+{% if warning %}<div class="warn">{{ warning }}</div>{% endif %}
 <form method="post">{% csrf_token %}
   <label>Type
     <select name="session_type_id">

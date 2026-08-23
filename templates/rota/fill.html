@@ -16,9 +16,9 @@
 {% if result.unfilled %}
 <h3>Unfilled slots</h3>
 <ul>
-  {% for u in result.unfilled %}
-  <li class="warn">{{ u.day|date:"D j M" }} {{ u.part|default:"(full day)" }}
-      — {{ u.session_type }}: {{ u.reason }}</li>
+  {% for g in unfilled_groups %}
+  <li class="warn">{{ g.session_type }}{% if g.part_label %} {{ g.part_label }}{% endif %}
+      — {{ g.reason }}: {{ g.count }} occurrence{{ g.count|pluralize }} ({{ g.date_range }})</li>
   {% endfor %}
 </ul>
 {% endif %}

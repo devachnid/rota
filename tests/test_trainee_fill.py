@@ -65,6 +65,19 @@ def test_vts_blocked_slot_reports_unfilled(admin_user):
     assert any(u.session_type == "VTS" for u in result.unfilled)
 
 
+def test_deleted_stage_rule_skips_trainee_without_crashing(admin_user):
+    from rota.models import TraineeStageRule
+    vts = _setup_vts()
+    c = make_clinician("Terry Trainee")
+    make_pattern(c)
+    make_trainee(clinician=c, stage="ST2", start=MON)
+    TraineeStageRule.objects.filter(stage="ST2").delete()
+    # Must not raise, and must place nothing for the now-rateless trainee.
+    result = run_fill(admin_user, MON, MON + timedelta(days=4))
+    assert not RotaEntry.objects.filter(session_type=vts).exists()
+    assert not any(u.session_type == "VTS" for u in result.unfilled)
+
+
 def test_fy2_gets_no_vts(admin_user):
     vts = _setup_vts()
     c = make_clinician("Freya FY2")
