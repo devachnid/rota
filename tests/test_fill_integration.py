@@ -68,6 +68,10 @@ def test_full_pipeline_realistic_week(admin_user):
     assert ment_entries.count() == 2
     assert RotaEntry.objects.filter(session_type=sdl,
                                     clinician=trainee).count() == 1
+    # Default fill must have run: every remaining working cell became Routine.
+    assert RotaEntry.objects.filter(session_type=routine).exists()
+    assert not RotaEntry.objects.filter(session_type=routine,
+                                        fill_reason="").exists()
     # every working cell filled, all drafts carry reasons
     assert not result.unfilled
     assert all(e.fill_reason for e in RotaEntry.objects.filter(manually_set=False))
