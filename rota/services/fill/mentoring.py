@@ -1,0 +1,90 @@
+from datetime import timedelta
+
+from rota.models import Clinician
+from rota.services import entries
+
+from .accrual import due_through, week_monday
+from .scoring import impact_score
+from .trainees import _done_before, _profiles
+from .types import UnfilledSlot
+
+
+def _trainee_free_sessions(ctx, cid, wm, profile):
+    """(day, part) pairs this week where the trainee both works and is free,
+    restricted to the fill window and the trainee's placement window."""
+    out = []
+    for i in range(7):
+        day = wm + timedelta(days=i)
+        if not (ctx.start <= day <= ctx.end
+                and profile.placement_start <= day <= profile.placement_end
+                and day in ctx.open_day_set):
+            continue
+        for part in ("AM", "PM"):
+            if ctx.works_on(cid, day, part) and ctx.is_free(cid, day, part):
+                out.append((day, part))
+    return out
+
+
+def _trainer_free(ctx, trainer_id, day, part):
+    return ctx.works_on(trainer_id, day, part) and ctx.is_free(trainer_id, day, part)
+
+
+def run(ctx, actor, result):
+    ment = ctx.settings.mentoring_session_type
+    if ment is None:
+        return
+
+    all_trainers = list(Clinician.objects.filter(active=True, is_trainer=True))
+
+    for profile in _profiles(ctx):
+        rate, _weekday, _part = profile.weekly_rates()["mentoring"]
+        if rate == 0:
+            continue
+        anchor = week_monday(profile.placement_start)
+        done = _done_before(ctx, profile, ment)
+        cid = profile.clinician_id
+        fixed_trainer = profile.trainer
+        substitutes = [c for c in all_trainers
+                      if c.id != cid and (fixed_trainer is None
+                                          or c.id != fixed_trainer.id)]
+
+        for wm in ctx.weeks():
+            need = due_through(rate, anchor, wm) - done
+            if need < 1:
+                continue
+
+            placed_this_week = 0
+            while placed_this_week < need:
+                trainee_sessions = _trainee_free_sessions(ctx, cid, wm, profile)
+
+                candidates = []
+                if fixed_trainer is not None:
+                    for day, part in trainee_sessions:
+                        if _trainer_free(ctx, fixed_trainer.id, day, part):
+                            candidates.append((0, day, part, fixed_trainer))
+
+                if not candidates:
+                    for day, part in trainee_sessions:
+                        for sub in substitutes:
+                            if _trainer_free(ctx, sub.id, day, part):
+                                candidates.append((1, day, part, sub))
+                                break  # one trainer per session is enough
+
+                if not candidates:
+                    reason = ("no trainer available" if fixed_trainer is None
+                              else "no session with trainer free")
+                    result.unfilled.append(UnfilledSlot(wm, None, "Mentoring", reason))
+                    break
+
+                candidates.sort(key=lambda c: (c[0], -impact_score(ctx, c[1], c[2]),
+                                               c[1], c[2]))
+                _, day, part, trainer = candidates[0]
+                e1, e2 = entries.assign_pair(
+                    actor, day, part, profile.clinician, trainer, ment,
+                    site=ment.default_site, manually_set=False,
+                    fill_reason="mentoring")
+                ctx.record(e1)
+                ctx.record(e2)
+                result.created += 2
+                done += 1
+                placed_this_week += 1

@@ -3,7 +3,7 @@ from django.db import transaction
 from rota.models import RotaEntry
 from rota.services import entries
 
-from . import commitments, coverage, trainees
+from . import commitments, coverage, mentoring, trainees
 from .context import FillContext
 from .types import FillResult, UnfilledSlot
 
@@ -22,6 +22,7 @@ def run_fill(actor, start, end, fill_default=False):
     commitments.run(ctx, actor, result)
     trainees.run_vts(ctx, actor, result)
     coverage.run(ctx, actor, result)
+    mentoring.run(ctx, actor, result)
     trainees.run_sdl(ctx, actor, result)
 
     if fill_default:

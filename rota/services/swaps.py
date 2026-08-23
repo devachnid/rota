@@ -34,6 +34,14 @@ def validate(req):
                 problems.append(
                     f"{clinician.name} has no session on {day} {part} — "
                     "both GPs must work every session involved.")
+    for day, part in involved_slots(req):
+        for clinician in (req.proposer, req.colleague):
+            entry = RotaEntry.objects.filter(clinician=clinician, day=day,
+                                             part=part).first()
+            if entry and entry.companion_group:
+                problems.append(
+                    f"{clinician.name}'s {day} {part} is a paired session "
+                    "(mentoring) and cannot be swapped.")
     return problems
 
 
