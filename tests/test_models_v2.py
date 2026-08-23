@@ -3,7 +3,7 @@ from datetime import date
 import pytest
 from django.core.exceptions import ValidationError
 
-from rota.models import CoverageRule, PracticeSettings
+from rota.models import CoverageRule, PatternSlot, PracticeSettings
 from tests.factories import MON, make_session_type
 
 pytestmark = pytest.mark.django_db
@@ -200,3 +200,21 @@ def test_commitment_parts_list():
     cl = make_clinician()
     assert make_commitment(cl, part="BOTH").parts_list() == ["AM", "PM"]
     assert make_commitment(cl, part="PM", weekday=2).parts_list() == ["PM"]
+
+
+def test_patternslot_weekday_out_of_range_fails_full_clean():
+    slot = PatternSlot(clinician=make_clinician(), weekday=7, part="AM",
+                       effective_from=MON)
+    with pytest.raises(ValidationError):
+        slot.full_clean()
+    slot.weekday = -1
+    with pytest.raises(ValidationError):
+        slot.full_clean()
+
+
+def test_practicesettings_admin_refuses_second_row(staff_client):
+    resp = staff_client.get("/admin/rota/practicesettings/add/")
+    assert resp.status_code == 200
+    PracticeSettings.objects.create(pk=1)
+    resp = staff_client.get("/admin/rota/practicesettings/add/")
+    assert resp.status_code == 403
