@@ -1130,13 +1130,6 @@ from tests.factories import MON, make_clinician, make_entry, make_session_type
 pytestmark = pytest.mark.django_db
 
 
-def test_every_tint_meets_aa_in_both_themes():
-    """The palette's contrast guarantee, asserted at the app level too."""
-    for key, tint in palette.TINTS.items():
-        assert palette.contrast_ratio(tint.fg, tint.bg) >= 4.5, key
-        assert palette.contrast_ratio(tint.dark_fg, tint.dark_bg) >= 4.5, key
-
-
 def test_grid_table_has_scope_and_caption(admin_client):
     PracticeSettings.load()
     c = make_clinician()
