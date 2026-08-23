@@ -3,10 +3,9 @@ from datetime import timedelta
 from rota.models import Clinician
 from rota.services import entries
 
-from .accrual import due_through
 from .scoring import impact_score
-from .trainees import _anchor, _capped_need, _profiles, _seed_weekly_done
-from .types import UnfilledSlot
+from .trainees import _run_trainee_pass
+from .types import UnfilledSlot, site_for
 
 
 def _trainee_free_sessions(ctx, cid, wm, profile):
@@ -36,25 +35,17 @@ def run(ctx, actor, result):
 
     all_trainers = list(Clinician.objects.filter(active=True, is_trainer=True))
 
-    for profile in _profiles(ctx):
-        rate, _weekday, _part = profile.weekly_rates()["mentoring"]
-        if rate == 0:
-            continue
-        anchor = _anchor(profile)
-        weeks = ctx.weeks()
-        done, existing_by_week = _seed_weekly_done(ctx, profile, ment, anchor, weeks)
+    def make_placer(profile, _weekday, _part):
         cid = profile.clinician_id
         fixed_trainer = profile.trainer
-        substitutes = [c for c in all_trainers
-                      if c.id != cid and (fixed_trainer is None
-                                          or c.id != fixed_trainer.id)]
+        # Substitutes are only tried once the fixed trainer's own
+        # availability check has failed on every session this week (see
+        # `if not candidates:` below), so fixed_trainer would fail that
+        # identical _trainer_free() check again here too — no need to
+        # exclude them from `substitutes` by id as well.
+        substitutes = [c for c in all_trainers if c.id != cid]
 
-        for wm in weeks:
-            done += existing_by_week.get(wm, 0)
-            need = _capped_need(rate, due_through(rate, anchor, wm), done)
-            if need < 1:
-                continue
-
+        def place(wm, need):
             placed_this_week = 0
             while placed_this_week < need:
                 trainee_sessions = _trainee_free_sessions(ctx, cid, wm, profile)
@@ -80,16 +71,21 @@ def run(ctx, actor, result):
                 _, day, part, trainer = candidates[0]
                 e1, e2 = entries.assign_pair(
                     actor, day, part, profile.clinician, trainer, ment,
-                    site=ment.default_site, manually_set=False,
+                    site=site_for(ment), manually_set=False,
                     fill_reason="mentoring")
                 ctx.record(e1)
                 ctx.record(e2)
                 result.created += 2
-                done += 1
                 placed_this_week += 1
 
             # Report each unplaced session
+            reason = ("no trainer available" if fixed_trainer is None
+                      else "no session with trainer free")
             for _ in range(need - placed_this_week):
-                reason = ("no trainer available" if fixed_trainer is None
-                          else "no session with trainer free")
                 result.unfilled.append(UnfilledSlot(wm, None, "Mentoring", reason))
+            return placed_this_week
+        return place
+
+    _run_trainee_pass(ctx, actor, result, ment, "mentoring",
+                      extra_skip=lambda weekday, part: False,
+                      make_placer=make_placer)

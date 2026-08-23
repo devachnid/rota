@@ -105,6 +105,27 @@ def test_malformed_post_returns_400_not_500(admin_client):
     assert admin_client.post("/rota/publish/", {"start": "junk", "end": "junk"}).status_code == 400
 
 
+def test_invalid_part_returns_400_and_creates_nothing(admin_client):
+    c = make_clinician()
+    st = make_session_type()
+
+    resp = admin_client.post("/rota/assign/", _assign_data(c, st, part="ZZ"))
+    assert resp.status_code == 400
+    assert not RotaEntry.objects.exists()
+
+    make_entry(c)
+    resp = admin_client.post("/rota/clear/", {
+        "clinician_id": c.id, "day": MON.isoformat(), "part": "ZZ"})
+    assert resp.status_code == 400
+    assert RotaEntry.objects.count() == 1
+
+    resp = admin_client.post("/rota/locum/save/", {
+        "day": MON.isoformat(), "part": "ZZ", "session_type_id": st.id,
+        "status": "ADVERTISED"})
+    assert resp.status_code == 400
+    assert not LocumRequirement.objects.exists()
+
+
 def test_locum_error_rerender_preserves_pk(admin_client, admin_user):
     st = make_session_type()
     locum_group = make_group("Locum", is_locum_group=True, display_order=99)

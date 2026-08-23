@@ -1,6 +1,8 @@
 from rota.models import RecurringCommitment
 from rota.services import entries
 
+from .types import site_for
+
 
 def run(ctx, actor, result):
     qs = (RecurringCommitment.objects
@@ -17,7 +19,7 @@ def run(ctx, actor, result):
                     continue
                 entry = entries.assign(
                     actor, com.clinician, day, part, com.session_type,
-                    site=com.site or com.session_type.default_site,
+                    site=site_for(com.session_type, com.site),
                     manually_set=False, fill_reason="commitment",
                 )
                 ctx.record(entry)

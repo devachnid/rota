@@ -2,7 +2,7 @@ from datetime import timedelta
 
 from rota.models import (Clinician, PatternSlot, PracticeSettings, RotaEntry,
                          SessionType)
-from rota.services import calendar, fairness
+from rota.services import availability, calendar, fairness
 
 
 class FillContext:
@@ -24,11 +24,7 @@ class FillContext:
         pattern_rows = PatternSlot.objects.filter(
             clinician__in=self.clinicians
         ).order_by("effective_from")
-        self._pattern_map = {}
-        for row in pattern_rows:
-            self._pattern_map.setdefault(
-                (row.clinician_id, row.weekday, row.part), []
-            ).append(row)
+        self._pattern_resolver = availability.PatternResolver(pattern_rows)
 
         self._cells = {}
         self._type_count = {}
@@ -89,11 +85,7 @@ class FillContext:
             self._clinician_type_count.get(ct_key, 0) + 1)
 
     def works_on(self, cid, day, part):
-        current = None
-        for row in self._pattern_map.get((cid, day.weekday(), part), []):
-            if row.effective_from <= day:
-                current = row
-        return bool(current and current.works)
+        return self._pattern_resolver.works_on(cid, day, part)
 
     def is_free(self, cid, day, part):
         return (cid, day, part) not in self._cells

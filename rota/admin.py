@@ -148,7 +148,14 @@ class RecurringCommitmentAdmin(admin.ModelAdmin):
 
 admin.site.register(ClosedDay)
 admin.site.register(DayNote)
-admin.site.register(PracticeSettings)
+
+
+@admin.register(PracticeSettings)
+class PracticeSettingsAdmin(admin.ModelAdmin):
+    def has_add_permission(self, request):
+        """PracticeSettings is a pk=1 singleton by convention
+        (PracticeSettings.load()) — refuse a second row."""
+        return not PracticeSettings.objects.exists()
 
 
 @admin.register(RotaEntry)

@@ -4,8 +4,8 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_POST
 
-from rota.models import (Clinician, DayNote, LocumRequirement, RotaEntry,
-                         SessionType, Site)
+from rota.models import (Clinician, DayNote, LocumRequirement, Part,
+                         RotaEntry, SessionType, Site)
 from rota.services import entries as entries_svc
 from rota.services import locums as locums_svc
 from rota.views.decorators import admin_required, parse_errors_as_400
@@ -13,6 +13,14 @@ from rota.views.decorators import admin_required, parse_errors_as_400
 
 def _refresh():
     return HttpResponse(status=204, headers={"HX-Refresh": "true"})
+
+
+def _clean_part(part):
+    """Reject a part outside Part.values so a hand-crafted request can't
+    create a row the grid never renders (it only looks for AM/PM)."""
+    if part not in Part.values:
+        raise ValueError(f"Invalid part: {part!r}")
+    return part
 
 
 def _cell_context(clinician, day, part, note=None, site_id=None, **extra):
@@ -45,7 +53,7 @@ def cell_form(request, clinician_id, day, part):
 def assign(request):
     clinician = get_object_or_404(Clinician, pk=request.POST["clinician_id"])
     day = date.fromisoformat(request.POST["day"])
-    part = request.POST["part"]
+    part = _clean_part(request.POST["part"])
     st = get_object_or_404(SessionType, pk=request.POST["session_type_id"])
     site = Site.objects.filter(pk=request.POST.get("site_id") or None).first()
     if not st.is_eligible(clinician) and not request.POST.get("confirm"):
@@ -72,7 +80,7 @@ def clear(request):
     clinician = get_object_or_404(Clinician, pk=request.POST["clinician_id"])
     entries_svc.clear(request.user, clinician,
                       date.fromisoformat(request.POST["day"]),
-                      request.POST["part"])
+                      _clean_part(request.POST["part"]))
     return _refresh()
 
 
@@ -140,12 +148,14 @@ def locum_save(request):
     st = get_object_or_404(SessionType, pk=request.POST["session_type_id"])
     clinician = Clinician.objects.filter(
         pk=request.POST.get("clinician_id") or None).first()
+    day = date.fromisoformat(request.POST["day"])
+    part = _clean_part(request.POST["part"])
     try:
         locums_svc.save_requirement(
             request.user,
             pk=request.POST.get("pk") or None,
-            day=date.fromisoformat(request.POST["day"]),
-            part=request.POST["part"],
+            day=day,
+            part=part,
             session_type=st,
             status=request.POST["status"],
             details=request.POST.get("details", ""),
@@ -157,8 +167,8 @@ def locum_save(request):
         ).first()
         ctx = _locum_form_context(
             req=req,
-            day=date.fromisoformat(request.POST["day"]),
-            part=request.POST["part"],
+            day=day,
+            part=part,
         )
         ctx["warning"] = str(e)
         return render(request, "rota/_locum_form.html", ctx)

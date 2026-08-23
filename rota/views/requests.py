@@ -44,14 +44,16 @@ def leave_new(request):
 
 @admin_required
 def inbox(request):
-    pending_leave = [
-        {"req": r,
-         "overwritten": leave_svc.entries_overwritten(r),
-         "n_sessions": len(leave_svc.sessions_affected(r))}
-        for r in LeaveRequest.objects.filter(
-            status=LeaveRequest.Status.PENDING
-        ).select_related("clinician", "session_type")
-    ]
+    pending_leave = []
+    for r in LeaveRequest.objects.filter(
+        status=LeaveRequest.Status.PENDING
+    ).select_related("clinician", "session_type"):
+        sessions = leave_svc.sessions_affected(r)
+        pending_leave.append({
+            "req": r,
+            "overwritten": leave_svc.entries_overwritten(r, sessions),
+            "n_sessions": len(sessions),
+        })
     pending_swaps = [
         {"req": r, "problems": swaps_svc.validate(r)}
         for r in SwapRequest.objects.filter(

@@ -26,23 +26,26 @@ def involved_slots(req):
 
 
 def validate(req):
-    problems = []
-    for day, part in involved_slots(req):
-        for clinician in (req.proposer, req.colleague):
-            if not RotaEntry.objects.filter(clinician=clinician, day=day,
-                                            part=part).exists():
-                problems.append(
-                    f"{clinician.name} has no session on {day} {part} — "
-                    "both GPs must work every session involved.")
+    # Single pass over involved_slots: each (clinician, slot) entry is
+    # fetched once and checked for both conditions. The two problem kinds
+    # are collected into separate lists and concatenated at the end so the
+    # existing ordering (all "no session" problems before any "paired
+    # session" problems) is preserved exactly.
+    no_session = []
+    paired = []
     for day, part in involved_slots(req):
         for clinician in (req.proposer, req.colleague):
             entry = RotaEntry.objects.filter(clinician=clinician, day=day,
                                              part=part).first()
-            if entry and entry.companion_group:
-                problems.append(
+            if entry is None:
+                no_session.append(
+                    f"{clinician.name} has no session on {day} {part} — "
+                    "both GPs must work every session involved.")
+            elif entry.companion_group:
+                paired.append(
                     f"{clinician.name}'s {day} {part} is a paired session "
                     "(mentoring) and cannot be swapped.")
-    return problems
+    return no_session + paired
 
 
 def accept(req, user):

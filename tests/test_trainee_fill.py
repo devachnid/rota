@@ -5,6 +5,7 @@ import pytest
 from rota.models import PracticeSettings, RotaEntry
 from rota.services import entries as entries_svc
 from rota.services.fill import run_fill
+from rota.services.fill.accrual import week_monday
 from rota.services.fill.trainees import _anchor
 from tests.factories import (MON, make_clinician, make_pattern,
                              make_session_type, make_trainee)
@@ -217,6 +218,33 @@ def test_accrual_seeds_done_per_week_not_whole_range(admin_user):
     # the whole range up front — counting week 4's entry from week one —
     # would produce, since it wrongly satisfies week 1's need).
     assert days == expected
+
+
+def test_sdl_accrual_seeds_done_per_week_not_whole_range(admin_user):
+    # Same regression as VTS (Finding B4) but for the SDL floater: a
+    # hand-booked SDL entry sitting in a *later* week must not suppress a
+    # placement the trainee is still owed in an *earlier* week.
+    sdl = _setup_sdl()
+    c = make_clinician("Terry Trainee")
+    make_pattern(c)
+    make_trainee(clinician=c, stage="ST2", start=MON)  # 1 SDL/week
+    week4_mon = MON + timedelta(days=21)
+    entries_svc.assign(admin_user, c, week4_mon, "AM", sdl, published=True)
+    run_fill(admin_user, MON, MON + timedelta(days=27))  # 4-week fill
+    days = sorted(RotaEntry.objects.filter(
+        clinician=c, session_type=sdl).values_list("day", flat=True))
+    weeks_seen = sorted({week_monday(d) for d in days})
+    # Exactly one SDL session in each of the 4 weeks: weeks 1-3 filled by
+    # this pass, week 4's pre-existing entry left alone. Seeding `done`
+    # from the whole range up front (counting week 4's entry from week
+    # one) would wrongly satisfy week 1's need — week 1 would be skipped
+    # (and a later week would over-place to catch up, since the per-week
+    # cap allows more than one session once behind), so simply counting
+    # total sessions wouldn't catch that: check week-by-week.
+    assert len(days) == 4, f"expected exactly 4 SDL sessions, got {days}"
+    assert weeks_seen == [MON, MON + timedelta(days=7), MON + timedelta(days=14),
+                          week4_mon], (
+        f"expected one SDL session in each of the 4 weeks, got {days}")
 
 
 def test_refill_overlapping_window_no_duplicates_or_spurious_unfilled(admin_user):

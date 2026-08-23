@@ -7,6 +7,7 @@ from django.shortcuts import render
 from rota.models import (Clinician, ClinicianGroup, ClosedDay, DayNote,
                          LocumRequirement, PatternSlot, PracticeSettings,
                          RotaEntry)
+from rota.services import availability
 from rota.services.warnings import day_warnings
 
 
@@ -46,16 +47,7 @@ def grid(request):
     pattern_rows = PatternSlot.objects.filter(
         clinician__in=active
     ).order_by("effective_from")
-    pattern_map = {}
-    for s in pattern_rows:
-        pattern_map.setdefault((s.clinician_id, s.weekday, s.part), []).append(s)
-
-    def works(clinician_id, d, part):
-        current = None
-        for row in pattern_map.get((clinician_id, d.weekday(), part), []):
-            if row.effective_from <= d:
-                current = row
-        return bool(current and current.works)
+    pattern_resolver = availability.PatternResolver(pattern_rows)
 
     closed = set(ClosedDay.objects.filter(day__in=days).values_list("day", flat=True))
     notes = {n.day: n for n in DayNote.objects.filter(day__in=days)}
@@ -84,7 +76,8 @@ def grid(request):
                     cells.append({
                         "day": d, "day_str": d.isoformat(), "part": part,
                         "entry": entry, "merged": merged and part == "AM",
-                        "unavail": entry is None and not works(clinician.id, d, part),
+                        "unavail": entry is None and not pattern_resolver.works_on(
+                            clinician.id, d, part),
                         "closed": d in closed,
                         "partner": companion_partner.get((clinician.id, d, part)),
                     })
