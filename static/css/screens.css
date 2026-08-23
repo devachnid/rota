@@ -1,0 +1,43 @@
+/* Screens.css composes tokens.css and components.css into page layouts.
+   Every colour here comes from a token or a --tint-* variable set inline
+   by the template — no hex/rgb/named literals. */
+
+/* ------------------------------------------------------------- grid --- */
+
+/* Horizontally scrollable wrapper so .table-grid's sticky header/first
+   column have a scroll container to stick within. */
+.grid-wrap {
+  overflow-x: auto;
+}
+
+.grid-day {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.grid-part {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* Sticky first column (clinician initials); .table-grid supplies the
+   sticky positioning itself, this layers on the text treatment. */
+.grid-clin {
+  font-weight: 700;
+  color: var(--ink);
+  padding: 0 var(--sp-3);
+}
+
+/* Borderless group-label row (Daylight's grouping treatment): an
+   uppercase, muted label with breathing room above rather than a rule. */
+.grid-group td {
+  padding: var(--sp-4) var(--sp-2) var(--sp-1);
+  border: none;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--muted);
+}
