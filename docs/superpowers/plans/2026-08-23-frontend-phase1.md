@@ -1123,7 +1123,6 @@ git commit -m "feat: restyle the htmx cell, day-note and locum editors"
 ```python
 import pytest
 
-from rota import palette
 from rota.models import PracticeSettings
 from tests.factories import MON, make_clinician, make_entry, make_session_type
 
