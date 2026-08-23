@@ -1,5 +1,6 @@
 from datetime import date
 
+from rota import palette
 from rota.models import Clinician, ClinicianGroup, SessionType, Site
 
 MON = date(2026, 7, 20)  # a Monday
@@ -19,7 +20,7 @@ def make_clinician(name="Alice Adams", group=None, user=None, **kw):
 
 def make_session_type(name="Routine", code=None, **kw):
     kw.setdefault("category", SessionType.Category.CLINICAL)
-    kw.setdefault("colour", "#8ecae6")
+    kw.setdefault("colour", palette.DEFAULT_TINT)
     obj, _ = SessionType.objects.get_or_create(
         name=name, defaults={"code": (code or name[:4].upper()), **kw}
     )
