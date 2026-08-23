@@ -177,6 +177,28 @@ def test_pool_scoped_fair_shares():
     assert shares[a.id].share == pytest.approx(1.0)  # 2 sessions / equal weights
 
 
+def test_fill_engine_seed_state_ignores_outsider_actuals(admin_user):
+    from tests.factories import make_entry
+    PracticeSettings.load()
+    vas = make_session_type("Vas Clinic", fairness_tracked=True)
+    a, b = _pool("Alice Adams", "Beth Brown")
+    vas.allowed_clinicians.add(a, b)
+    outsider = make_clinician("Carl Cole")
+    make_pattern(outsider)
+    # An out-of-pool clinician's prior session (within the fairness
+    # lookback window) must not be counted in the pool's total_assigned
+    # numerator when the engine seeds fairness state at pass start.
+    make_entry(outsider, day=MON - timedelta(days=7), part="AM",
+               session_type=vas)
+    CoverageRule.objects.create(
+        session_type=vas, unit=CoverageRule.Unit.PER_SESSION,
+        parts="AM", weekdays="0", priority=5)
+    run_fill(admin_user, MON, MON)
+    entry = RotaEntry.objects.get(session_type=vas, day=MON, part="AM")
+    assert "fair share 0.0, done 0" in entry.fill_reason
+    assert entry.clinician_id == a.id
+
+
 def test_default_fill_stamps_site(admin_user):
     s = PracticeSettings.load()
     site = Site.objects.create(name="Main Surgery")

@@ -30,6 +30,11 @@ commitments, demand-driven clinics, PMC branch cover).
 9. Create a trainee profile for each trainee: on the Clinician admin page,
    fill in the inline TraineeProfile — stage (FY2/ST1/ST2/ST3), WTE percent,
    trainer (optional; leave blank to always substitute), placement start/end.
+   If the trainee's placement is already in progress, also set
+   `requirements_tracked_from` to the date the rota system starts tracking
+   them. Left blank, accrual anchors at `placement_start` and the engine
+   treats every week since then as owed — for a trainee already partway
+   through their placement, that shows up as a large phantom backlog.
 10. Review the seeded TraineeStageRule table (one row per stage, editable):
     FY2 defaults to 0 VTS / 2 SDL / 1 mentoring per week (no anchored VTS
     day); ST1/ST2/ST3 default to 1 VTS / 1 SDL / 1 mentoring per week, VTS
@@ -65,10 +70,21 @@ commitments, demand-driven clinics, PMC branch cover).
     - **PMC-Routine blocking Duty**: on the PMC-Routine SessionType, add
       `Duty` to `blocks_same_day` — a clinician holding PMC-Routine that day
       is then excluded from Duty auto-assignment the same day (the "no duty
-      on your PMC PM" rule, summer's free PM included).
+      on your PMC PM" rule, summer's free PM included). `blocks_same_day` is
+      evaluated at placement time and is directional (it only bites when the
+      BLOCKING type — PMC-Routine here — fills first), so give the
+      PMC-Routine CoverageRule(s) a **lower** priority number than Duty's;
+      if Duty fills first the block never fires.
+    - **Minor Ops** (demand-driven, monthly average): frequency `PER_MONTH`,
+      count `1` — same shape as Coil Clinic, placed by weekly-rate accrual.
     - Give Vas/Coil/Minor-Ops session types `fairness_tracked=True` for even
       pool-scoped sharing; leave PMC types untracked so they use simple
-      longest-since rotation instead.
+      longest-since rotation instead. Fairness pooling is scoped by who is
+      *eligible* for the type, so you must also define the pool: set
+      `allowed_clinicians` on Vas/Coil/Minor-Ops to the clinicians with
+      those skills, and set `allowed_groups` = Partner + Salaried on the PMC
+      types (leaving trainees and PAs excluded). A session type with neither
+      `allowed_clinicians` nor `allowed_groups` set is open to everyone.
     - Set `default_site` on PMC session types so placements auto-stamp the
       branch site.
 

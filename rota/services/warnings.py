@@ -31,7 +31,9 @@ def day_warnings(day, include_drafts=True):
     settings = PracticeSettings.load()
     warnings = []
 
-    for rule in CoverageRule.objects.select_related("session_type"):
+    for rule in CoverageRule.objects.filter(
+        frequency=CoverageRule.Frequency.PER_SLOT
+    ).select_related("session_type"):
         if not rule.applies_on(day):
             continue
         parts = ["AM", "PM"] if rule.unit == CoverageRule.Unit.PER_DAY else rule.parts_for()

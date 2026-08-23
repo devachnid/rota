@@ -32,6 +32,53 @@ def test_trainee_report_requires_login(client):
     assert client.get("/reports/trainees/").status_code == 302
 
 
+def test_trainee_report_respects_requirements_tracked_from(admin_client):
+    # placement_start is 8 weeks ago (genuine backlog territory), but
+    # requirements_tracked_from moves the anchor to 1 week before this
+    # week's Monday -> only 2 weeks' worth should show as expected, not
+    # the ~9 weeks a placement_start-anchored calculation would show.
+    s = PracticeSettings.load()
+    vts = make_session_type("VTS", category="NON_CLINICAL")
+    s.vts_session_type = vts
+    s.save()
+    c = make_clinician("Terry Trainee")
+    this_monday = date.today() - timedelta(days=date.today().weekday())
+    placement_start = this_monday - timedelta(weeks=8)
+    tracked_from = this_monday - timedelta(days=7)
+    make_trainee(clinician=c, stage="ST2", start=placement_start,
+                 requirements_tracked_from=tracked_from)
+    html = admin_client.get("/reports/trainees/").content.decode()
+    assert ">2<" in html
+    assert ">9<" not in html and ">8<" not in html
+
+
+def test_trainee_report_delivered_hidden_before_admin(admin_client, gp_client):
+    # Drafts should count for an admin (who may have just run an unpublished
+    # fill) but not for a GP, consistent with every other report.
+    s = PracticeSettings.load()
+    vts = make_session_type("VTS", category="NON_CLINICAL")
+    s.vts_session_type = vts
+    s.save()
+    c = make_clinician("Terry Trainee")
+    this_monday = date.today() - timedelta(days=date.today().weekday())
+    make_trainee(clinician=c, stage="ST2", start=this_monday - timedelta(weeks=1))
+    make_entry(c, day=this_monday, part="AM", session_type=vts, is_published=False)
+    admin_html = admin_client.get("/reports/trainees/").content.decode()
+    gp_html = gp_client.get("/reports/trainees/").content.decode()
+    assert ">1<" in admin_html
+    assert ">0<" in gp_html
+
+
+def test_trainee_report_excludes_finished_placements(admin_client):
+    c = make_clinician("Terry Trainee")
+    today = date.today()
+    make_trainee(clinician=c, stage="ST2",
+                 start=today - timedelta(days=400),
+                 end=today - timedelta(days=1))
+    html = admin_client.get("/reports/trainees/").content.decode()
+    assert "Terry Trainee" not in html
+
+
 def test_staffing_accrual_section_lists_behind_rules(admin_client):
     PracticeSettings.load()
     vas = make_session_type("Vas Clinic", fairness_tracked=True)
@@ -54,6 +101,23 @@ def test_grid_tooltip_names_mentoring_partner(admin_client, admin_user):
     html = admin_client.get(f"/rota/?week={MON}").content.decode()
     assert "with Terry Trainee" in html
     assert "with Alice Adams" in html
+
+
+def test_grid_tooltip_hides_draft_mentoring_partner_from_gp(gp_client, admin_user):
+    # The mentoring-partner tooltip is built from the grid's own entry
+    # queryset, which is the one place a draft companion pairing could leak
+    # a trainee/trainer name to a GP before publish. Only the admin view was
+    # covered before.
+    from rota.services import entries as entries_svc
+    PracticeSettings.load()
+    ment = make_session_type("Mentoring", category="NON_CLINICAL")
+    a, b = make_clinician("Alice Adams"), make_clinician("Terry Trainee")
+    make_pattern(a)
+    make_pattern(b)
+    entries_svc.assign_pair(admin_user, MON, "AM", a, b, ment, published=False)
+    html = gp_client.get(f"/rota/?week={MON}").content.decode()
+    assert "with Terry Trainee" not in html
+    assert "with Alice Adams" not in html
 
 
 def test_accrual_window_aligns_expected_and_actual(admin_client, admin_user):

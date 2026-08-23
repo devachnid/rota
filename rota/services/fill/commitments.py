@@ -3,10 +3,10 @@ from rota.services import entries
 
 
 def run(ctx, actor, result):
-    commitments = (RecurringCommitment.objects
-                   .filter(clinician__active=True)
-                   .select_related("clinician", "session_type", "site", "session_type__default_site"))
-    for com in commitments:
+    qs = (RecurringCommitment.objects
+          .filter(clinician__active=True)
+          .select_related("clinician", "session_type", "site", "session_type__default_site"))
+    for com in qs:
         for day in ctx.open_days:
             if not com.occurs_on(day):
                 continue

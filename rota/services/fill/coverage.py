@@ -63,9 +63,14 @@ def _pick(ctx, cands, st, fairness_state):
     return pick, reason
 
 
-def _seed_fairness_state(st, start, total_weight):
+def _seed_fairness_state(ctx, st, start, total_weight):
     actuals = fairness.counts(st, start - timedelta(days=WINDOW_DAYS),
                               start - timedelta(days=1))
+    # Scope the numerator to the same pool as total_weight (the
+    # denominator): an out-of-pool clinician's session must not inflate
+    # every pool member's fair share.
+    pool_ids = ctx.eligible_ids(st)
+    actuals = {cid: n for cid, n in actuals.items() if cid in pool_ids}
     total_assigned = sum(actuals.values())
     last = fairness.last_done(st, start)
     return _FairnessState(actuals, last, total_assigned, total_weight)
@@ -101,7 +106,7 @@ def _pool_total_weight(ctx, st):
 def _run_slot_rule(ctx, actor, result, rule):
     st = rule.session_type
     total_weight = _pool_total_weight(ctx, st)
-    state = _seed_fairness_state(st, ctx.start, total_weight)
+    state = _seed_fairness_state(ctx, st, ctx.start, total_weight)
     full_day = rule.unit == CoverageRule.Unit.PER_DAY
 
     for day in ctx.open_days:
@@ -214,7 +219,7 @@ def _run_quota_rule(ctx, actor, result, rule, open_day_set):
 
     boundary_counts = _boundary_existing_counts(ctx, st, weeks)
     total_weight = _pool_total_weight(ctx, st)
-    state = _seed_fairness_state(st, ctx.start, total_weight)
+    state = _seed_fairness_state(ctx, st, ctx.start, total_weight)
 
     for wm in weeks:
         prev_wm = wm - timedelta(days=7)

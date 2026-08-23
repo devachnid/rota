@@ -10,6 +10,7 @@ from rota.services import leave as leave_svc
 from rota.services.calendar import is_open
 from rota.services.fill.accrual import (due_through, epoch_for, week_monday,
                                         weekly_rate)
+from rota.services.fill.trainees import _anchor as trainee_anchor
 from rota.services.warnings import day_warnings
 
 
@@ -122,9 +123,12 @@ def report_trainees(request):
     }
     configured_type_ids = [st.id for st in type_for.values() if st]
 
+    include_drafts = request.user.is_rota_admin
+
     profiles = list(
         TraineeProfile.objects.filter(
-            clinician__active=True, placement_start__lte=today
+            clinician__active=True, placement_start__lte=today,
+            placement_end__gte=today,
         ).select_related("clinician").order_by("clinician__name")
     )
 
@@ -142,17 +146,19 @@ def report_trainees(request):
     delivered_days = {}
     if profiles and configured_type_ids:
         clinician_ids = [p.clinician_id for p in profiles]
-        for row in RotaEntry.objects.filter(
+        entries_qs = RotaEntry.objects.filter(
             clinician_id__in=clinician_ids, session_type_id__in=configured_type_ids,
-            is_published=True,
-        ).values("clinician_id", "session_type_id", "day"):
+        )
+        if not include_drafts:
+            entries_qs = entries_qs.filter(is_published=True)
+        for row in entries_qs.values("clinician_id", "session_type_id", "day"):
             key = (row["clinician_id"], row["session_type_id"])
             delivered_days.setdefault(key, []).append(row["day"])
 
     rows = []
     for profile in profiles:
         rates = profile.weekly_rates()
-        anchor = week_monday(profile.placement_start)
+        anchor = trainee_anchor(profile)
         as_of = min(today, profile.placement_end)
         wm = week_monday(as_of)
         reqs = []
@@ -164,7 +170,7 @@ def report_trainees(request):
             rate, _weekday, _part = rates[key]
             expected = due_through(rate, anchor, wm)
             days = delivered_days.get((profile.clinician_id, st.id), [])
-            delivered = sum(1 for d in days if profile.placement_start <= d <= as_of)
+            delivered = sum(1 for d in days if anchor <= d <= as_of)
             reqs.append({
                 "label": label, "configured": True,
                 "expected": expected, "delivered": delivered,

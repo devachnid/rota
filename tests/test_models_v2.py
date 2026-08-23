@@ -3,7 +3,7 @@ from datetime import date
 import pytest
 from django.core.exceptions import ValidationError
 
-from rota.models import CoverageRule, PracticeSettings, SessionType
+from rota.models import CoverageRule, PracticeSettings
 from tests.factories import MON, make_session_type
 
 pytestmark = pytest.mark.django_db
@@ -84,7 +84,7 @@ def test_per_day_odd_count_per_slot_rule_unaffected():
     rule.full_clean()  # must not raise
 
 
-from rota.models import TraineeProfile, TraineeStageRule  # noqa: E402
+from rota.models import TraineeStageRule  # noqa: E402
 from tests.factories import make_clinician, make_trainee  # noqa: E402
 
 
@@ -97,6 +97,15 @@ def test_stage_rules_seeded():
     assert float(rules["FY2"].vts_per_week) == 0.0
     assert float(rules["FY2"].sdl_per_week) == 2.0
     assert float(rules["FY2"].mentoring_per_week) == 1.0
+    # ST1's seed must match ST2's (1/1/1 per week, anchored Tuesday AM) —
+    # only ST1's presence in the stage set was asserted before, so a wrong
+    # seed value for ST1 specifically would pass silently.
+    assert float(rules["ST1"].vts_per_week) == float(rules["ST2"].vts_per_week) == 1.0
+    assert float(rules["ST1"].sdl_per_week) == float(rules["ST2"].sdl_per_week) == 1.0
+    assert (float(rules["ST1"].mentoring_per_week)
+            == float(rules["ST2"].mentoring_per_week) == 1.0)
+    assert rules["ST1"].vts_weekday == rules["ST2"].vts_weekday == 1
+    assert rules["ST1"].vts_part == rules["ST2"].vts_part == "AM"
 
 
 def test_weekly_rates_scaled_by_wte():
@@ -141,6 +150,22 @@ def test_commitment_fortnightly_anchored_to_active_from_week():
     assert c.occurs_on(MON)
     assert not c.occurs_on(MON + timedelta(days=7))
     assert c.occurs_on(MON + timedelta(days=14))
+
+
+def test_commitment_fortnightly_anchor_normalizes_non_monday_active_from():
+    # active_from is a Wednesday, not a Monday; the fortnight anchor must
+    # normalize to that week's Monday (MON here) before computing parity,
+    # not use active_from's raw date. If it didn't normalize, the parity of
+    # every later Monday relative to a Wednesday anchor would come out
+    # different from what's asserted below.
+    active_from = MON + timedelta(days=2)  # Wednesday
+    c = make_commitment(make_clinician(), weekday=0, interval_weeks=2,
+                        active_from=active_from)
+    assert not c.occurs_on(MON)                    # before active_from
+    assert not c.occurs_on(MON + timedelta(days=7))    # 1 week after anchor: odd
+    assert c.occurs_on(MON + timedelta(days=14))       # 2 weeks after anchor: even
+    assert not c.occurs_on(MON + timedelta(days=21))   # 3 weeks after anchor: odd
+    assert c.occurs_on(MON + timedelta(days=28))       # 4 weeks after anchor: even
 
 
 def test_commitment_parts_list():
