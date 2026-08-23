@@ -146,26 +146,48 @@ TINT_CHOICES: list[tuple[str, str]] = [(k, t.label) for k, t in TINTS.items()]
 
 
 def nearest_tint(hex_value: str) -> str:
-    """Closest tint to an arbitrary hex, by distance in OKLab-ish sRGB space.
+    """Closest tint to an arbitrary hex, by hue family then tone-by-lightness.
 
     Used once, by the migration that converts free-form `SessionType.colour`
     values into palette keys. Malformed input falls back to DEFAULT_TINT.
 
-    Soft tints are slightly preferred: when comparing candidates, strong tints
-    must be noticeably closer to win.
+    Strategy: find the nearest hue family (by minimum distance across both
+    tones), then within that family pick the tone whose background lightness
+    best matches the source colour's luminance.
     """
     try:
         target = hex_to_rgb(hex_value)
+        target_luminance = relative_luminance(target)
     except (ValueError, AttributeError):
         return DEFAULT_TINT
 
-    best, best_d = DEFAULT_TINT, None
+    # Group tints by hue family, finding the minimum distance per family
+    hue_families = {}
     for key, tint in TINTS.items():
+        hue_name = key.rsplit("-", 1)[0]
         candidate = hex_to_rgb(tint.bg)
         d = sum((a - b) ** 2 for a, b in zip(target, candidate))
-        # Prefer soft tints by penalizing strong ones
-        if key.endswith("-strong"):
-            d += 0.085
-        if best_d is None or d < best_d:
-            best, best_d = key, d
-    return best
+
+        if hue_name not in hue_families:
+            hue_families[hue_name] = {"min_d": d, "tints": {}}
+
+        if d < hue_families[hue_name]["min_d"]:
+            hue_families[hue_name]["min_d"] = d
+
+        hue_families[hue_name]["tints"][key] = tint
+
+    # Find the hue family with minimum distance
+    nearest_family = min(hue_families, key=lambda h: hue_families[h]["min_d"])
+    family_tints = hue_families[nearest_family]["tints"]
+
+    # Within the family, pick the tone whose background lightness is closer
+    # to the source's luminance
+    best_key = None
+    best_diff = None
+    for key, tint in family_tints.items():
+        bg_luminance = relative_luminance(hex_to_rgb(tint.bg))
+        diff = abs(bg_luminance - target_luminance)
+        if best_diff is None or diff < best_diff:
+            best_key, best_diff = key, diff
+
+    return best_key

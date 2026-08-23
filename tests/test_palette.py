@@ -49,13 +49,27 @@ def test_oklch_to_hex_is_deterministic_and_in_gamut():
     assert a.startswith("#") and len(a) == 7
 
 
-def test_nearest_tint_maps_similar_colours_together():
-    # The v1 default (a light blue) must land on a blue-ish soft tint.
+def test_nearest_tint_preserves_hue_family():
+    # The v1 default is a light blue; it must land in the blue region of the
+    # wheel, never on a green or a red. Which TONE it picks is not the point.
     key = palette.nearest_tint("#8ecae6")
-    assert key in palette.TINTS
-    assert key.endswith("-soft")
-    # A near-identical colour maps to the same tint.
-    assert palette.nearest_tint("#8fcbe7") == key
+    hue = key.rsplit("-", 1)[0]
+    assert hue in {"teal", "cyan", "sky", "azure", "blue"}, key
+
+
+def test_nearest_tint_is_stable_for_near_identical_colours():
+    assert palette.nearest_tint("#8ecae6") == palette.nearest_tint("#8fcbe7")
+
+
+@pytest.mark.parametrize("hex_value,expected_hues", [
+    ("#cdb4db", {"violet", "purple", "magenta", "indigo"}),   # pale lavender
+    ("#bde0fe", {"sky", "azure", "cyan", "blue", "indigo"}),  # pale blue
+    ("#ffadad", {"red", "vermilion", "orange", "pink"}),      # pale red
+    ("#caffbf", {"lime", "green", "emerald", "jade"}),        # pale green
+])
+def test_nearest_tint_keeps_pastels_in_their_hue_family(hex_value, expected_hues):
+    key = palette.nearest_tint(hex_value)
+    assert key.rsplit("-", 1)[0] in expected_hues, f"{hex_value} -> {key}"
 
 
 def test_nearest_tint_distinguishes_far_apart_colours():
