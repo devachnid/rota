@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 
 
@@ -137,6 +138,20 @@ class CoverageRule(models.Model):
 
     class Meta:
         ordering = ["priority", "id"]
+
+    def clean(self):
+        super().clean()
+        if (self.unit == self.Unit.PER_DAY
+                and self.frequency in (self.Frequency.PER_WEEK,
+                                       self.Frequency.PER_MONTH)
+                and self.count % 2 != 0):
+            raise ValidationError(
+                "'Per full day' unit requires an even count when frequency "
+                "is Per week or Per month (average): each placement "
+                "consumes two sessions (AM and PM), so an odd count can "
+                "never be satisfied and the rule would silently place "
+                "nothing forever."
+            )
 
     def applies_on(self, day):
         if self.months:

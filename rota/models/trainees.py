@@ -38,6 +38,12 @@ class TraineeProfile(models.Model):
         related_name="trainees")
     placement_start = models.DateField()
     placement_end = models.DateField()
+    requirements_tracked_from = models.DateField(
+        null=True, blank=True,
+        help_text="Requirements accrue from this date rather than placement "
+                  "start — set when the rota system starts tracking an "
+                  "in-progress placement. Blank means accrue from placement "
+                  "start.")
 
     def stage_rule(self):
         return TraineeStageRule.objects.get(stage=self.stage)

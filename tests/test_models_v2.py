@@ -1,6 +1,7 @@
 from datetime import date
 
 import pytest
+from django.core.exceptions import ValidationError
 
 from rota.models import CoverageRule, PracticeSettings, SessionType
 from tests.factories import MON, make_session_type
@@ -49,6 +50,38 @@ def test_practice_settings_type_fks_default_null():
     assert s.vts_session_type is None
     assert s.sdl_session_type is None
     assert s.mentoring_session_type is None
+
+
+# --- Finding C: PER_DAY + PER_WEEK/PER_MONTH with odd count -------------
+
+def test_per_day_odd_count_weekly_rule_rejected():
+    # unit=PER_DAY places a full day (2 sessions) at a time, so an odd
+    # weekly count can never be satisfied and would silently place nothing
+    # forever.
+    rule = _rule(unit=CoverageRule.Unit.PER_DAY,
+                frequency=CoverageRule.Frequency.PER_WEEK, count=1)
+    with pytest.raises(ValidationError):
+        rule.full_clean()
+
+
+def test_per_day_odd_count_monthly_rule_rejected():
+    rule = _rule(unit=CoverageRule.Unit.PER_DAY,
+                frequency=CoverageRule.Frequency.PER_MONTH, count=3)
+    with pytest.raises(ValidationError):
+        rule.full_clean()
+
+
+def test_per_day_even_count_weekly_rule_passes_clean():
+    rule = _rule(unit=CoverageRule.Unit.PER_DAY,
+                frequency=CoverageRule.Frequency.PER_WEEK, count=2)
+    rule.full_clean()  # must not raise
+
+
+def test_per_day_odd_count_per_slot_rule_unaffected():
+    # PER_SLOT isn't a quota frequency, so this combination is untouched.
+    rule = _rule(unit=CoverageRule.Unit.PER_DAY,
+                frequency=CoverageRule.Frequency.PER_SLOT, count=1)
+    rule.full_clean()  # must not raise
 
 
 from rota.models import TraineeProfile, TraineeStageRule  # noqa: E402

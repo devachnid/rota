@@ -11,6 +11,7 @@ from tests.factories import (MON, make_clinician, make_pattern,
 
 pytestmark = pytest.mark.django_db
 FRI = MON + timedelta(days=4)
+BACKLOG_START = MON - timedelta(weeks=12)
 
 
 def _setup(trainer_days=(0, 1, 2, 3, 4)):
@@ -103,16 +104,59 @@ def test_mentoring_backlog_reports_each_shortfall(admin_user):
     from rota.models import PatternSlot
     ment, trainer, trainee, profile = _setup(trainer_days=(0,))
     # Trainee works only Monday AM; trainer only Mondays. One candidate session
-    # per week, but make the trainee owed 3 (from 2 weeks prior + current week)
-    # with only 1 session available, to test per-shortfall reporting.
+    # per week. Owed sessions are capped per week (Finding A2) at
+    # ceil(rate)+1, so bump the rate (via wte) to 3/week -> cap 4, to still
+    # exercise per-shortfall reporting with only 1 session available.
     PatternSlot.objects.filter(clinician=trainee).delete()
     make_pattern(trainee, weekdays=(0,), parts=("AM",))
     profile.placement_start = MON - timedelta(days=14)
+    profile.wte_percent = 300
     profile.save()
     result = run_fill(admin_user, MON, MON + timedelta(days=4))
     placed = RotaEntry.objects.filter(session_type=ment).count()
     shortfalls = [u for u in result.unfilled if u.session_type == "Mentoring"]
     assert placed == 2, f"expected one pair (2 entries), got {placed}"
-    assert len(shortfalls) == 2, (
-        f"expected 2 mentoring shortfalls, got {len(shortfalls)}: "
+    assert len(shortfalls) == 3, (
+        f"expected 3 mentoring shortfalls, got {len(shortfalls)}: "
         f"{[u.reason for u in shortfalls]}")
+
+
+def test_post_leave_mentoring_does_not_pair_out_whole_week(admin_user):
+    # Finding A2 reproduction: a trainee whose placement began 12 weeks ago
+    # with no prior history (fresh install, no requirements_tracked_from)
+    # has a large cumulative "due". Both trainee and trainer work full
+    # weeks (10 sessions each). Without the per-week cap, every session
+    # that week would become mentoring, pairing the trainer out entirely.
+    ment, trainer, trainee, profile = _setup()  # full week for both
+    profile.placement_start = BACKLOG_START
+    profile.save()
+    run_fill(admin_user, MON, FRI)
+    trainer_entries = RotaEntry.objects.filter(clinician=trainer, session_type=ment)
+    trainee_entries = RotaEntry.objects.filter(clinician=trainee, session_type=ment)
+    # rate=1/week -> cap is ceil(1)+1 = 2, not the ~13-session backlog and
+    # not all 10 of the trainer's available sessions.
+    assert trainer_entries.count() == 2, (
+        f"trainer should not be paired out of their whole week, "
+        f"got {trainer_entries.count()} mentoring sessions")
+    assert trainee_entries.count() == 2
+
+
+def test_refill_overlapping_window_no_duplicate_mentoring_pair(admin_user):
+    # Finding B: a published mentoring pair inside the fill window must be
+    # counted as "done", or re-filling an overlapping window pairs the
+    # trainee (and trainer) again for a duplicate session.
+    ment, trainer, trainee, _ = _setup()
+    week1_end = FRI
+    run_fill(admin_user, MON, week1_end)
+    entries_svc.publish_range(admin_user, MON, week1_end)
+    assert RotaEntry.objects.filter(session_type=ment).count() == 2  # one pair
+
+    week2_end = MON + timedelta(days=11)
+    result = run_fill(admin_user, MON, week2_end)
+
+    # Week 1's pair is untouched: no duplicate pair.
+    assert RotaEntry.objects.filter(session_type=ment, day__lte=week1_end).count() == 2
+    # Week 2 gets its own pair.
+    assert RotaEntry.objects.filter(session_type=ment).count() == 4
+    assert not any(u.session_type == "Mentoring" and u.day <= week1_end
+                   for u in result.unfilled)

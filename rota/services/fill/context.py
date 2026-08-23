@@ -33,6 +33,7 @@ class FillContext:
         self._cells = {}
         self._type_count = {}
         self._day_types = {}
+        self._clinician_type_count = {}
         for entry in RotaEntry.objects.filter(day__range=(start, end)):
             self._index_entry(entry)
 
@@ -74,6 +75,9 @@ class FillContext:
         self._day_types.setdefault(
             (entry.clinician_id, entry.day), set()
         ).add(entry.session_type_id)
+        ct_key = (entry.clinician_id, entry.session_type_id)
+        self._clinician_type_count[ct_key] = (
+            self._clinician_type_count.get(ct_key, 0) + 1)
 
     def works_on(self, cid, day, part):
         current = None
@@ -87,6 +91,13 @@ class FillContext:
 
     def count_type(self, st_id, day, part):
         return self._type_count.get((st_id, day, part), 0)
+
+    def clinician_type_count(self, cid, st_id):
+        """Count of this session type already on the rota for this
+        clinician, anywhere in [self.start, self.end] — includes entries
+        present at prefetch time (e.g. published from an earlier fill) plus
+        any recorded via record() so far in this pass."""
+        return self._clinician_type_count.get((cid, st_id), 0)
 
     def day_type_ids(self, cid, day):
         return self._day_types.get((cid, day), set())

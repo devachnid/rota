@@ -3,9 +3,9 @@ from datetime import timedelta
 from rota.models import Clinician
 from rota.services import entries
 
-from .accrual import due_through, week_monday
+from .accrual import due_through
 from .scoring import impact_score
-from .trainees import _done_before, _profiles
+from .trainees import _anchor, _capped_need, _existing_count, _profiles
 from .types import UnfilledSlot
 
 
@@ -40,8 +40,8 @@ def run(ctx, actor, result):
         rate, _weekday, _part = profile.weekly_rates()["mentoring"]
         if rate == 0:
             continue
-        anchor = week_monday(profile.placement_start)
-        done = _done_before(ctx, profile, ment)
+        anchor = _anchor(profile)
+        done = _existing_count(ctx, profile, ment, anchor)
         cid = profile.clinician_id
         fixed_trainer = profile.trainer
         substitutes = [c for c in all_trainers
@@ -49,7 +49,7 @@ def run(ctx, actor, result):
                                           or c.id != fixed_trainer.id)]
 
         for wm in ctx.weeks():
-            need = due_through(rate, anchor, wm) - done
+            need = _capped_need(rate, due_through(rate, anchor, wm), done)
             if need < 1:
                 continue
 

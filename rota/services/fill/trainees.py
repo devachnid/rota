@@ -1,3 +1,4 @@
+import math
 from datetime import timedelta
 
 from rota.models import RotaEntry, TraineeProfile
@@ -16,11 +17,41 @@ def _profiles(ctx):
             .select_related("clinician", "trainer"))
 
 
-def _done_before(ctx, profile, session_type):
-    return RotaEntry.objects.filter(
-        clinician=profile.clinician, session_type=session_type,
-        day__gte=profile.placement_start, day__lt=ctx.start,
-    ).count()
+def _anchor(profile):
+    """Monday of the week accrual starts counting from: normally placement
+    start, but requirements_tracked_from lets an in-progress placement be
+    onboarded onto a fresh install without the trainee immediately owing
+    every session since day one (Finding A). Never earlier than placement
+    start."""
+    return week_monday(max(profile.placement_start,
+                           profile.requirements_tracked_from
+                           or profile.placement_start))
+
+
+def _existing_count(ctx, profile, session_type, anchor):
+    """Sessions of this type already on the rota for this trainee, from
+    `anchor` through ctx.end (Finding B): a DB query for the portion before
+    ctx.start (not covered by ctx's own prefetch) plus ctx's already-loaded
+    count for [ctx.start, ctx.end], which mirrors coverage.py's
+    _boundary_existing_counts and also picks up entries placed earlier in
+    this same pass via ctx.record() — without querying for them twice.
+    """
+    pre_window = 0
+    if anchor < ctx.start:
+        pre_window = RotaEntry.objects.filter(
+            clinician=profile.clinician, session_type=session_type,
+            day__gte=anchor, day__lt=ctx.start,
+        ).count()
+    return pre_window + ctx.clinician_type_count(profile.clinician_id,
+                                                  session_type.id)
+
+
+def _capped_need(rate, due, done):
+    """Cumulative due minus done, clamped so a trainee is never asked to
+    catch up more than one week's entitlement plus one extra session in a
+    single week (Finding A2) — genuine backlog drains gradually instead of
+    landing in one burst."""
+    return min(due - done, math.ceil(rate) + 1)
 
 
 def run_vts(ctx, actor, result):
@@ -31,11 +62,11 @@ def run_vts(ctx, actor, result):
         rate, weekday, part = profile.weekly_rates()["vts"]
         if rate == 0 or weekday is None:
             continue
-        anchor = week_monday(profile.placement_start)
-        done = _done_before(ctx, profile, vts)
+        anchor = _anchor(profile)
+        done = _existing_count(ctx, profile, vts, anchor)
         cid = profile.clinician_id
         for wm in ctx.weeks():
-            need = due_through(rate, anchor, wm) - done
+            need = _capped_need(rate, due_through(rate, anchor, wm), done)
             if need < 1:
                 continue
             day = wm + timedelta(days=weekday)
@@ -64,11 +95,11 @@ def run_sdl(ctx, actor, result):
         rate, _weekday, _part = profile.weekly_rates()["sdl"]
         if rate == 0:
             continue
-        anchor = week_monday(profile.placement_start)
-        done = _done_before(ctx, profile, sdl)
+        anchor = _anchor(profile)
+        done = _existing_count(ctx, profile, sdl, anchor)
         cid = profile.clinician_id
         for wm in ctx.weeks():
-            need = due_through(rate, anchor, wm) - done
+            need = _capped_need(rate, due_through(rate, anchor, wm), done)
             if need < 1:
                 continue
             candidates = []
