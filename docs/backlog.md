@@ -74,8 +74,26 @@ Found during the v2 review process; none blocked merge.
   `coverage.py`, `trainees.py`, and `mentoring.py` (six-plus occurrences) —
   worth extracting a small helper now that commitments (which prefer
   `commitment.site`) also thread the same precedence.
-- `rota/services/fill/commitments.py`: local variable `commitments` shadows
-  the module's own name — rename to `qs` for readability.
+- `rota/services/fill/trainees.py`: consider whether the trainee report's
+  "expected" column should show the deanery's full entitlement since
+  `placement_start` alongside the system-tracked figure from
+  `requirements_tracked_from` — currently only the tracked figure is shown,
+  which is right for scheduling but understates the placement's total
+  contractual requirement.
+- `rota/views/reports.py`: `_accrual_targets` counts the current, in-flight
+  week as fully due, so a rule can read "1 behind target" purely because
+  today is early in the week. Expected and actual windows are correctly
+  aligned; both simply include the partial week.
+- `rota/views/reports.py`: `report_trainees` monkeypatches
+  `profile.stage_rule` with a lambda to cache the prefetched stage rules —
+  works, but a plain helper computing rates from the prefetched dict would
+  be less fragile. Related: `TraineeProfile.stage_rule()` raises
+  `DoesNotExist` if an admin deletes a seeded `TraineeStageRule` row, which
+  would 500 both the report and any fill — guard it or protect the rows in
+  the admin.
+- Fill results: `FillResult.unfilled` has no dedupe or cap — a realistic
+  8-week fill produced ~125 rows rendered as a flat list. Group by
+  (session type, reason) with a count so the fill screen stays readable.
 - `rota/services/fill/trainees.py`: `run_vts`/`run_sdl` share most of their
   skeleton (profile loop, accrual due-through, day/part iteration) by copy
   rather than a shared helper; `run_sdl` also unpacks unused `_weekday`/
