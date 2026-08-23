@@ -1,3 +1,4 @@
+from calendar import monthrange
 from datetime import date, timedelta
 
 from django.db import transaction
@@ -50,12 +51,22 @@ def decline(actor, req, comment=""):
     req.save()
 
 
+def _clamped_date(year, month, day):
+    """date(year, month, day), clamped to the last valid day of that month
+    if the literal day doesn't exist in that year (29 Feb in a non-leap
+    year). An admin who configures 29 Feb means "end of February", so
+    clamping is preferred over rejecting the configuration."""
+    last_day = monthrange(year, month)[1]
+    return date(year, month, min(day, last_day))
+
+
 def leave_year_bounds(today):
     s = PracticeSettings.load()
-    start = date(today.year, s.leave_year_start_month, s.leave_year_start_day)
+    month, day = s.leave_year_start_month, s.leave_year_start_day
+    start = _clamped_date(today.year, month, day)
     if start > today:
-        start = start.replace(year=today.year - 1)
-    end = start.replace(year=start.year + 1) - timedelta(days=1)
+        start = _clamped_date(today.year - 1, month, day)
+    end = _clamped_date(start.year + 1, month, day) - timedelta(days=1)
     return start, end
 
 

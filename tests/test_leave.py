@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import date, timedelta
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -76,6 +76,28 @@ def test_gp_can_submit_and_admin_approves_via_views(annual_leave, gp_client,
     admin_client.post(f"/requests/leave/{req.pk}/approve/")
     req.refresh_from_db()
     assert req.status == LeaveRequest.Status.APPROVED
+
+
+def test_leave_year_bounds_handles_feb_29_configured_start():
+    # A leave year configured to start 29 Feb ("end of February") must not
+    # 500 in a non-leap year, where date(year, 2, 29) doesn't exist. Both
+    # a non-leap-year `today` and a leap-year `today` must clamp cleanly.
+    s = PracticeSettings.load()
+    s.leave_year_start_month = 2
+    s.leave_year_start_day = 29
+    s.save()
+
+    non_leap_today = date(2025, 6, 15)  # 2025: Feb has 28 days
+    start, end = leave_svc.leave_year_bounds(non_leap_today)
+    assert start == date(2025, 2, 28)
+    assert end == date(2026, 2, 27)
+    assert start <= non_leap_today <= end
+
+    leap_today = date(2024, 6, 15)  # 2024: Feb has 29 days
+    start, end = leave_svc.leave_year_bounds(leap_today)
+    assert start == date(2024, 2, 29)
+    assert end == date(2025, 2, 27)
+    assert start <= leap_today <= end
 
 
 def test_inbox_admin_only(gp_client):
