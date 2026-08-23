@@ -54,3 +54,52 @@ def test_grid_tooltip_names_mentoring_partner(admin_client, admin_user):
     html = admin_client.get(f"/rota/?week={MON}").content.decode()
     assert "with Terry Trainee" in html
     assert "with Alice Adams" in html
+
+
+def test_accrual_window_aligns_expected_and_actual(admin_client, admin_user):
+    """A rule met exactly over the measured weeks must not report as behind."""
+    from datetime import date, timedelta
+
+    from rota.models import CoverageRule
+    from rota.services import entries as entries_svc
+    from rota.services.fill.accrual import week_monday
+
+    PracticeSettings.load()
+    vas = make_session_type("Vas Clinic", fairness_tracked=True)
+    CoverageRule.objects.create(
+        session_type=vas, unit=CoverageRule.Unit.PER_SESSION,
+        frequency=CoverageRule.Frequency.PER_WEEK, count=1,
+        weekdays="0,1,2,3,4", priority=5)
+    c = make_clinician("Alice Adams")
+    wm_now = week_monday(date.today())
+    # One entry in each of the four weeks `expected` measures.
+    for offset in (-21, -14, -7, 0):
+        entries_svc.assign(admin_user, c, wm_now + timedelta(days=offset), "AM",
+                           vas, published=True)
+    html = admin_client.get("/reports/staffing/?weeks=1").content.decode()
+    assert "behind target" not in html, "on-target rule reported as behind"
+
+
+def test_accrual_hides_drafts_from_gps(gp_client, admin_client, admin_user):
+    from datetime import date, timedelta
+
+    from rota.models import CoverageRule
+    from rota.services import entries as entries_svc
+    from rota.services.fill.accrual import week_monday
+
+    PracticeSettings.load()
+    vas = make_session_type("Vas Clinic", fairness_tracked=True)
+    CoverageRule.objects.create(
+        session_type=vas, unit=CoverageRule.Unit.PER_SESSION,
+        frequency=CoverageRule.Frequency.PER_WEEK, count=1,
+        weekdays="0,1,2,3,4", priority=5)
+    c = make_clinician("Alice Adams")
+    wm_now = week_monday(date.today())
+    # Four DRAFT entries covering the measured weeks.
+    for offset in (-21, -14, -7, 0):
+        entries_svc.assign(admin_user, c, wm_now + timedelta(days=offset), "AM",
+                           vas, published=False)
+    admin_html = admin_client.get("/reports/staffing/?weeks=1").content.decode()
+    gp_html = gp_client.get("/reports/staffing/?weeks=1").content.decode()
+    assert "behind target" not in admin_html, "admin sees drafts, so on target"
+    assert "behind target" in gp_html, "GP sees published only, so behind"

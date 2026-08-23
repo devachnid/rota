@@ -79,10 +79,10 @@ def report_staffing(request):
             days.append({"day": d, "warnings": warnings})
     return render(request, "rota/report_staffing.html",
                   {"days": days, "weeks": weeks,
-                   "accrual_rows": _accrual_targets(today)})
+                   "accrual_rows": _accrual_targets(today, include_drafts=include_drafts)})
 
 
-def _accrual_targets(today):
+def _accrual_targets(today, include_drafts=True):
     """Trailing-4-whole-weeks accrual check for demand-driven CoverageRules."""
     epoch = epoch_for(today)
     wm_now = week_monday(today)
@@ -95,9 +95,12 @@ def _accrual_targets(today):
     for rule in rules:
         rate = weekly_rate(rule)
         expected = due_through(rate, epoch, wm_now) - due_through(rate, epoch, wm_prev)
+        # `expected` covers the four weeks starting wm_now-21 .. wm_now, i.e.
+        # the calendar span [wm_now-21, wm_now+6]; `actual` must match that
+        # span, not the week-earlier [wm_prev, wm_now-1].
         actual = sum(fairness_svc.counts(
-            rule.session_type, wm_prev, wm_now - timedelta(days=1),
-            include_drafts=True,
+            rule.session_type, wm_now - timedelta(days=21), wm_now + timedelta(days=6),
+            include_drafts=include_drafts,
         ).values())
         behind = expected - actual
         if behind > 0:
