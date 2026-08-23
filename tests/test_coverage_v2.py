@@ -199,6 +199,28 @@ def test_fill_engine_seed_state_ignores_outsider_actuals(admin_user):
     assert entry.clinician_id == a.id
 
 
+def test_half_covered_full_day_tops_up_missing_part_only(admin_user):
+    from tests.factories import make_entry
+    PracticeSettings.load()
+    duty = make_session_type("Duty", fairness_tracked=True)
+    a, b = _pool("Alice Adams", "Beth Brown")
+    duty.allowed_clinicians.add(a, b)
+    # A manual half-day: Alice already has Monday AM duty, PM is empty.
+    make_entry(a, day=MON, part="AM", session_type=duty)
+    CoverageRule.objects.create(
+        session_type=duty, unit=CoverageRule.Unit.PER_DAY,
+        weekdays="0", priority=5)  # count defaults to 1 full day
+    run_fill(admin_user, MON, MON)
+    am = RotaEntry.objects.filter(session_type=duty, day=MON, part="AM")
+    pm = RotaEntry.objects.filter(session_type=duty, day=MON, part="PM")
+    # Exactly one PM session gets added (whoever fairness picks); AM must
+    # keep its single existing holder, not gain a second one from a
+    # full-day top-up stacked on top of the already-covered part.
+    assert am.count() == 1
+    assert am.first().clinician_id == a.id
+    assert pm.count() == 1
+
+
 def test_fairness_seed_counts_duty_already_in_fill_window(admin_user):
     from tests.factories import make_entry
     PracticeSettings.load()
