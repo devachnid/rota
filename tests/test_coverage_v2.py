@@ -199,6 +199,87 @@ def test_fill_engine_seed_state_ignores_outsider_actuals(admin_user):
     assert entry.clinician_id == a.id
 
 
+def test_half_covered_full_day_tops_up_missing_part_only(admin_user):
+    from tests.factories import make_entry
+    PracticeSettings.load()
+    duty = make_session_type("Duty", fairness_tracked=True)
+    a, b = _pool("Alice Adams", "Beth Brown")
+    duty.allowed_clinicians.add(a, b)
+    # A manual half-day: Alice already has Monday AM duty, PM is empty.
+    make_entry(a, day=MON, part="AM", session_type=duty)
+    CoverageRule.objects.create(
+        session_type=duty, unit=CoverageRule.Unit.PER_DAY,
+        weekdays="0", priority=5)  # count defaults to 1 full day
+    run_fill(admin_user, MON, MON)
+    am = RotaEntry.objects.filter(session_type=duty, day=MON, part="AM")
+    pm = RotaEntry.objects.filter(session_type=duty, day=MON, part="PM")
+    # Exactly one PM session gets added (whoever fairness picks); AM must
+    # keep its single existing holder, not gain a second one from a
+    # full-day top-up stacked on top of the already-covered part.
+    assert am.count() == 1
+    assert am.first().clinician_id == a.id
+    assert pm.count() == 1
+
+
+def test_fairness_seed_counts_duty_already_in_fill_window(admin_user):
+    from tests.factories import make_entry
+    PracticeSettings.load()
+    duty = make_session_type("Duty", fairness_tracked=True)
+    a, b = _pool("Alice Adams", "Beth Brown")  # equal weights, "Alice" sorts first
+    duty.allowed_clinicians.add(a, b)
+    # Alice already has two manually-placed published Duty sessions inside
+    # the fill window itself (not the pre-window lookback) — on different
+    # days from the one the rule below will fill, so they don't collide.
+    make_entry(a, day=MON, part="AM", session_type=duty)
+    make_entry(a, day=MON + timedelta(days=1), part="AM", session_type=duty)
+    wed = MON + timedelta(days=2)
+    CoverageRule.objects.create(
+        session_type=duty, unit=CoverageRule.Unit.PER_SESSION,
+        parts="AM", weekdays="2", priority=5)  # Wednesday only
+    run_fill(admin_user, MON, FRI)
+    entry = RotaEntry.objects.get(session_type=duty, day=wed, part="AM")
+    # Without seeding actuals from Alice's in-window duty, both candidates
+    # would tie on deficit=0 and the alphabetical tie-break would still
+    # hand it to Alice despite her already being the busier of the two.
+    assert entry.clinician_id == b.id
+
+
+def test_fairness_state_last_stays_monotonic_within_a_week():
+    # Quota rules evaluate preferred_weekdays first, so a clinician can be
+    # placed on a chronologically-later day (e.g. Thursday) before an
+    # earlier day in the same week (e.g. Tuesday) is even considered. If
+    # that same clinician is then picked again for the earlier day,
+    # record() must not let `last` regress backwards — that would make
+    # them look longer-overdue than they really are for the rest of the
+    # week's tie-breaks.
+    from rota.services.fill.coverage import _FairnessState
+    thu = MON + timedelta(days=3)
+    tue = MON + timedelta(days=1)
+    state = _FairnessState(actuals={}, last={}, total_assigned=0, total_weight=1)
+    state.record(1, thu, 1)  # preferred (later) day processed first
+    assert state.last[1] == thu
+    state.record(1, tue, 1)  # earlier day in the same week, same clinician
+    assert state.last[1] == thu, "last must not regress to an earlier day"
+    # actuals/total_assigned bookkeeping is unaffected by the last-field fix
+    assert state.actuals[1] == 2
+    assert state.total_assigned == 2
+
+
+def test_eligible_ids_excludes_inactive_individually_allowed_clinician():
+    from rota.services.fill.context import FillContext
+    vas = make_session_type("Vas Clinic", fairness_tracked=True)
+    active = make_clinician("Alice Adams")
+    make_pattern(active)
+    inactive = make_clinician("Ines Inactive", active=False)
+    vas.allowed_clinicians.add(active, inactive)
+    ctx = FillContext(MON, MON + timedelta(days=6))
+    # The inactive clinician still has an allowed_clinicians M2M row, but
+    # eligible_ids() must not offer them up as a candidate for this
+    # restricted type — only the group-membership half of the M2M was
+    # previously filtered to active, leaving this a latent trap.
+    assert ctx.eligible_ids(vas) == {active.id}
+
+
 def test_default_fill_stamps_site(admin_user):
     s = PracticeSettings.load()
     site = Site.objects.create(name="Main Surgery")

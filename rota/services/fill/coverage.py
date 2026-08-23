@@ -36,7 +36,13 @@ class _FairnessState:
     def record(self, cid, day, n):
         self.actuals[cid] = self.actuals.get(cid, 0) + n
         self.total_assigned += n
-        self.last[cid] = day
+        # Quota rules can visit days out of chronological order within a
+        # week (preferred_weekdays first). Keep last[cid] monotonic so a
+        # clinician placed on a later-visited-but-earlier-calendar day
+        # doesn't regress their recorded recency backwards for the rest
+        # of the week's tie-breaks.
+        if cid not in self.last or day > self.last[cid]:
+            self.last[cid] = day
 
 
 def _pick(ctx, cands, st, fairness_state):
@@ -71,6 +77,17 @@ def _seed_fairness_state(ctx, st, start, total_weight):
     # every pool member's fair share.
     pool_ids = ctx.eligible_ids(st)
     actuals = {cid: n for cid, n in actuals.items() if cid in pool_ids}
+    # The pre-window query above only reaches back to `start - 1`, so
+    # entries of this type already sitting *inside* the fill window
+    # (published or manually placed before this pass ran) are otherwise
+    # invisible to the deficit maths. Blend in ctx's own prefetched count
+    # for [ctx.start, ctx.end] — entries this pass places are added
+    # separately via record(), so add each pool member's pre-existing
+    # in-window count exactly once here rather than double-counting.
+    for cid in pool_ids:
+        n = ctx.clinician_type_count(cid, st.id)
+        if n:
+            actuals[cid] = actuals.get(cid, 0) + n
     total_assigned = sum(actuals.values())
     last = fairness.last_done(st, start)
     return _FairnessState(actuals, last, total_assigned, total_weight)
@@ -112,32 +129,45 @@ def _run_slot_rule(ctx, actor, result, rule):
     for day in ctx.open_days:
         if not rule.applies_on(day):
             continue
-        slots = [None] if full_day else rule.parts_for()
-        for part in slots:
-            parts = ["AM", "PM"] if full_day else [part]
-            have = min(ctx.count_type(st.id, day, p) for p in parts)
+        if full_day:
+            _top_up_full_day(ctx, actor, result, st, state, rule, day)
+            continue
+        for part in rule.parts_for():
+            have = ctx.count_type(st.id, day, part)
             for _ in range(max(rule.count - have, 0)):
-                cands = [c for c in ctx.clinicians
-                         if _eligible(ctx, c.id, day, parts, st)]
-                if not cands:
+                if not _try_single(ctx, actor, result, st, state, day, part):
                     result.unfilled.append(UnfilledSlot(
                         day, part, st.name, "no eligible clinician"))
-                    continue
-                pick, reason = _pick(ctx, cands, st, state)
-                n = len(parts)
-                if full_day:
-                    am, pm = entries.assign_full_day(
-                        actor, pick, day, st, site=st.default_site,
-                        manually_set=False, fill_reason=reason)
-                    ctx.record(am)
-                    ctx.record(pm)
-                else:
-                    e = entries.assign(actor, pick, day, parts[0], st,
-                                       site=st.default_site,
-                                       manually_set=False, fill_reason=reason)
-                    ctx.record(e)
-                result.created += n
-                state.record(pick.id, day, n)
+
+
+def _top_up_full_day(ctx, actor, result, st, state, rule, day):
+    """PER_DAY unit, PER_SLOT frequency: rule.count is the number of full
+    linked days wanted on this day. Measuring coverage as min(AM, PM)
+    correctly errs toward covering an uncovered part, but a day that
+    already has duty on only one part (e.g. a manual half-day) must only
+    get the missing part topped up as a single session — not a whole
+    second full-day pair stacked on top of the part already covered.
+    A completely uncovered day still gets full linked pair(s).
+    """
+    am_have = ctx.count_type(st.id, day, "AM")
+    pm_have = ctx.count_type(st.id, day, "PM")
+    needed_am = max(rule.count - am_have, 0)
+    needed_pm = max(rule.count - pm_have, 0)
+    full_pairs = min(needed_am, needed_pm)
+    for _ in range(full_pairs):
+        if not _try_full_day(ctx, actor, result, st, state, day):
+            result.unfilled.append(UnfilledSlot(
+                day, None, st.name, "no eligible clinician"))
+    needed_am -= full_pairs
+    needed_pm -= full_pairs
+    for _ in range(needed_am):
+        if not _try_single(ctx, actor, result, st, state, day, "AM"):
+            result.unfilled.append(UnfilledSlot(
+                day, "AM", st.name, "no eligible clinician"))
+    for _ in range(needed_pm):
+        if not _try_single(ctx, actor, result, st, state, day, "PM"):
+            result.unfilled.append(UnfilledSlot(
+                day, "PM", st.name, "no eligible clinician"))
 
 
 def _boundary_existing_counts(ctx, st, weeks):

@@ -197,6 +197,28 @@ def test_backlog_sdl_capped_leaves_free_cells(admin_user):
     assert placed < 10, "trainee should still have free cells left that week"
 
 
+def test_accrual_seeds_done_per_week_not_whole_range(admin_user):
+    # Finding B4: `done` must be counted as the week loop advances, not
+    # seeded once from the whole [anchor, ctx.end] range up front — a
+    # hand-booked entry sitting in a *later* week must not suppress
+    # placements the trainee is still owed in *earlier* weeks.
+    vts = _setup_vts()
+    c = make_clinician("Terry Trainee")
+    make_pattern(c)
+    make_trainee(clinician=c, stage="ST2", start=MON)  # 1 VTS/week, Tuesday AM
+    week4_tue = TUE + timedelta(days=21)
+    entries_svc.assign(admin_user, c, week4_tue, "AM", vts, published=True)
+    run_fill(admin_user, MON, MON + timedelta(days=27))  # 4-week fill
+    all_vts = RotaEntry.objects.filter(session_type=vts).order_by("day")
+    days = list(all_vts.values_list("day", flat=True))
+    expected = [TUE, TUE + timedelta(days=7), TUE + timedelta(days=14), week4_tue]
+    # Weeks 1-3 get filled and week 4's pre-existing entry is left alone:
+    # four sessions in total, not three (which is what seeding `done` from
+    # the whole range up front — counting week 4's entry from week one —
+    # would produce, since it wrongly satisfies week 1's need).
+    assert days == expected
+
+
 def test_refill_overlapping_window_no_duplicates_or_spurious_unfilled(admin_user):
     # Finding B: entries already published inside the fill window must be
     # counted as "done", or a re-fill of an overlapping window duplicates

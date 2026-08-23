@@ -4,23 +4,19 @@ Carried from the v1 review process (2026-07-19), plus follow-ups from the
 autofill v2 review process (2026-08-22). None are merge-blocking; ordered
 roughly by expected value within each section.
 
-The nine user-visible defects that were here — stuck swap proposals, backwards
-leave ranges, the unreadable unfilled list, false "behind target" readings,
-lost note/site on the eligibility warning, the stage-rule crash, orphaned locum
-re-booking, and the dead leave/swap links — were fixed on 2026-08-23. What
-remains is correctness edges, internal tidies, and a section of decisions that
-are not defects.
+Two sweeps on 2026-08-23 cleared the nine user-visible defects (stuck swap
+proposals, backwards leave ranges, the unreadable unfilled list, false "behind
+target" readings, lost note/site on the eligibility warning, the stage-rule
+crash, orphaned locum re-booking, dead leave/swap links) and the six correctness
+edges (fairness seeding blind to in-range entries, half-covered full-day
+double-cover, the 29 Feb leave-year crash, whole-range trainee accrual seeding,
+non-monotonic rotation tie-break, inactive clinicians in eligibility pools).
+
+What remains is internal tidies, a handful of test-coverage gaps, and a section
+of decisions that are not defects.
 
 ## Behaviour / robustness
 
-- Fill fairness seeding: the 91-day window ends the day before the fill range,
-  so published/manual duty *inside* the range isn't credited in deficits (mild
-  skew, self-corrects next window).
-- Fill: a half-covered full-day slot (e.g. manual AM-only duty) gets a full-day
-  top-up, briefly double-covering one part; duplicate UnfilledSlot rows appear
-  when count-have > 1 with no candidates.
-- Leave-year start of Feb 29 raises in non-leap years — validate on
-  PracticeSettings.
 - `entries.assign` full-replace semantics reset site/note/fill_reason unless
   re-passed — worth a docstring warning. (The two call sites that suffered
   from this — the cell-form warning re-render and full-day assign — are both
@@ -43,8 +39,6 @@ are not defects.
 - PatternSlot.weekday unbounded (no 0–6 validator); PracticeSettings admin
   allows adding extra rows despite the pk=1 singleton convention.
 - Inbox recomputes sessions_affected twice per pending leave request.
-- Fairness: inactive clinicians' in-range entries inflate total_assigned while
-  being dropped from output — document or exclude.
 
 ## Decided — not defects, do not re-raise
 
@@ -68,20 +62,19 @@ so they stop being re-reported by each review pass.
 
 Found during the v2 review process; none blocked merge.
 
-- `FillContext.eligible_ids()` (`rota/services/fill/context.py`) can return
-  inactive clinician ids for restricted session types: the individually
-  M2M'd `allowed_clinicians` aren't filtered to `active=True` (only the
-  group-membership half is, via `self.clinicians`). Every current caller
-  already intersects against active clinicians before use, so it's latent —
-  add a docstring note or filter at build time.
-- Coverage quota rules (`rota/services/fill/coverage.py`): `last[cid]`
-  rotation bookkeeping can go non-chronological within a week because the
-  preferred weekday is evaluated before earlier days in the week — bounded
-  skew, affects the rotation tie-break only. Also untested: need exceeding
-  preferred-day capacity spilling over to non-preferred days (semantic
-  exists, no regression test pins it). `_boundary_existing_counts` issues
-  its range query even when the fill window is already week-aligned
-  (harmless extra query).
+- Coverage quota rules (`rota/services/fill/coverage.py`): untested — need
+  exceeding preferred-day capacity spilling over to non-preferred days
+  (the semantic exists and is correct, but no regression test pins it).
+  `_boundary_existing_counts` issues its range query even when the fill
+  window is already week-aligned (harmless extra query). (The
+  non-chronological `last[cid]` rotation skew is fixed: the tie-break value
+  is now monotonic.)
+- Trainee accrual: only VTS has a regression test for the per-week seeding
+  fix; SDL and mentoring share the same helper and call pattern but aren't
+  pinned, so a future divergence between the three passes wouldn't be
+  caught. Also untested: a session type restricted solely to a
+  since-deactivated clinician (should end up restricted to nobody, not
+  silently open to everyone).
 - `site=<type>.default_site` is inlined at every placement call site across
   `coverage.py`, `trainees.py`, and `mentoring.py` (six-plus occurrences) —
   worth extracting a small helper now that commitments (which prefer
@@ -110,14 +103,6 @@ Found during the v2 review process; none blocked merge.
 - `rota/services/swaps.py`: `validate()` walks `involved_slots(req)` twice
   (once with `.exists()`, once with `.first()`) — could merge into one pass
   with a single query per slot.
-- Trainee accrual seeds `done` across the whole fill range rather than
-  bucketing it by week, so an existing entry sitting in a *later* week of
-  the range suppresses one placement in an earlier week (a hand-booked
-  week-4 VTS in a 4-week fill yields 3 sessions, not 4). The error
-  direction is safe — under-delivery, never a double-booking or a false
-  unfilled — and it self-corrects on the next run once those weeks fall
-  behind the fill start. Fix by adding existing entries to `done` as the
-  week loop advances instead of seeding the whole window up front.
 - `tests/test_mentoring.py::test_mentoring_backlog_reports_each_shortfall`
   uses `wte_percent=300` as a lever to force a multi-session week. It's
   honest and commented, but raising the stage rule's `mentoring_per_week`

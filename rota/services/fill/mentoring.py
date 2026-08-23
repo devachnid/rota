@@ -5,7 +5,7 @@ from rota.services import entries
 
 from .accrual import due_through
 from .scoring import impact_score
-from .trainees import _anchor, _capped_need, _existing_count, _profiles
+from .trainees import _anchor, _capped_need, _profiles, _seed_weekly_done
 from .types import UnfilledSlot
 
 
@@ -41,14 +41,16 @@ def run(ctx, actor, result):
         if rate == 0:
             continue
         anchor = _anchor(profile)
-        done = _existing_count(ctx, profile, ment, anchor)
+        weeks = ctx.weeks()
+        done, existing_by_week = _seed_weekly_done(ctx, profile, ment, anchor, weeks)
         cid = profile.clinician_id
         fixed_trainer = profile.trainer
         substitutes = [c for c in all_trainers
                       if c.id != cid and (fixed_trainer is None
                                           or c.id != fixed_trainer.id)]
 
-        for wm in ctx.weeks():
+        for wm in weeks:
+            done += existing_by_week.get(wm, 0)
             need = _capped_need(rate, due_through(rate, anchor, wm), done)
             if need < 1:
                 continue
