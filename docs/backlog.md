@@ -105,3 +105,15 @@ Found during the v2 review process; none blocked merge.
 - `rota/services/swaps.py`: `validate()` walks `involved_slots(req)` twice
   (once with `.exists()`, once with `.first()`) — could merge into one pass
   with a single query per slot.
+- Trainee accrual seeds `done` across the whole fill range rather than
+  bucketing it by week, so an existing entry sitting in a *later* week of
+  the range suppresses one placement in an earlier week (a hand-booked
+  week-4 VTS in a 4-week fill yields 3 sessions, not 4). The error
+  direction is safe — under-delivery, never a double-booking or a false
+  unfilled — and it self-corrects on the next run once those weeks fall
+  behind the fill start. Fix by adding existing entries to `done` as the
+  week loop advances instead of seeding the whole window up front.
+- `tests/test_mentoring.py::test_mentoring_backlog_reports_each_shortfall`
+  uses `wte_percent=300` as a lever to force a multi-session week. It's
+  honest and commented, but raising the stage rule's `mentoring_per_week`
+  would keep domain-nonsense out of the fixture.
