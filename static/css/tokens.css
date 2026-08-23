@@ -17,6 +17,13 @@
   --warning:     #855B1B;  --warning-soft: #FCF2E2;
   --ok:          #23604A;  --ok-soft:      #E4F2EC;
 
+  /* Shadows and light overlays sit outside the themed palette: a shadow
+     must stay dark and a wash overlay must stay light regardless of theme,
+     so unlike every other token above these two are allowed a literal
+     colour rather than a value that flips with light/dark mode. */
+  --shadow:        rgb(27 31 39 / 18%);
+  --overlay-light: rgb(255 255 255 / 55%);
+
   --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
   --sp-5: 24px; --sp-6: 32px; --sp-7: 48px;
 
@@ -45,6 +52,10 @@
     --danger:      #F09A82;  --danger-soft:  #35201B;
     --warning:     #E0B451;  --warning-soft: #33290F;
     --ok:          #6FAE99;  --ok-soft:      #1B2E28;
+
+    /* Stronger against the darker ground; still dark, never inverted. */
+    --shadow:        rgb(0 0 0 / 55%);
+    --overlay-light: rgb(255 255 255 / 55%);
   }
 }
 
@@ -62,6 +73,9 @@
   --danger:      #F09A82;  --danger-soft:  #35201B;
   --warning:     #E0B451;  --warning-soft: #33290F;
   --ok:          #6FAE99;  --ok-soft:      #1B2E28;
+
+  --shadow:        rgb(0 0 0 / 55%);
+  --overlay-light: rgb(255 255 255 / 55%);
 }
 
 * { box-sizing: border-box; }

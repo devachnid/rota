@@ -63,7 +63,10 @@
   flex-wrap: wrap;
   margin-bottom: var(--sp-5);
 }
-.card {
+/* .request (legacy, see below) predates .card and is the same block —
+   aliased here rather than duplicated. */
+.card,
+.request {
   background: var(--surface);
   border: 1px solid var(--hairline);
   border-radius: var(--r-md);
@@ -268,8 +271,7 @@
   z-index: 10;
   background: var(--surface);
   border-radius: var(--r-lg);
-  box-shadow: 0 var(--sp-2) var(--sp-6)
-              color-mix(in srgb, var(--ink) 35%, transparent);
+  box-shadow: 0 var(--sp-2) var(--sp-6) var(--shadow);
 }
 #modal:empty { display: none; }
 #modal form {
@@ -291,14 +293,13 @@
 
 .unavail { background: var(--sunken); }
 
-/* Same hatched idea as .chip.is-draft above, expressed without a second
-   literal rgba() — color-mix derives the translucency from a token instead. */
-td.draft,
+/* Same hatched idea as .chip.is-draft above, via the dedicated overlay
+   token instead of a second literal rgba() (and instead of --surface,
+   which flips polarity between themes and would invert the wash). */
 .draft {
   background-image: repeating-linear-gradient(45deg,
     transparent, transparent 4px,
-    color-mix(in srgb, var(--surface) 55%, transparent) 4px,
-    color-mix(in srgb, var(--surface) 55%, transparent) 8px);
+    var(--overlay-light) 4px, var(--overlay-light) 8px);
 }
 
 .site-marker {
@@ -308,7 +309,7 @@ td.draft,
   line-height: 1.1em;
   padding: 0 2px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--surface) 55%, transparent);
+  background: var(--overlay-light);
   color: inherit;
   font-size: .85em;
   font-weight: 700;
@@ -317,13 +318,6 @@ td.draft,
   text-align: center;
 }
 
-/* .request predates .card (Task 5+ swaps the class); alias it so inbox.html
-   and my_schedule.html keep their grouped-block look. */
-.card,
-.request {
-  background: var(--surface);
-  border: 1px solid var(--hairline);
-  border-radius: var(--r-md);
-  padding: var(--sp-4);
-}
+/* .request predates .card (Task 5+ swaps the class); aliased with it above
+   so inbox.html and my_schedule.html keep their grouped-block look. */
 .request { margin-bottom: var(--sp-4); }
