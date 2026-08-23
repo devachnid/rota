@@ -4,6 +4,13 @@ Carried from the v1 review process (2026-07-19), plus follow-ups from the
 autofill v2 review process (2026-08-22). None are merge-blocking; ordered
 roughly by expected value within each section.
 
+The nine user-visible defects that were here — stuck swap proposals, backwards
+leave ranges, the unreadable unfilled list, false "behind target" readings,
+lost note/site on the eligibility warning, the stage-rule crash, orphaned locum
+re-booking, and the dead leave/swap links — were fixed on 2026-08-23. What
+remains is correctness edges, internal tidies, and a section of decisions that
+are not defects.
+
 ## Behaviour / robustness
 
 - Fill fairness seeding: the 91-day window ends the day before the fill range,
@@ -12,23 +19,13 @@ roughly by expected value within each section.
 - Fill: a half-covered full-day slot (e.g. manual AM-only duty) gets a full-day
   top-up, briefly double-covering one part; duplicate UnfilledSlot rows appear
   when count-have > 1 with no candidates.
-- Fill re-run has no preview step (spec asks for previews on destructive
-  actions); accepted because re-run provably only touches its own drafts.
-- Swap audit log records only the proposer's name per touched slot; two rows
-  (one per clinician) would be a cleaner trail.
-- Orphaned-then-recovered locum requirement: re-booking requires stepping back
-  to ADVERTISED first (direct re-BOOK no-ops the clinician).
 - Leave-year start of Feb 29 raises in non-leap years — validate on
   PracticeSettings.
 - `entries.assign` full-replace semantics reset site/note/fill_reason unless
-  re-passed — document in a docstring; the cell-form warning re-render drops
-  typed note/site; full-day assign discards site/note.
+  re-passed — worth a docstring warning. (The two call sites that suffered
+  from this — the cell-form warning re-render and full-day assign — are both
+  fixed; the sharp edge in the service itself remains undocumented.)
 - `part` values aren't validated in edit endpoints (admin-only surface).
-- Swap proposals can target clinicians with no linked user (stalls at
-  PROPOSED); filter `user__isnull=False` in swap_new.
-- `leave_new` accepts end_date < start_date (approves as a no-op).
-- Grid nav shows Request leave / Propose swap to admin accounts with no
-  clinician profile (403 on click).
 - locum_save reaches its 400 on malformed day via an accidental double-parse —
   parse once before the try.
 
@@ -48,9 +45,24 @@ roughly by expected value within each section.
 - Inbox recomputes sessions_affected twice per pending leave request.
 - Fairness: inactive clinicians' in-range entries inflate total_assigned while
   being dropped from output — document or exclude.
-- systemd units run as root (fine for this LXC; note if hardening later).
-- Axes lockout is username-only (correct behind the tunnel, but means a known
-  email can be locked for 1h by anyone) — noted here as a documented tradeoff.
+
+## Decided — not defects, do not re-raise
+
+These were carried as backlog items but are deliberate choices, recorded here
+so they stop being re-reported by each review pass.
+
+- **systemd units run as root.** Correct for this single-purpose LXC. Revisit
+  only if the container ever hosts anything else.
+- **Axes lockout is keyed on username only.** Correct behind the Cloudflare
+  tunnel, where every request carries the tunnel's IP and IP-keying would be
+  useless. Accepted consequence: someone who knows a GP's email can lock that
+  account for an hour.
+- **Fill re-run has no preview step**, though the spec asks for previews on
+  destructive actions. Accepted: re-run provably touches only its own unpublished
+  drafts, never published or manually-set entries, and that is enforced by tests.
+- **Swap audit log records one clinician's name per touched slot** (the other
+  appears in the free-text detail). A second row per swap would be a tidier
+  trail, but the information is not lost.
 
 ## Autofill v2 follow-ups
 
@@ -80,20 +92,13 @@ Found during the v2 review process; none blocked merge.
   `requirements_tracked_from` — currently only the tracked figure is shown,
   which is right for scheduling but understates the placement's total
   contractual requirement.
-- `rota/views/reports.py`: `_accrual_targets` counts the current, in-flight
-  week as fully due, so a rule can read "1 behind target" purely because
-  today is early in the week. Expected and actual windows are correctly
-  aligned; both simply include the partial week.
 - `rota/views/reports.py`: `report_trainees` monkeypatches
   `profile.stage_rule` with a lambda to cache the prefetched stage rules —
   works, but a plain helper computing rates from the prefetched dict would
-  be less fragile. Related: `TraineeProfile.stage_rule()` raises
-  `DoesNotExist` if an admin deletes a seeded `TraineeStageRule` row, which
-  would 500 both the report and any fill — guard it or protect the rows in
-  the admin.
-- Fill results: `FillResult.unfilled` has no dedupe or cap — a realistic
-  8-week fill produced ~125 rows rendered as a flat list. Group by
-  (session type, reason) with a count so the fill screen stays readable.
+  be less fragile. (The related crash — a deleted `TraineeStageRule` row
+  500ing the report and every fill — is fixed: `stage_rule()` now returns
+  `None`, `weekly_rates()` yields zero rates, and the admin refuses to
+  delete the seeded rows.)
 - `rota/services/fill/trainees.py`: `run_vts`/`run_sdl` share most of their
   skeleton (profile loop, accrual due-through, day/part iteration) by copy
   rather than a shared helper; `run_sdl` also unpacks unused `_weekday`/
