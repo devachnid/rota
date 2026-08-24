@@ -21,16 +21,15 @@ autofill v2 review processes had accumulated:
   `swaps.validate()` made single-pass, plus assorted query and validation
   hygiene and the test-coverage gaps earlier reviews flagged.
 
-## Open — needs a decision, not a fix
+## Settled
 
-- **What should the trainee report's "expected" column mean?** Still open,
-  verified at `rota/views/reports.py:179`. It shows the system-tracked figure,
-  accruing from `trainee_anchor(profile)` — `requirements_tracked_from`, or the
-  placement start when that is blank. That is the right basis for *scheduling* —
-  the engine should not try to manufacture education time it never observed — but
-  it understates the placement's total contractual requirement, which is what a
-  deanery would ask about. Showing both figures side by side is probably the
-  answer, but it is a domain call.
+- **The trainee report's "expected" column** shows requirements accruing from
+  `requirements_tracked_from` (or placement start when blank), and that is what
+  it should show — Tom, 2026-08-24. The system reports what it was asked to
+  track; the placement's full contractual total is a deanery question, not a
+  rota one. No change needed; `rota/views/reports.py:179` already does this.
+
+## Open — needs a decision, not a fix
 
 - **The session palette has no true neutral.** All 40 tints are colours. The
   family generated at hue 360° was named "Slate", which implied grey but renders
@@ -53,27 +52,16 @@ autofill v2 review processes had accumulated:
   because `closed` is only applied to the upper `<th>` in `grid.html`. Confirmed
   in a browser. Cosmetic, and a template change rather than a styling one.
 
-## Live configuration — not code, but the app is wrong until these are set
+## Configuration notes
 
-Found during the first real smoke test, 2026-08-24. All three are admin data,
-not defects, but each makes a feature silently produce nonsense.
+The three configuration problems previously recorded here — inverted
+`counts_toward_entitlement`, unset leave entitlements, and missing pattern
+slots — were read off the **development** database on this box, not the test
+deployment. They do not describe the deployed system and have been removed.
 
-- **`counts_toward_entitlement` is inverted.** It is ON for Routine, Duty,
-  Mentoring, SDL and VTS, and OFF for Annual Leave — so the leave report counts
-  ordinary working sessions as leave taken and ignores actual leave. This is what
-  produced the negative "Remaining" balances. Should be ON for absence types
-  only.
-
-- **Leave entitlement is unset for 20 of 22 active clinicians.** Only Paul
-  Colquhoun (64) and Rebecca Rowlands (36) have a figure, so everyone else's
-  balance goes negative on their first booked session regardless of the flag
-  above.
-
-- **Only 11 of 22 active clinicians have any pattern slots** (68 rows total, no
-  recurring commitments). This is why the first assisted-fill run created 0
-  sessions and reported 106 unfilled slots with "no eligible clinician" — the
-  engine had no availability to work from. The bulk pattern editor on the
-  Clinician admin page is the fast way in.
+Worth keeping as a lesson rather than a task: the dev DB and the deployed one
+have diverged, so any future claim about "the data" needs to say which database
+it came from.
 
 ## Decided — not defects, do not re-raise
 
@@ -105,9 +93,9 @@ Deliberate choices, recorded so they stop being re-reported by each review pass.
 
 - **Manual smoke test — in progress.** The first pass immediately found four
   issues: a template comment rendering to the page and an unfiltered trainer
-  dropdown (both fixed in `580747e`), the assisted-fill result explained by the
-  missing pattern slots above, and a question about eligibility semantics that
-  turned out to be working as intended. The autofill v2 review predicted this
+  dropdown (both fixed in `580747e`), an assisted-fill run that produced nothing
+  because the clinician patterns had not been populated yet, and a question about
+  eligibility semantics that turned out to be working as intended. The autofill v2 review predicted this
   pass would surface things no amount of review would, and it did. Still to do:
   configure the real practice rules, run a 4-week fill with patterns populated,
   and check the result against how the rota is actually built.
@@ -120,6 +108,3 @@ Deliberate choices, recorded so they stop being re-reported by each review pass.
   actually use. Phase 3 is grid interaction — drag-and-drop assignment, keyboard
   navigation, inline editing.
 
-- **The PAT in the git remote URL.** `.git/config` holds a GitHub personal access
-  token in plaintext, so it surfaces in any git output, log or screen share.
-  Rotate it and move to SSH or a credential helper.
