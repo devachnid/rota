@@ -63,6 +63,17 @@
   gap: var(--sp-5);
 }
 
+/* .form-actions defaults to margin-top: var(--sp-5) (components.css:149) —
+   right for a button row sitting under a stack of .field elements, but
+   .page-head is align-items: baseline, and that top margin is inside the
+   flex item's box, so it drags the "Request leave" / "Propose a swap"
+   buttons down out of line with the <h1>. Override it back to 0 specifically
+   for this combination; (0,2,0) beats components.css's bare .form-actions
+   (0,1,0) on specificity, so this wins regardless of stylesheet order. */
+.page-head .form-actions {
+  margin-top: 0;
+}
+
 /* Leave balance figures as a small stat row inside the .card. Wraps under
    its own gap on narrow screens rather than squeezing four columns tight. */
 .stat-row {
@@ -97,12 +108,29 @@
 
 /* --------------------------------------------------------- auth / login --- */
 
+/* The login page renders the same nav as every other page (base.html's
+   <nav> isn't gated behind user.is_authenticated — only the user-email/
+   log-out bit inside it is), so a naive 100dvh here would overshoot the
+   remaining space by the nav's height. We deliberately don't try to
+   subtract it: the brief rules out hardcoding a nav height into calc(),
+   and there's no way to read the nav's real height without measuring it
+   in JS, which is out of scope. 100dvh (not 100vh, so mobile browser
+   chrome showing/hiding doesn't jump the layout) is the honest choice
+   that depends on nothing but the viewport itself — the trade-off is that
+   the card centres within a box slightly taller than the space actually
+   left under the nav, so on tall content or a short viewport it sits a
+   little below true optical centre rather than dead-centre in the visible
+   remainder. It never clips and is always reachable by scrolling, which is
+   what actually matters (see .auth-card's margin: auto below).
+   .main (components.css) already contributes var(--sp-5) of horizontal
+   padding, so .auth-wrap doesn't need its own. */
 .auth-wrap {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--sp-5);
-  padding-top: var(--sp-7);
+  min-height: 100dvh;
+  padding: var(--sp-6) 0;
 }
 .auth-brand {
   margin: 0;
@@ -111,9 +139,18 @@
   color: var(--ink);
   letter-spacing: -.02em;
 }
+/* margin: auto (not justify-content: center on .auth-wrap) is what actually
+   centres this: on a flex item, auto margins absorb the container's leftover
+   space and split it evenly on both sides. When the card is taller than the
+   space available — e.g. once Django renders a validation errorlist above
+   the fields on a short phone viewport — the auto margins simply collapse
+   toward 0 and the card lands top-aligned and fully scrollable instead of
+   being clipped with no way to reach the rest of it, which is what
+   justify-content: center would have done. */
 .auth-card {
   width: 100%;
   max-width: 22rem;
+  margin: auto;
   background: var(--surface);
   border: 1px solid var(--hairline);
   border-radius: var(--r-lg);
