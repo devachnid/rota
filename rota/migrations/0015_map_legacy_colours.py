@@ -19,7 +19,12 @@ def to_tints(apps, schema_editor):
 def back_to_hex(apps, schema_editor):
     SessionType = apps.get_model("rota", "SessionType")
     for st in SessionType.objects.all():
-        st.colour = st.legacy_colour
+        # Only rows `to_tints` actually captured have a legacy_colour to give
+        # back. It skips rows that already held a tint key, and on a fresh
+        # install it runs against an empty table, so every row created after
+        # this migration has legacy_colour="". Assigning that unconditionally
+        # would blank the colour of every session type added since deploy.
+        st.colour = st.legacy_colour or st.colour
         st.save(update_fields=["colour"])
 
 

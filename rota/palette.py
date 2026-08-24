@@ -39,6 +39,22 @@ _FG_START = {"light": (0.42, 0.105), "dark": (0.90, 0.060)}
 
 DEFAULT_TINT = "slate-soft"
 
+# Below this OKLCH chroma an input is a neutral — a grey, black or white — and
+# its hue angle is not a colour, it is floating-point residue. `#cccccc` and
+# `#ffffff` both report a hue of ~89.9 deg purely because the LMS matrix rows
+# sum to 1.0 only to ten decimal places; assigning them a hue family on the
+# strength of that would be inventing information. Anything under the floor
+# gets DEFAULT_TINT instead.
+#
+# 0.02 is where a single sRGB channel pushed ~16/255 away from neutral lands
+# (#908080 is C=0.0196, #f0f0ff is C=0.0200) — the smallest deviation that
+# reads as a tint rather than as rounding. It leaves real colours untouched:
+# the least saturated genuine colour in the practice's data and in the test
+# corpus is #023047 at C=0.062, three times the floor, and it sits at half the
+# chroma of the palette's own faintest tint (soft backgrounds are built at
+# C=0.040), so nothing that could itself be a palette colour is rejected.
+CHROMA_FLOOR = 0.02
+
 
 # --------------------------------------------------------------------------
 # colour maths
@@ -84,6 +100,51 @@ def hex_to_rgb(value: str) -> tuple[float, float, float]:
     if len(v) != 6:
         raise ValueError(f"expected #rrggbb, got {value!r}")
     return tuple(int(v[i:i + 2], 16) / 255 for i in (0, 2, 4))
+
+
+def srgb_to_oklch(hex_value: str) -> tuple[float, float, float]:
+    """sRGB hex -> (L, C, H). The inverse of `oklch_to_hex` above.
+
+    The two matrices here are the 3x3 inverses of the two in `oklch_to_hex`;
+    they agree with a Gauss-Jordan inversion of those exact coefficients to
+    within 1e-8. `test_srgb_to_oklch_round_trips_oklch_to_hex` pins that down
+    against the real generator, and
+    `test_srgb_to_oklch_matches_published_srgb_primaries` checks it against
+    published OKLab values so the pair cannot agree on being wrong together.
+
+    H is degrees in [0, 360). It is only meaningful when C is non-trivial —
+    for a neutral, a and b are both ~1e-10 and the angle is noise. Callers
+    must gate on CHROMA_FLOOR before believing it.
+
+    Raises ValueError on anything that is not #rrggbb.
+    """
+    lin_r, lin_g, lin_b = (_srgb_to_linear(c) for c in hex_to_rgb(hex_value))
+
+    l = 0.4122214708 * lin_r + 0.5363325363 * lin_g + 0.0514459929 * lin_b
+    m = 0.2119034982 * lin_r + 0.6806995451 * lin_g + 0.1073969566 * lin_b
+    s = 0.0883024619 * lin_r + 0.2817188376 * lin_g + 0.6299787005 * lin_b
+
+    # Signed cube root: the forward direction cubes, and near-black channels
+    # can land a hair below zero, where ** (1/3) would raise.
+    l_, m_, s_ = (math.copysign(abs(v) ** (1 / 3), v) for v in (l, m, s))
+
+    L = 0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_
+    a = 1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_
+    b = 0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_
+
+    return L, math.hypot(a, b), math.degrees(math.atan2(b, a)) % 360.0
+
+
+def hue_distance(a: float, b: float) -> float:
+    """Shortest distance between two hue angles, in degrees.
+
+    The wheel wraps, so 350 and 10 are 20 apart, not 340. Computing this as a
+    plain subtraction is what makes a colour just past 0 deg — a crimson, say —
+    look 340-odd degrees from the families sitting at the top of the wheel,
+    which is precisely where several of the practice's colours live.
+    """
+    d = abs(a - b) % 360.0
+    return min(d, 360.0 - d)
 
 
 def relative_luminance(rgb: tuple[float, float, float]) -> float:
@@ -151,43 +212,33 @@ def nearest_tint(hex_value: str) -> str:
     Used once, by the migration that converts free-form `SessionType.colour`
     values into palette keys. Malformed input falls back to DEFAULT_TINT.
 
-    Strategy: find the nearest hue family (by minimum distance across both
-    tones), then within that family pick the tone whose background lightness
-    best matches the source colour's luminance.
+    Strategy: convert the source to OKLCH and pick the hue family whose
+    declared angle in HUES is the smallest *angular* distance away, then within
+    that family pick the tone whose background lightness best matches the
+    source colour's luminance.
+
+    Comparing hue angles is the whole point. An earlier version scored families
+    by sRGB distance to the tint backgrounds instead; because every background
+    sits at L~0.94 or 0.88, that distance was dominated by lightness and hue
+    barely registered, so a saturated red landed on amber.
+
+    Inputs below CHROMA_FLOOR are neutrals with no hue to preserve and get
+    DEFAULT_TINT, as does anything that is not a #rrggbb value.
     """
     try:
-        target = hex_to_rgb(hex_value)
-        target_luminance = relative_luminance(target)
-    except (ValueError, AttributeError):
+        _, chroma, hue = srgb_to_oklch(hex_value)
+        target_luminance = relative_luminance(hex_to_rgb(hex_value))
+    except (ValueError, AttributeError, TypeError):
         return DEFAULT_TINT
 
-    # Group tints by hue family, finding the minimum distance per family
-    hue_families = {}
-    for key, tint in TINTS.items():
-        hue_name = key.rsplit("-", 1)[0]
-        candidate = hex_to_rgb(tint.bg)
-        d = sum((a - b) ** 2 for a, b in zip(target, candidate))
+    if chroma < CHROMA_FLOOR:
+        return DEFAULT_TINT
 
-        if hue_name not in hue_families:
-            hue_families[hue_name] = {"min_d": d, "tints": {}}
-
-        if d < hue_families[hue_name]["min_d"]:
-            hue_families[hue_name]["min_d"] = d
-
-        hue_families[hue_name]["tints"][key] = tint
-
-    # Find the hue family with minimum distance
-    nearest_family = min(hue_families, key=lambda h: hue_families[h]["min_d"])
-    family_tints = hue_families[nearest_family]["tints"]
+    family = min(HUES, key=lambda nh: hue_distance(hue, nh[1]))[0]
 
     # Within the family, pick the tone whose background lightness is closer
-    # to the source's luminance
-    best_key = None
-    best_diff = None
-    for key, tint in family_tints.items():
-        bg_luminance = relative_luminance(hex_to_rgb(tint.bg))
-        diff = abs(bg_luminance - target_luminance)
-        if best_diff is None or diff < best_diff:
-            best_key, best_diff = key, diff
-
-    return best_key
+    # to the source's luminance.
+    return min(
+        (f"{family}-{tone}" for tone in TONES),
+        key=lambda k: abs(relative_luminance(hex_to_rgb(TINTS[k].bg)) - target_luminance),
+    )
