@@ -70,6 +70,20 @@
   gap: var(--sp-5);
 }
 
+/* .page-head carries its own margin-bottom: var(--sp-5) (components.css:69),
+   meant for the case where it's a sibling *before* a following block (as in
+   my_schedule.html). Flex gap does not collapse with a child's margin — it
+   adds — so on the report/fill/inbox screens, where .page-head is .stack's
+   first child, that margin stacked on top of .stack's own 24px gap would
+   double the rhythm under every page title to 48px, against the 24px
+   between any other two sections in the same stack. Zero it out for that
+   specific combination; (0,2,0) beats components.css's bare .page-head
+   (0,1,0) on specificity, so this wins regardless of stylesheet order —
+   same interaction, same fix shape, as .page-head .form-actions below. */
+.stack > .page-head {
+  margin-bottom: 0;
+}
+
 /* .form-actions defaults to margin-top: var(--sp-5) (components.css:149) —
    right for a button row sitting under a stack of .field elements, but
    .page-head is align-items: baseline, and that top margin is inside the

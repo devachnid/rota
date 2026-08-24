@@ -78,8 +78,16 @@ body {
   flex-wrap: wrap;
   margin-bottom: var(--sp-5);
 }
-/* .request (legacy, see below) predates .card and is the same block —
-   aliased here rather than duplicated. */
+/* .request predates .card and is the same block — aliased here rather
+   than duplicated. Kept on inbox.html's markup (not just here) per Task 7's
+   own instruction, not because any test currently asserts the class name —
+   re-grepped for both at fix-round 1 and found nothing else, template,
+   partial or static file, that depends on it either. It used to also carry
+   its own margin-bottom: var(--sp-4) further down this file; that's removed
+   as of fix-round 1 — .stack (screens.css) now owns inter-card spacing on
+   the inbox, and flex gap doesn't collapse with a child's margin, so the
+   two were adding to 40px between cards instead of the 24px used
+   everywhere else. */
 .card,
 .request {
   background: var(--surface);
@@ -137,7 +145,15 @@ body {
   font-size: var(--fs-sm);
   color: var(--ink);
 }
-.field input,
+/* :not([type=checkbox]):not([type=radio]) guards this against a checkbox
+   or radio sat inside a .field (fill.html's "fill remaining empty cells"
+   checkbox is the first of either in the codebase to do that; the two
+   pre-existing checkboxes, in _cell_form.html and the admin bulk_form.html,
+   both sit outside .field). Without the guard, the browser applies this
+   padding/border/radius/background to the checkbox's own box exactly as it
+   would a text input, rendering it as an oversized bordered rounded square
+   around the native glyph instead of a normal checkbox. */
+.field input:not([type="checkbox"]):not([type="radio"]),
 .field select,
 .field textarea {
   font-family: var(--font);
@@ -148,7 +164,7 @@ body {
   border-radius: var(--r-sm);
   padding: var(--sp-2) var(--sp-3);
 }
-.field input:focus,
+.field input:not([type="checkbox"]):not([type="radio"]):focus,
 .field select:focus,
 .field textarea:focus { border-color: var(--accent); }
 
@@ -343,6 +359,3 @@ body {
   text-align: center;
 }
 
-/* .request predates .card (Task 5+ swaps the class); aliased with it above
-   so inbox.html and my_schedule.html keep their grouped-block look. */
-.request { margin-bottom: var(--sp-4); }
