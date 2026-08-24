@@ -10,6 +10,13 @@ commitments, demand-driven clinics, PMC branch cover).
     python manage.py migrate && python manage.py runserver
     pytest
 
+## Admin guide
+
+Every admin setting is documented in [docs/admin/](docs/admin/README.md) — one
+page per area, each field explained with what depends on it and what goes wrong
+if it is set wrong. The sequence below gets a new practice running; that guide
+is the reference for what the settings actually mean.
+
 ## First-time setup (via /admin/)
 
 1. `python manage.py createsuperuser`
