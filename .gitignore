@@ -5,3 +5,10 @@ db.sqlite3
 staticfiles/
 backups/
 .claude/skills/
+
+# Subagent-driven-development scratch: per-plan ledgers, task briefs, agent
+# reports and review diffs. Regenerated per run and never part of the source
+# tree — the durable spec and plan for each phase live in docs/superpowers/.
+# This used to be a self-ignoring .gitignore inside the directory, which meant
+# deleting the directory also deleted the safeguard.
+.superpowers/
