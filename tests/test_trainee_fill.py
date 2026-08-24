@@ -275,3 +275,68 @@ def test_refill_overlapping_window_no_duplicates_or_spurious_unfilled(admin_user
     # No spurious unfilled reports for the already-delivered week.
     assert not any(u.session_type in ("VTS", "SDL") and u.day <= week1_end
                    for u in result.unfilled)
+
+
+# --------------------------------------------------------------------------
+# the trainer dropdown
+# --------------------------------------------------------------------------
+
+def test_trainer_field_only_offers_clinicians_flagged_as_trainers(db):
+    """The admin's trainer dropdown listed every clinician in the practice,
+    so it was possible to name a receptionist or a fellow trainee as a
+    trainee's trainer. Only clinicians with is_trainer=True are offered."""
+    from django.forms import modelform_factory
+
+    from rota.models import Clinician, TraineeProfile
+
+    trainer = make_clinician("Tessa Trainer", initials="TT")
+    trainer.is_trainer = True
+    trainer.save(update_fields=["is_trainer"])
+
+    not_a_trainer = make_clinician("Nora Normal", initials="NN")
+    assert not_a_trainer.is_trainer is False
+
+    Form = modelform_factory(TraineeProfile, fields=["trainer"])
+    offered = {c.pk for c in Form().fields["trainer"].queryset}
+
+    assert trainer.pk in offered, "a flagged trainer must be offered"
+    assert not_a_trainer.pk not in offered, (
+        "a clinician who is not flagged as a trainer must not be offered as one"
+    )
+    # and the constraint is declared on the field, so every form built from
+    # the model inherits it rather than each one re-filtering by hand
+    assert TraineeProfile._meta.get_field("trainer").remote_field.limit_choices_to == {
+        "is_trainer": True
+    }
+
+
+def test_the_admin_trainee_inline_inherits_the_trainer_filter(staff_user):
+    """TraineeProfile is edited through an inline on the Clinician admin
+    page, which is where the wrong dropdown was actually seen."""
+    from django.contrib.admin.sites import AdminSite
+    from django.test import RequestFactory
+
+    from rota.admin import ClinicianAdmin
+    from rota.models import Clinician
+
+    trainer = make_clinician("Tariq Trainer", initials="TQ")
+    trainer.is_trainer = True
+    trainer.save(update_fields=["is_trainer"])
+    plain = make_clinician("Percy Plain", initials="PP")
+
+    request = RequestFactory().get("/")
+    request.user = staff_user
+
+    admin = ClinicianAdmin(Clinician, AdminSite())
+    inline = admin.inlines[0](Clinician, AdminSite())
+    # Instantiate the form rather than reading base_fields: Django applies
+    # limit_choices_to when the form is built, not on the form class, so
+    # base_fields["trainer"].queryset is deliberately unfiltered. What the
+    # rendered page offers is the instantiated field's queryset.
+    formset = inline.get_formset(request)
+    offered = {c.pk for c in formset.form().fields["trainer"].queryset}
+
+    assert trainer.pk in offered
+    assert plain.pk not in offered, (
+        "the Clinician admin's trainee inline still offers non-trainers"
+    )

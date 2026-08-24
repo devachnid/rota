@@ -35,7 +35,12 @@ class TraineeProfile(models.Model):
     wte_percent = models.PositiveIntegerField(default=100)
     trainer = models.ForeignKey(
         "rota.Clinician", null=True, blank=True, on_delete=models.SET_NULL,
-        related_name="trainees")
+        related_name="trainees",
+        limit_choices_to={"is_trainer": True},
+        help_text="The trainee's named trainer for the placement. Only "
+                  "clinicians flagged as trainers are offered; when the "
+                  "named trainer is away the fill engine substitutes "
+                  "another trainer automatically.")
     placement_start = models.DateField()
     placement_end = models.DateField()
     requirements_tracked_from = models.DateField(

@@ -6,9 +6,17 @@
     <h1>Pending requests</h1>
   </div>
   <h2>Leave</h2>
-  {# "request" alongside "card" is vestigial (components.css) — kept on the
-     markup per Task 7's own instruction, not because a test asserts it
-     (re-grepped, none do); .card supplies all the actual box styling. #}
+  {% comment %}
+    "request" alongside "card" is vestigial (components.css) — kept on the
+    markup per Task 7's own instruction, not because a test asserts it
+    (re-grepped, none do); .card supplies all the actual box styling.
+
+    Written as a comment block rather than a hash comment because Django's
+    hash form is single-line only: spread one over several lines and it is
+    not recognised as a comment at all, so the whole thing renders to the
+    page as literal text. This one did, under the "Leave" heading, until it
+    was spotted in production.
+  {% endcomment %}
   {% for item in pending_leave %}
   <div class="card request">
     <p><strong>{{ item.req.clinician.name }}</strong> — {{ item.req.session_type.name }},
