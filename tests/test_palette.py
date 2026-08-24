@@ -157,21 +157,36 @@ def test_nearest_tint_wraps_at_the_red_end_of_the_wheel(hex_value, expected_key)
 def test_nearest_tint_sends_neutrals_to_the_default(hex_value):
     """A grey has no hue to preserve, so inventing one is a lie.
 
-    Their measured chroma is ~1e-10 and their reported hue is pure
-    floating-point residue: #cccccc, #888888 and #ffffff all come out at
-    H~89.9 for no reason other than the LMS matrix rows summing to 1.0 to ten
-    decimal places, and #000000 lands on exactly 0. The old code duly filed
-    them under emerald, emerald, purple and green respectively.
+    Their measured chroma is ~1e-8 and their reported hue is pure
+    floating-point residue — the direction of a vector with no length. With
+    the constants `srgb_to_oklch` ships today #cccccc, #888888 and #ffffff all
+    come out near H=89.9, for no reason other than where those rows round off;
+    #000000 lands on exactly 0. The old code duly filed them under emerald,
+    emerald, purple and green respectively. Which arbitrary angle they report
+    is not a property of the colours and is not asserted anywhere — see
+    `test_neutrals_really_do_report_a_meaningless_hue`.
     """
     assert palette.nearest_tint(hex_value) == palette.DEFAULT_TINT
 
 
 def test_neutrals_really_do_report_a_meaningless_hue():
-    """Guards the premise of the chroma floor, so it cannot rot silently."""
+    """Guards the premise of the chroma floor, so it cannot rot silently.
+
+    The chroma is the whole claim, and it is the only thing asserted here. The
+    angle these greys come back with is deliberately not asserted: it is the
+    direction of a vector ~1e-8 long, so it is decided entirely by the last
+    digits of the inverse-matrix constants in `srgb_to_oklch`. Those constants
+    are inverses to ten decimal places; swap them for exactly-computed ones and
+    the same three greys report 240.3, 186.2 and 187.1 degrees instead of all
+    landing near 89.9. Pinning any of those numbers would turn a strictly
+    correct tightening of the constants into a red test whose message blamed
+    the hue code, which was never wrong. There is no hue here to be right
+    about — only a chroma small enough that `nearest_tint` must refuse to look
+    at the angle at all.
+    """
     for grey in ("#cccccc", "#888888", "#ffffff"):
-        L, C, H = palette.srgb_to_oklch(grey)
+        _L, C, _H = palette.srgb_to_oklch(grey)
         assert C < 1e-6, (grey, C)
-        assert H == pytest.approx(89.87, abs=0.1), (grey, H)  # noise, not yellow
 
 
 def test_chroma_floor_admits_genuinely_muted_colours():

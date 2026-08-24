@@ -244,23 +244,46 @@ body {
    width to the chip's full text width, so the cell could never be narrower
    than the chip and the ellipsis could never fire.
 
-   The column floor comes from widths on the first row's cells, not from
-   min-width on every cell: fixed layout takes its column widths from the
-   first row alone (CSS 2.1 17.5.2.1), and the used table width is the greater
-   of its own width and the sum of those columns — so 5.5rem + 5 days x 7rem =
-   40.5rem is a real floor that overflows .grid-wrap (overflow: auto,
-   screens.css) into a horizontal scroll on a phone, while on a desktop the
-   table stays at width: 100% and the slack is distributed across the columns.
-   A colspan="2" .grid-day divides its 7rem over the AM and PM columns it
-   spans, giving 3.5rem each. min-width on the cells would have been the
-   inert version of this fix: it is not an input to the fixed-layout
-   algorithm.
+   .grid-clin is the only column with a width, and that is deliberate. Fixed
+   layout takes its column widths from the first row alone (CSS 2.1 17.5.2.1)
+   and then distributes any surplus table width over the columns — but auto
+   columns are handled separately there: they "equally divide the remaining
+   horizontal table space". Give every column an explicit width and no auto
+   columns are left, so the surplus splits *proportionally* among the fixed
+   ones instead, and the widest column takes the largest share of it.
 
-   Neither declaration touches position/top/left/z-index, so the sticky
+   That is what a width on .grid-day used to cause. On a 1080p screen .main is
+   1280 - 2 x 24px of padding = 1232px, so the columns get 1232 - 12 x 2px of
+   border-spacing = 1208px. The fixed sum was 5.5rem + 10 x 3.5rem = 648px (a
+   colspan="2" .grid-day divides its 7rem over the two columns it spans). The
+   560px of surplus then went out in proportion: 88/648 of it, 76px, to the
+   initials column — about 164px of white space around "TH" — and 56/648, 48px,
+   to each AM/PM column, leaving them at ~104px. Pre-branch only th.clin had a
+   width (static/rota.css on master), the ten day columns were auto, and the
+   surplus split equally at ~114px each.
+
+   So the horizontal floor has to live on the table, not on the day columns:
+   42rem = 5.5rem for the initials + 10 x 3.5rem for the sessions (the same
+   per-session floor the colspan arithmetic used to give) + 12 x 2px of
+   border-spacing = 88 + 560 + 24 = 672px. Below 672px .grid-wrap
+   (overflow: auto, screens.css) takes over and scrolls sideways, which is the
+   phone case; above it the table sits at width: 100% and the day columns
+   divide the slack equally again. 672px clears the 1208px available on the
+   target 1080p screen with room to spare — even with the vertical scrollbar a
+   25-clinician week puts on .grid-wrap (25 x --row-h = 850px against its
+   75vh = 810px cap) — so the floor never bites on a desktop. min-width on the
+   *cells* would have been the inert version of this: it is not an input to
+   the fixed-layout algorithm. The floor is one length rather than per-column,
+   so it is sized for the default five open weekdays
+   (PracticeSettings.open_weekdays); a practice that opens six or seven days
+   spreads the same 672px over 12 or 14 columns and starts scrolling a little
+   later than it should.
+
+   No declaration here touches position/top/left/z-index, so the sticky
    <thead> and sticky .grid-clin below are unaffected. */
 .table-grid { border-collapse: separate; border-spacing: 2px;
               font-variant-numeric: tabular-nums; width: 100%;
-              table-layout: fixed; }
+              min-width: 42rem; table-layout: fixed; }
 .table-grid tbody tr { height: var(--row-h); }
 /* thead carries its own background as well as the cells: border-spacing: 2px
    leaves a transparent 2px strip between the two header rows, and with only
@@ -272,7 +295,6 @@ body {
 .table-grid .grid-clin { position: sticky; left: 0; z-index: 1;
                          background: var(--surface); text-align: left;
                          width: 5.5rem; }
-.table-grid .grid-day { width: 7rem; }
 .table-grid thead .grid-clin { z-index: 3; }
 /* A closed day (bank holiday, practice-closed) must read as closed in the
    header, where the day is actually named, not only in the body cells.
