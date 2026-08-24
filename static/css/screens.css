@@ -108,28 +108,24 @@
 
 /* --------------------------------------------------------- auth / login --- */
 
-/* The login page renders the same nav as every other page (base.html's
-   <nav> isn't gated behind user.is_authenticated — only the user-email/
-   log-out bit inside it is), so a naive 100dvh here would overshoot the
-   remaining space by the nav's height. We deliberately don't try to
-   subtract it: the brief rules out hardcoding a nav height into calc(),
-   and there's no way to read the nav's real height without measuring it
-   in JS, which is out of scope. 100dvh (not 100vh, so mobile browser
-   chrome showing/hiding doesn't jump the layout) is the honest choice
-   that depends on nothing but the viewport itself — the trade-off is that
-   the card centres within a box slightly taller than the space actually
-   left under the nav, so on tall content or a short viewport it sits a
-   little below true optical centre rather than dead-centre in the visible
-   remainder. It never clips and is always reachable by scrolling, which is
-   what actually matters (see .auth-card's margin: auto below).
-   .main (components.css) already contributes var(--sp-5) of horizontal
-   padding, so .auth-wrap doesn't need its own. */
+/* .main (components.css) is now a sticky-footer flex item (body is a flex
+   column with min-height: 100dvh; .main gets flex: 1), so it's handed
+   exactly the space the nav leaves over — no overshoot, no hardcoded nav
+   height, no JS measurement. That gives .main a genuinely definite height
+   at layout time, which a percentage-height child can resolve against, so
+   .auth-wrap centres correctly with min-height: 100% here rather than
+   another viewport unit. .main's own min-height is a floor, not a ceiling
+   (components.css sets min-height, not height), so on any other page whose
+   content is taller than one viewport nothing here changes — .main simply
+   grows past its flex-basis and the page scrolls exactly as it always did.
+   .main already contributes var(--sp-5) of horizontal padding as an
+   ancestor, so .auth-wrap doesn't need its own. */
 .auth-wrap {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--sp-5);
-  min-height: 100dvh;
+  min-height: 100%;
   padding: var(--sp-6) 0;
 }
 .auth-brand {

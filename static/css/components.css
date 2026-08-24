@@ -40,7 +40,22 @@
 
 /* ------------------------------------------------------------ layout --- */
 
+/* Sticky-footer idiom: body becomes a flex column with a viewport-relative
+   floor, so .main (below) can be handed exactly the space nav leaves over
+   via flex: 1, with no hardcoded nav height and no JS measurement. This is
+   what lets .auth-wrap (screens.css) centre the login card against a real,
+   correct height instead of overshooting past the bottom of the viewport.
+   min-height, not height, so pages whose content is taller than one
+   viewport still grow past it and scroll normally — this only ever adds a
+   floor, never a ceiling. */
+body {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
 .main {
+  flex: 1;
   max-width: 1280px;
   margin: 0 auto;
   padding: var(--sp-5);
