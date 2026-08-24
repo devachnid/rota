@@ -31,20 +31,21 @@ look staffed when nobody is there.
 
 ## Colour
 
-The tint shown on the grid, chosen from a fixed palette of 40 — 20 hue families
-in two strengths. Every tint is contrast-checked, so the text on a chip is
-always readable in both light and dark mode.
+The tint shown on the grid, chosen from a fixed palette of 42 — 20 hue families
+in two strengths, plus a **neutral** pair. Every tint is contrast-checked, so
+the text on a chip is always readable in both light and dark mode.
 
 Two strengths per hue lets related types share a family at different weights:
 branch-Urgent and branch-Routine as two blues, for instance, so the grid encodes
 that they are related.
 
+**Neutral is the default**, and it heads the dropdown. Use it for anything that
+should recede — admin time, non-clinical sessions, the types you want the eye to
+skip over on a busy week. Spending a colour on everything is how a grid stops
+communicating.
+
 Colour is a **recognition aid, not the only signal** — nobody reliably tells 40
 hues apart at chip size, so the code is always shown as well.
-
-*(The family generated at the far end of the hue wheel is labelled "Rose"; it is
-a pink. There is currently no true neutral/grey tint, and a type with no colour
-chosen gets that pink by default.)*
 
 ## Legacy colour
 

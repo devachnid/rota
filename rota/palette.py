@@ -22,21 +22,30 @@ HUES: list[tuple[str, float]] = [
     ("yellow", 90), ("lime", 108), ("green", 126), ("emerald", 144),
     ("jade", 162), ("teal", 180), ("cyan", 198), ("sky", 216),
     ("azure", 234), ("blue", 252), ("indigo", 270), ("violet", 288),
-    ("purple", 306), ("magenta", 324), ("pink", 342), ("slate", 360),
+    ("purple", 306), ("magenta", 324), ("pink", 342), ("rose", 360),
 ]
 
 TONES: tuple[str, str] = ("soft", "strong")
 
-# Display names for hue families whose key does not describe the colour. The
-# keys are stored in SessionType.colour and are referenced as CSS custom
-# property names (--tint-slate-soft-bg), so renaming one means a migration and
-# a template ripple; the human-readable label the admin dropdown shows is free
-# to tell the truth. "slate" sits at 360 deg, which in OKLCH is a red-pink —
-# slate-soft renders #ffe2ec — so it is labelled Rose, the colour word for
-# that position on the ring, between pink (342) and red (18). The palette
-# having no true neutral is a separate, real gap: a design decision for the
-# project owner, not something a label can fix.
-LABELS: dict[str, str] = {"slate": "Rose"}
+# The neutral pair, which is deliberately NOT in HUES: a neutral is the absence
+# of a hue, not another position on the ring, and pretending otherwise is how
+# this palette previously ended up with a family called "slate" sitting at 360
+# degrees — a red-pink that rendered #ffe2ec while its name promised grey.
+# That family is now named "rose", which is what it is, and the grey it was
+# impersonating is generated here instead.
+#
+# Not a dead grey. The chroma below is a whisper of the accent's own hue, so
+# the neutral reads as chosen rather than as an absence of decision, the same
+# bias the chrome palette in tokens.css carries. It is far under CHROMA_FLOOR,
+# so the palette classifies its own neutral as a neutral — which is what makes
+# nearest_tint() able to map a grey here without a special case.
+NEUTRAL = "neutral"
+NEUTRAL_HUE = 173.19  # --accent #2F5D50 in OKLCH
+_NEUTRAL_C = {"light": 0.008, "dark": 0.009}
+# Slightly more than the background carries, so the text is legibly of the same
+# family without becoming a colour. Still an order of magnitude under the
+# hue tints' foreground chroma.
+_NEUTRAL_FG_C = 0.012
 
 # Background lightness/chroma per tone, per theme. Soft tints are the default
 # for most session types; strong ones let a related type share a hue at a
@@ -48,7 +57,7 @@ _BG = {
 # Starting point for foregrounds; darkened/lightened until AA is met.
 _FG_START = {"light": (0.42, 0.105), "dark": (0.90, 0.060)}
 
-DEFAULT_TINT = "slate-soft"
+DEFAULT_TINT = f"{NEUTRAL}-soft"
 
 # Below this OKLCH chroma an input is a neutral — a grey, black or white — and
 # its hue angle is not a colour, it is floating-point residue. `#cccccc` and
@@ -170,9 +179,17 @@ def contrast_ratio(hex_a: str, hex_b: str) -> float:
     return (lighter + 0.05) / (darker + 0.05)
 
 
-def _readable_fg(bg_hex: str, hue: float, theme: str) -> str:
-    """Walk lightness along the hue until AA is met against `bg_hex`."""
+def _readable_fg(bg_hex: str, hue: float, theme: str, chroma: float | None = None) -> str:
+    """Walk lightness along the hue until AA is met against `bg_hex`.
+
+    `chroma` overrides the default foreground chroma. The neutral pair needs
+    it: left at the hue-tint default the text would be generated at the same
+    saturation as every other family, and a grey chip would carry deep green
+    text. A neutral's foreground has to be neutral too.
+    """
     L, C = _FG_START[theme]
+    if chroma is not None:
+        C = chroma
     step = -0.04 if theme == "light" else 0.04
     for _ in range(24):
         candidate = oklch_to_hex(L, C, hue)
@@ -195,20 +212,28 @@ class Tint:
 
 def _build() -> dict[str, Tint]:
     tints: dict[str, Tint] = {}
-    for name, hue in HUES:
+    # Neutral first: it is DEFAULT_TINT, so it heads the admin dropdown.
+    for name, hue, neutral in (
+        (NEUTRAL, NEUTRAL_HUE, True),
+        *((n, h, False) for n, h in HUES),
+    ):
         for tone in TONES:
             lb_L, lb_C = _BG[tone]["light"]
             db_L, db_C = _BG[tone]["dark"]
+            fg_C = None
+            if neutral:
+                lb_C, db_C = _NEUTRAL_C["light"], _NEUTRAL_C["dark"]
+                fg_C = _NEUTRAL_FG_C
             bg = oklch_to_hex(lb_L, lb_C, hue)
             dark_bg = oklch_to_hex(db_L, db_C, hue)
             key = f"{name}-{tone}"
             tints[key] = Tint(
                 key=key,
-                label=f"{LABELS.get(name, name.capitalize())} — {tone}",
+                label=f"{name.capitalize()} — {tone}",
                 bg=bg,
-                fg=_readable_fg(bg, hue, "light"),
+                fg=_readable_fg(bg, hue, "light", fg_C),
                 dark_bg=dark_bg,
-                dark_fg=_readable_fg(dark_bg, hue, "dark"),
+                dark_fg=_readable_fg(dark_bg, hue, "dark", fg_C),
             )
     return tints
 
@@ -233,8 +258,10 @@ def nearest_tint(hex_value: str) -> str:
     sits at L~0.94 or 0.88, that distance was dominated by lightness and hue
     barely registered, so a saturated red landed on amber.
 
-    Inputs below CHROMA_FLOOR are neutrals with no hue to preserve and get
-    DEFAULT_TINT, as does anything that is not a #rrggbb value.
+    Inputs below CHROMA_FLOOR have no hue worth preserving and go to the
+    neutral family — still tone-by-lightness, so a pale grey lands on
+    neutral-soft and a dark one on neutral-strong. Anything that is not a
+    #rrggbb value falls back to DEFAULT_TINT.
     """
     try:
         _, chroma, hue = srgb_to_oklch(hex_value)
@@ -242,10 +269,8 @@ def nearest_tint(hex_value: str) -> str:
     except (ValueError, AttributeError, TypeError):
         return DEFAULT_TINT
 
-    if chroma < CHROMA_FLOOR:
-        return DEFAULT_TINT
-
-    family = min(HUES, key=lambda nh: hue_distance(hue, nh[1]))[0]
+    family = (NEUTRAL if chroma < CHROMA_FLOOR
+              else min(HUES, key=lambda nh: hue_distance(hue, nh[1]))[0])
 
     # Within the family, pick the tone whose background lightness is closer
     # to the source's luminance.

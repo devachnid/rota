@@ -260,3 +260,67 @@ def test_repair_fixes_every_row_in_the_practice_database():
     leave = SessionType.objects.get(name="Annual Leave").colour.rsplit("-", 1)[0]
     angles = dict(palette.HUES)
     assert palette.hue_distance(angles[duty], angles[leave]) >= 36
+
+
+# --------------------------------------------------------------------------
+# 0019 — the neutral, and the slate -> rose rename
+# --------------------------------------------------------------------------
+
+def test_the_rename_did_not_change_the_colour():
+    """slate -> rose is a rename, not a recolour. If the rendered tint moved,
+    every session type carrying it silently changed appearance and this needed
+    to be a migration with a data decision, not a relabel."""
+    from rota import palette
+
+    assert palette.TINTS["rose-soft"].bg == "#ffe2ec"
+    assert "slate-soft" not in palette.TINTS
+
+
+@pytest.mark.django_db
+def test_migration_0019_remaps_slate_and_leaves_other_choices_alone():
+    from importlib import import_module
+
+    from rota.models import SessionType
+
+    mod = import_module("rota.migrations.0019_neutral_tint_and_rose_rename")
+
+    slate = SessionType.objects.create(name="Was Slate", code="WS",
+                                       category="CLINICAL")
+    SessionType.objects.filter(pk=slate.pk).update(colour="slate-soft")
+    deliberate = SessionType.objects.create(name="Deliberate", code="DL",
+                                            category="CLINICAL",
+                                            colour="teal-strong")
+
+    class _Apps:
+        @staticmethod
+        def get_model(app_label, model_name):
+            return SessionType
+
+    mod.slate_to_rose(_Apps, None)
+
+    slate.refresh_from_db()
+    deliberate.refresh_from_db()
+    assert slate.colour == "rose-soft", "a stored slate key was not renamed"
+    assert deliberate.colour == "teal-strong", (
+        "a deliberately chosen tint was re-pointed by the rename"
+    )
+
+    # and it is reversible
+    mod.rose_to_slate(_Apps, None)
+    slate.refresh_from_db()
+    assert slate.colour == "slate-soft"
+
+
+@pytest.mark.django_db
+def test_a_new_session_type_defaults_to_the_neutral_not_a_pink():
+    """The user-visible point of the whole change."""
+    from rota import palette
+    from rota.models import SessionType
+
+    st = SessionType.objects.create(name="Fresh", code="FR", category="CLINICAL")
+    assert st.colour == palette.DEFAULT_TINT
+    _, chroma, _ = palette.srgb_to_oklch(st.tint.bg)
+    assert chroma < palette.CHROMA_FLOOR, (
+        f"a new session type renders {st.tint.bg}, chroma {chroma:.4f} — "
+        f"that is a colour, not a neutral"
+    )

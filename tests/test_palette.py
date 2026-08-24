@@ -3,10 +3,48 @@ import pytest
 from rota import palette
 
 
-def test_forty_tints_generated():
-    assert len(palette.TINTS) == 40
+def test_the_palette_is_twenty_hues_plus_a_neutral():
+    """20 hue families x 2 tones, plus the neutral pair. The neutral is not in
+    HUES on purpose: it is the absence of a hue, not another angle on the ring,
+    and treating it as one is how the family at 360 degrees ended up named
+    "slate" while rendering a pink."""
     assert len(palette.HUES) == 20
     assert set(palette.TONES) == {"soft", "strong"}
+    assert palette.NEUTRAL not in dict(palette.HUES)
+    assert len(palette.TINTS) == 20 * 2 + 2 == 42
+
+
+def test_the_neutral_is_actually_neutral():
+    """Its whole job. A tint that claims to be grey and is not is the defect
+    this pair was added to fix, so measure the chroma rather than trusting the
+    name — and measure the foreground too, since generating it at the hue
+    tints' saturation would put deep green text on a grey chip."""
+    for key in (f"{palette.NEUTRAL}-soft", f"{palette.NEUTRAL}-strong"):
+        t = palette.TINTS[key]
+        for label, value in (("bg", t.bg), ("fg", t.fg),
+                             ("dark_bg", t.dark_bg), ("dark_fg", t.dark_fg)):
+            _, chroma, _ = palette.srgb_to_oklch(value)
+            assert chroma < palette.CHROMA_FLOOR, (
+                f"{key}.{label} = {value} has chroma {chroma:.4f}, at or above "
+                f"CHROMA_FLOOR {palette.CHROMA_FLOOR} — the palette would not "
+                f"classify its own neutral as a neutral"
+            )
+
+
+def test_the_default_tint_is_the_neutral():
+    """A session type with no colour chosen should not silently become pink."""
+    assert palette.DEFAULT_TINT == f"{palette.NEUTRAL}-soft"
+    _, chroma, _ = palette.srgb_to_oklch(palette.TINTS[palette.DEFAULT_TINT].bg)
+    assert chroma < palette.CHROMA_FLOOR
+
+
+def test_the_family_at_360_degrees_is_named_for_the_colour_it_renders():
+    """It was "slate", which promised a grey and delivered #ffe2ec."""
+    assert "rose" in dict(palette.HUES)
+    assert "slate" not in dict(palette.HUES)
+    _, chroma, hue = palette.srgb_to_oklch(palette.TINTS["rose-soft"].bg)
+    assert chroma >= palette.CHROMA_FLOOR, "rose is a colour, not a neutral"
+    assert palette.hue_distance(hue, 360) < 20
 
 
 def test_tint_keys_are_hue_tone():
@@ -136,9 +174,9 @@ def test_nearest_tint_maps_by_hue_angle(hex_value, expected_key):
 
 
 @pytest.mark.parametrize("hex_value,expected_key", [
-    ("#db2777", "slate-strong"),  # H=  0.6 -> slate(360) +0.6 vs red(18) +17.4
-    ("#c2185b", "slate-strong"),  # H=  5.6 -> slate(360) +5.6 vs red(18) +12.4
-    ("#ff1493", "slate-strong"),  # H=357.0 -> slate(360) +3.1 vs pink(342) +14.9
+    ("#db2777", "rose-strong"),  # H=  0.6 -> rose(360) +0.6 vs red(18) +17.4
+    ("#c2185b", "rose-strong"),  # H=  5.6 -> rose(360) +5.6 vs red(18) +12.4
+    ("#ff1493", "rose-strong"),  # H=357.0 -> rose(360) +3.1 vs pink(342) +14.9
 ])
 def test_nearest_tint_wraps_at_the_red_end_of_the_wheel(hex_value, expected_key):
     """The 0/360 seam. `slate` is declared at 360 deg, so a crimson a degree or
@@ -153,20 +191,35 @@ def test_nearest_tint_wraps_at_the_red_end_of_the_wheel(hex_value, expected_key)
     assert palette.nearest_tint(hex_value) == expected_key
 
 
-@pytest.mark.parametrize("hex_value", ["#cccccc", "#888888", "#ffffff", "#000000"])
-def test_nearest_tint_sends_neutrals_to_the_default(hex_value):
+@pytest.mark.parametrize("hex_value,expected_key", [
+    # Lightness still decides the tone; only the hue is meaningless. The
+    # boundary sits between the two neutral backgrounds, #e8efec (L~0.945)
+    # and #d2d9d7 (L~0.880) — white and near-white are closer to the first,
+    # everything from mid-grey down to black is closer to the second.
+    ("#ffffff", "neutral-soft"),
+    ("#f7f8fa", "neutral-soft"),
+    ("#cccccc", "neutral-strong"),
+    ("#888888", "neutral-strong"),
+    ("#000000", "neutral-strong"),
+])
+def test_nearest_tint_sends_neutrals_to_the_neutral_family(hex_value, expected_key):
     """A grey has no hue to preserve, so inventing one is a lie.
 
     Their measured chroma is ~1e-8 and their reported hue is pure
     floating-point residue — the direction of a vector with no length. With
     the constants `srgb_to_oklch` ships today #cccccc, #888888 and #ffffff all
     come out near H=89.9, for no reason other than where those rows round off;
-    #000000 lands on exactly 0. The old code duly filed them under emerald,
-    emerald, purple and green respectively. Which arbitrary angle they report
-    is not a property of the colours and is not asserted anywhere — see
-    `test_neutrals_really_do_report_a_meaningless_hue`.
+    #000000 lands on exactly 0. An early version duly filed them under
+    emerald, emerald, purple and green respectively. Which arbitrary angle
+    they report is not a property of the colours and is not asserted anywhere
+    — see `test_neutrals_really_do_report_a_meaningless_hue`.
+
+    They now reach a real neutral rather than whatever DEFAULT_TINT happened
+    to be, and they keep the tone step: a grey carries no hue but it does
+    carry a lightness, and throwing that away too would map white and black
+    onto the same chip.
     """
-    assert palette.nearest_tint(hex_value) == palette.DEFAULT_TINT
+    assert palette.nearest_tint(hex_value) == expected_key
 
 
 def test_neutrals_really_do_report_a_meaningless_hue():
@@ -238,7 +291,10 @@ def test_nearest_tint_handles_malformed_input():
 
 
 def test_tint_choices_shape():
-    assert len(palette.TINT_CHOICES) == 40
+    assert len(palette.TINT_CHOICES) == 42
+    # the neutral heads the list: it is the default, so it should be the
+    # first thing an admin sees rather than buried between magenta and pink
+    assert palette.TINT_CHOICES[0][0] == palette.DEFAULT_TINT
     keys = [k for k, _ in palette.TINT_CHOICES]
     assert keys == list(palette.TINTS)
     for key, label in palette.TINT_CHOICES:

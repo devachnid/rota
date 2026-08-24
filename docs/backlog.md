@@ -23,6 +23,13 @@ autofill v2 review processes had accumulated:
 
 ## Settled
 
+- **The palette has a true neutral** (2026-08-24). It had none: all 40 tints
+  were colours, and the family at hue 360° was named "slate" while rendering a
+  pink, which `DEFAULT_TINT` pointed at. That family is now `rose`, which is what
+  it is, and a real neutral pair is generated outside the hue ring and is the new
+  default. Migration `0019` renames stored values; the rename does not change the
+  colour anything renders.
+
 - **The `stage_rule` monkeypatch is gone** (`1b4f094`, 2026-08-24).
   `stage_rule()` and `weekly_rates()` take an optional `{stage: rule}` mapping
   instead. The same N+1 existed unfixed in the fill engine — three trainee
@@ -34,16 +41,6 @@ autofill v2 review processes had accumulated:
   it should show — Tom, 2026-08-24. The system reports what it was asked to
   track; the placement's full contractual total is a deanery question, not a
   rota one. No change needed; `rota/views/reports.py:179` already does this.
-
-## Open — needs a decision, not a fix
-
-- **The session palette has no true neutral.** All 40 tints are colours. The
-  family generated at hue 360° was named "Slate", which implied grey but renders
-  pink; its label now reads "Rose", which is honest but leaves the gap. A session
-  type with no colour chosen, or one whose pre-migration colour was grey, lands
-  on that pink via `DEFAULT_TINT`. Adding a genuine neutral means changing the
-  tint key set and migrating stored values, so it wants doing deliberately rather
-  than bolted on. Deferred by Tom, 2026-08-24.
 
 ## Open — minor
 
