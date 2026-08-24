@@ -1,34 +1,43 @@
 <form hx-post="/rota/assign/" hx-target="#modal">
-  <strong>{{ clinician.name }} — {{ day|date:"D j M" }} {{ part }}</strong>
+  <div class="modal-head">{{ clinician.name }} — {{ day|date:"D j M" }} {{ part }}</div>
   {% if warning %}<div class="warn">{{ warning }}</div>{% endif %}
-  <label>Session
-    <select name="session_type_id">
-      {% for t in session_types %}
-      <option value="{{ t.id }}"
-        {% if selected_type == t.id or entry.session_type_id == t.id %}selected{% endif %}>
-        {{ t.name }}{% if t.id in ineligible_ids %} (not usual){% endif %}
-      </option>
-      {% endfor %}
-    </select>
-  </label>
-  <label>Site
-    <select name="site_id"><option value="">—</option>
-      {% for s in sites %}
-      <option value="{{ s.id }}" {% if site_id == s.id %}selected{% endif %}>{{ s.name }}</option>
-      {% endfor %}
-    </select>
-  </label>
-  <label>Note <input name="note" value="{{ note|default:'' }}" maxlength="200"></label>
-  <label><input type="checkbox" name="full_day" value="1"> Apply to full day (AM+PM)</label>
+  <div class="modal-body">
+    <div class="field">
+      <label for="id_session_type_id">Session</label>
+      <select name="session_type_id" id="id_session_type_id">
+        {% for t in session_types %}
+        <option value="{{ t.id }}"
+          {% if selected_type == t.id or entry.session_type_id == t.id %}selected{% endif %}>
+          {{ t.name }}{% if t.id in ineligible_ids %} (not usual){% endif %}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="id_site_id">Site</label>
+      <select name="site_id" id="id_site_id"><option value="">—</option>
+        {% for s in sites %}
+        <option value="{{ s.id }}" {% if site_id == s.id %}selected{% endif %}>{{ s.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="id_note">Note</label>
+      <input name="note" id="id_note" value="{{ note|default:'' }}" maxlength="200">
+    </div>
+    <div class="field">
+      <label><input type="checkbox" name="full_day" value="1"> Apply to full day (AM+PM)</label>
+    </div>
+  </div>
   {% if confirm %}<input type="hidden" name="confirm" value="1">{% endif %}
   <input type="hidden" name="clinician_id" value="{{ clinician.id }}">
   <input type="hidden" name="day" value="{{ day|date:'Y-m-d' }}">
   <input type="hidden" name="part" value="{{ part }}">
-  <div>
-    <button>Save</button>
+  <div class="modal-actions">
+    <button type="submit" class="btn btn-primary">Save</button>
     {% if entry %}
-    <button type="button" hx-post="/rota/clear/" hx-include="closest form">Clear</button>
+    <button type="button" class="btn btn-quiet" hx-post="/rota/clear/" hx-include="closest form">Clear</button>
     {% endif %}
-    <button type="button" onclick="document.getElementById('modal').innerHTML=''">Cancel</button>
+    <button type="button" class="btn btn-quiet" onclick="document.getElementById('modal').innerHTML=''">Cancel</button>
   </div>
 </form>
