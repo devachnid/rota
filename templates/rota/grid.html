@@ -20,11 +20,12 @@
 </div>
 <div class="grid-wrap">
 <table class="table-grid">
+<caption class="visually-hidden">Rota for the week of {{ monday|date:"j F Y" }}</caption>
 <thead>
 <tr>
   <th class="grid-clin"></th>
   {% for h in day_headers %}
-  <th colspan="2" class="grid-day{% if h.closed %} closed{% endif %}"
+  <th colspan="2" scope="colgroup" class="grid-day{% if h.closed %} closed{% endif %}"
       {% if is_admin %}hx-get="/rota/daynote/{{ h.day|date:'Y-m-d' }}/" hx-target="#modal"{% endif %}>
     {{ h.day|date:"D j M" }}
     {% if h.note %}<div class="daynote">{{ h.note.text }}</div>{% endif %}
@@ -32,14 +33,14 @@
   </th>
   {% endfor %}
 </tr>
-<tr><th class="grid-clin"></th>{% for h in day_headers %}<th class="grid-part">AM</th><th class="grid-part">PM</th>{% endfor %}</tr>
+<tr><th class="grid-clin"></th>{% for h in day_headers %}<th class="grid-part" scope="col">AM</th><th class="grid-part" scope="col">PM</th>{% endfor %}</tr>
 </thead>
 {% for section in sections %}
 <tbody>
 <tr class="grid-group"><td colspan="{{ colspan }}">{{ section.group.name }}</td></tr>
 {% for row in section.rows %}
 <tr class="{% if row.mine %}mine{% endif %}">
-  <th class="grid-clin" title="{{ row.clinician.name }}">{{ row.clinician.initials }}</th>
+  <th class="grid-clin" scope="row" title="{{ row.clinician.name }}">{{ row.clinician.initials }}</th>
   {% for cell in row.cells %}
   <td {% if cell.merged %}colspan="2"{% endif %}
       class="{% if cell.entry and not cell.entry.is_published %}draft{% endif %}{% if not cell.entry and cell.unavail %} unavail{% endif %}{% if cell.closed %} closed{% endif %}"
@@ -58,7 +59,7 @@
 {% endfor %}
 {% if section.group.is_locum_group %}
 <tr>
-  <th class="grid-clin">Need</th>
+  <th class="grid-clin" scope="row">Need</th>
   {% for cell in locum_cells %}
   <td>
     {% for r in cell.reqs %}
