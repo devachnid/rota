@@ -1,0 +1,312 @@
+/* Screens.css composes tokens.css and components.css into page layouts.
+   Every colour here comes from a token or a --tint-* variable set inline
+   by the template — no hex/rgb/named literals. */
+
+/* ------------------------------------------------------------- grid --- */
+
+/* The grid scrolls inside its own pane rather than with the page. That is
+   deliberate and load-bearing: a horizontally-scrolling wrapper is a scroll
+   container on BOTH axes (overflow-x: auto coerces overflow-y away from
+   visible), so position: sticky inside it always resolves against the wrapper,
+   never the page viewport. Giving the wrapper a real height bound is what makes
+   that resolution useful — the sticky day header and sticky clinician column
+   both stick to the pane's edges. Do not remove max-height thinking it is
+   cosmetic; without it the vertical scroll range is zero and the header
+   silently stops sticking. */
+.grid-wrap {
+  max-height: 75vh;
+  overflow: auto;
+}
+
+.grid-day {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.grid-part {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* Sticky first column (clinician initials); .table-grid supplies the
+   sticky positioning itself, this layers on the text treatment. */
+.grid-clin {
+  font-weight: 700;
+  color: var(--ink);
+  padding: 0 var(--sp-3);
+}
+
+/* Borderless group-label row (Daylight's grouping treatment): an
+   uppercase, muted label with breathing room above rather than a rule. */
+.grid-group td {
+  padding: var(--sp-4) var(--sp-2) var(--sp-1);
+  border: none;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--muted);
+}
+
+/* -------------------------------------------------------- my schedule --- */
+
+/* Stacks every section of the page (leave card, swaps-awaiting cards, the
+   upcoming-sessions table, my requests) with one consistent rhythm. On a
+   phone — the primary device for this screen — this is just a plain
+   single-column flow, which is exactly what's wanted; no separate mobile
+   layout is needed for that to already be comfortable.
+   .stack (Task 7: reports/fill/inbox) is the identical flex-column-with-gap
+   rhythm, needed for the same reason — h1/h2/h3 margins are reset to 0
+   (tokens.css) so a page built from a loose sequence of heading/table/card
+   sections needs an explicit gap between them. Aliased here rather than
+   duplicated, exactly like .card/.request and .toolbar/.grid-header
+   (components.css) alias their pre-redesign names. */
+.schedule-list,
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+/* my_schedule.html's "My requests" <ul> is a direct flex child of
+   .schedule-list and otherwise entirely unstyled, so it took the UA's
+   margin: 1em 0 on top of the 24px flex gap (gap does not collapse with a
+   child's margin, it adds) and the UA's padding-inline-start: 40px, which
+   indented it past every other section on the page. Both are UA declarations,
+   so any author rule beats them; the child combinator keeps it to a list that
+   is itself a stack item rather than any nested list inside a card. The
+   remaining padding is what the markers hang in — dropping it to 0 would clip
+   them outside the box. */
+.schedule-list > ul,
+.stack > ul {
+  margin: 0;
+  padding-inline-start: var(--sp-5);
+}
+
+/* .page-head carries its own margin-bottom: var(--sp-5) (components.css:69),
+   meant for the case where it's a sibling *before* a following block (as in
+   my_schedule.html). Flex gap does not collapse with a child's margin — it
+   adds — so on the report/fill/inbox screens, where .page-head is .stack's
+   first child, that margin stacked on top of .stack's own 24px gap would
+   double the rhythm under every page title to 48px, against the 24px
+   between any other two sections in the same stack. Zero it out for that
+   specific combination; (0,2,0) beats components.css's bare .page-head
+   (0,1,0) on specificity, so this wins regardless of stylesheet order —
+   same interaction, same fix shape, as .page-head .form-actions below. */
+.stack > .page-head {
+  margin-bottom: 0;
+}
+
+/* .form-actions defaults to margin-top: var(--sp-5) (components.css:149) —
+   right for a button row sitting under a stack of .field elements, but
+   .page-head is align-items: baseline, and that top margin is inside the
+   flex item's box, so it drags the "Request leave" / "Propose a swap"
+   buttons down out of line with the <h1>. Override it back to 0 specifically
+   for this combination; (0,2,0) beats components.css's bare .form-actions
+   (0,1,0) on specificity, so this wins regardless of stylesheet order. */
+.page-head .form-actions {
+  margin-top: 0;
+}
+
+/* Leave balance figures as a small stat row inside the .card. Wraps under
+   its own gap on narrow screens rather than squeezing four columns tight. */
+.stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-5);
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+.stat-value {
+  font-size: var(--fs-2xl);
+  font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.stat-label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+/* The upcoming-sessions table scrolls inside its own pane on narrow
+   viewports rather than forcing the whole page to scroll sideways. */
+.table-scroll {
+  overflow-x: auto;
+}
+
+/* ----------------------------------------------------------- reports --- */
+
+/* Cross-links between the four report pages. Sits inside .page-head next to
+   the <h1> — components.css's flex/space-between on .page-head handles the
+   side-by-side layout; this only styles the links themselves. */
+.report-nav {
+  display: flex;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+.report-nav a {
+  color: var(--ink-soft);
+  font-weight: 600;
+  font-size: var(--fs-sm);
+  text-decoration: none;
+}
+.report-nav a:hover { color: var(--accent); }
+
+/* -------------------------------------------------------- assisted fill --- */
+
+/* One row per (session type, reason) group in the fill screen's grouped
+   unfilled-slot summary — replaces the old one-<li>-per-slot list, which
+   could run to 100+ rows on a realistic multi-week fill. Plain hairline
+   rows rather than a table: there's no tabular alignment to gain from one,
+   just a short line of text per group. */
+.unfilled-group {
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.unfilled-group:last-child { border-bottom: none; }
+
+/* --------------------------------------------------------- auth / login --- */
+
+/* .main (components.css) is now a sticky-footer flex item (body is a flex
+   column with min-height: 100dvh; .main gets flex: 1), so it's handed
+   exactly the space the nav leaves over — no overshoot, no hardcoded nav
+   height, no JS measurement. That gives .main a genuinely definite height
+   at layout time, which a percentage-height child can resolve against, so
+   .auth-wrap centres correctly with min-height: 100% here rather than
+   another viewport unit. .main's own min-height is a floor, not a ceiling
+   (components.css sets min-height, not height), so on any other page whose
+   content is taller than one viewport nothing here changes — .main simply
+   grows past its flex-basis and the page scrolls exactly as it always did.
+   .main already contributes var(--sp-5) of horizontal padding as an
+   ancestor, so .auth-wrap doesn't need its own. */
+.auth-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-5);
+  min-height: 100%;
+  padding: var(--sp-6) 0;
+}
+.auth-brand {
+  margin: 0;
+  font-weight: 800;
+  font-size: var(--fs-2xl);
+  color: var(--ink);
+  letter-spacing: -.02em;
+}
+/* margin: auto (not justify-content: center on .auth-wrap) is what actually
+   centres this: on a flex item, auto margins absorb the container's leftover
+   space and split it evenly on both sides. When the card is taller than the
+   space available — e.g. once Django renders a validation errorlist above
+   the fields on a short phone viewport — the auto margins simply collapse
+   toward 0 and the card lands top-aligned and fully scrollable instead of
+   being clipped with no way to reach the rest of it, which is what
+   justify-content: center would have done. */
+.auth-card {
+  width: 100%;
+  max-width: 22rem;
+  margin: auto;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+  padding: var(--sp-6);
+}
+.auth-card h1 {
+  margin-bottom: var(--sp-4);
+}
+/* Django's {{ form.as_p }} renders each field as its own <p> (label, widget,
+   errorlist) — styled via this descendant selector rather than by
+   restructuring the form output, so Django's own error rendering keeps
+   working untouched. */
+.auth-card form p {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  margin: 0 0 var(--sp-4);
+}
+.auth-card form label {
+  font-weight: 700;
+  font-size: var(--fs-sm);
+  color: var(--ink);
+}
+.auth-card form input {
+  font-family: var(--font);
+  font-size: var(--fs-md);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  padding: var(--sp-2) var(--sp-3);
+}
+.auth-card form input:focus {
+  border-color: var(--accent);
+}
+.auth-card form ul.errorlist {
+  list-style: none;
+  margin: 0 0 var(--sp-2);
+  padding: 0;
+  color: var(--danger);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+.auth-card .btn {
+  width: 100%;
+  margin-top: var(--sp-2);
+}
+
+/* -------------------------------------------------- modal partials --- */
+
+/* _cell_form.html, _daynote_form.html and _locum_form.html render inside
+   #modal via htmx with no {% extends %}, so they inherit the page's tokens
+   but lay themselves out here. #modal form (components.css) is already a
+   flex column with gap: var(--sp-3) — .modal-head / .modal-body /
+   .modal-actions are just its flex items, not a second layer of rhythm on
+   top of it. */
+.modal-head {
+  font-weight: 700;
+  font-size: var(--fs-lg);
+  color: var(--ink);
+}
+
+/* .field carries its own margin-bottom: var(--sp-4) (components.css), sized
+   for a form where .field is the direct, non-gapped child. .modal-body is a
+   gapped flex container instead — flex gap doesn't collapse with a child's
+   margin, it adds, so left alone that would open sp-4 + sp-4 between fields
+   instead of the sp-4 the gap already provides. Zeroed out for this specific
+   combination, same shape as .stack > .page-head and .page-head
+   .form-actions above: (0,2,0) beats components.css's bare .field (0,1,0)
+   on specificity, so this wins regardless of stylesheet order. */
+.modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  overflow-y: auto;
+  /* A flex item's min-height defaults to auto, which means "never shrink
+     below your content's height" — left at that default, .modal-body would
+     never actually shrink to #modal form's max-height cap, so it would
+     never overflow and overflow-y: auto above would never engage (fix
+     round 1: two earlier CSS fixes on this branch went inert this exact
+     way). min-height: 0 removes that floor so the flex algorithm is free
+     to size .modal-body down to whatever's left after .modal-head, the
+     optional .warn and .modal-actions take their share of the 80dvh cap,
+     at which point the real content height exceeds that and the browser
+     scrolls it. Looks removable; is not. */
+  min-height: 0;
+}
+.modal-body .field {
+  margin-bottom: 0;
+}
+
+.modal-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}

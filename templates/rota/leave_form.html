@@ -3,15 +3,28 @@
 {% block content %}
 <h1>Request leave</h1>
 {% if warning %}<div class="warn">{{ warning }}</div>{% endif %}
-<form method="post">{% csrf_token %}
-  <label>Type
-    <select name="session_type_id">
+<form method="post">
+  {% csrf_token %}
+  <div class="field">
+    <label for="id_session_type_id">Type</label>
+    <select name="session_type_id" id="id_session_type_id">
       {% for t in absence_types %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}
     </select>
-  </label>
-  <label>From <input type="date" name="start_date" required></label>
-  <label>To <input type="date" name="end_date" required></label>
-  <label>Message <textarea name="message" rows="2"></textarea></label>
-  <button>Submit request</button>
+  </div>
+  <div class="field">
+    <label for="id_start_date">From</label>
+    <input type="date" name="start_date" id="id_start_date" required>
+  </div>
+  <div class="field">
+    <label for="id_end_date">To</label>
+    <input type="date" name="end_date" id="id_end_date" required>
+  </div>
+  <div class="field">
+    <label for="id_message">Message</label>
+    <textarea name="message" id="id_message" rows="2"></textarea>
+  </div>
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Submit request</button>
+  </div>
 </form>
 {% endblock %}

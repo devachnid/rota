@@ -1,26 +1,56 @@
 {% extends "base.html" %}
 {% block title %}Staffing report{% endblock %}
 {% block content %}
-<h1>Staffing gaps (next {{ weeks }} weeks)</h1>
-<p><a href="/reports/fairness/">Fairness report</a> ·
-   <a href="/reports/leave/">Leave report</a> ·
-   <a href="/reports/trainees/">Trainees report</a></p>
-<form method="get"><label>Weeks ahead
-  <input type="number" name="weeks" value="{{ weeks }}" min="1" max="26"></label>
-  <button>Update</button></form>
-<table class="report">
-  {% for d in days %}
-  <tr><td><a href="/rota/?week={{ d.day|date:'Y-m-d' }}">{{ d.day|date:"D j M Y" }}</a></td>
-      <td>{% for w in d.warnings %}<div class="warn">{{ w.message }}</div>{% endfor %}</td></tr>
-  {% empty %}<tr><td>No gaps found. 🎉</td></tr>
-  {% endfor %}
-</table>
-{% if accrual_rows %}
-<h2>Accrual targets</h2>
-<table class="report">
-  {% for r in accrual_rows %}
-  <tr><td>{{ r.name }}</td><td class="warn">{{ r.behind }} behind target</td></tr>
-  {% endfor %}
-</table>
-{% endif %}
+<div class="stack">
+  <div class="page-head">
+    <h1>Staffing gaps (next {{ weeks }} weeks)</h1>
+    <nav class="report-nav" aria-label="Reports">
+      <a href="/reports/fairness/">Fairness report</a>
+      <a href="/reports/leave/">Leave report</a>
+      <a href="/reports/trainees/">Trainees report</a>
+    </nav>
+  </div>
+  <form method="get">
+    <label>Weeks ahead
+      <input type="number" name="weeks" value="{{ weeks }}" min="1" max="26">
+    </label>
+    <button type="submit" class="btn">Update</button>
+  </form>
+  <div class="table-scroll">
+    <table class="table">
+      <thead>
+        <tr>
+          <th scope="col">Day</th>
+          <th scope="col">Issue</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for d in days %}
+      <tr><td><a href="/rota/?week={{ d.day|date:'Y-m-d' }}">{{ d.day|date:"D j M Y" }}</a></td>
+          <td>{% for w in d.warnings %}<div class="warn">{{ w.message }}</div>{% endfor %}</td></tr>
+      {% empty %}
+      <tr><td colspan="2" class="empty">No gaps found. 🎉</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if accrual_rows %}
+  <h2>Accrual targets</h2>
+  <div class="table-scroll">
+    <table class="table">
+      <thead>
+        <tr>
+          <th scope="col">Session type</th>
+          <th scope="col">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for r in accrual_rows %}
+      <tr><td>{{ r.name }}</td><td class="warn">{{ r.behind }} behind target</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</div>
 {% endblock %}

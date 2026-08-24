@@ -1,0 +1,483 @@
+/* Component vocabulary. Every colour comes from a token in tokens.css or a
+   chip variable the template sets inline — no hex/rgb/named literals here at
+   all. The draft-chip hatch used to be the one sanctioned exception; it now
+   takes --wash from tokens.css instead, which is what makes it theme-aware.
+   tests/test_chrome_contrast.py asserts the no-literals rule holds.
+   Screens.css (Task 9+) composes these into page layouts. */
+
+/* ---------------------------------------------------------------- nav --- */
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+  padding: var(--sp-3) var(--sp-5);
+  background: var(--surface);
+  border-bottom: 1px solid var(--hairline);
+}
+.nav-brand {
+  font-weight: 800;
+  font-size: var(--fs-lg);
+  color: var(--ink);
+  letter-spacing: -.02em;
+}
+.nav-link {
+  color: var(--ink-soft);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: var(--fs-sm);
+  padding: var(--sp-2) 0;
+  border-bottom: 2px solid transparent;
+}
+.nav-link:hover { color: var(--ink); }
+.nav-link.is-active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.nav-spacer { flex: 1; }
+.nav-user {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
+/* ------------------------------------------------------------ layout --- */
+
+/* Sticky-footer idiom: body becomes a flex column with a viewport-relative
+   floor, so .main (below) can be handed exactly the space nav leaves over
+   via flex: 1, with no hardcoded nav height and no JS measurement. This is
+   what lets .auth-wrap (screens.css) centre the login card against a real,
+   correct height instead of overshooting past the bottom of the viewport.
+   min-height, not height, so pages whose content is taller than one
+   viewport still grow past it and scroll normally — this only ever adds a
+   floor, never a ceiling. */
+body {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* width: 100% is load-bearing, not belt-and-braces. body is a flex column
+   (above), so .main is a flex item and its width is the flex line's cross
+   size — but per CSS Flexbox 9.6 step 11 a flex item is only stretched to
+   that cross size if NEITHER cross-axis margin is auto, and margin: 0 auto
+   makes both auto. Without an explicit width .main therefore sizes
+   fit-content: /rota/fill/ collapsed to a ~430px column on a 1600px monitor
+   (its width set by the longest checkbox label) and /reports/leave/ to its
+   table's max-content, which also drained .page-head's space-between of the
+   free space it distributes. width: 100% restores a definite width; the auto
+   margins then have no free space of their own to absorb until max-width
+   clamps the box, at which point they centre it exactly as before. The login
+   page is unaffected — .auth-card is capped at 22rem inside .main and centres
+   on its own auto margins (screens.css). */
+.main {
+  flex: 1;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: var(--sp-5);
+}
+.page-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-5);
+}
+/* .grid-header predates .page-head/.toolbar (Task 5 renames it); keep it a
+   compatible alias so the current grid.html markup still lays out sanely. */
+.toolbar,
+.grid-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-5);
+}
+/* .request predates .card and is the same block — aliased here rather
+   than duplicated. Kept on inbox.html's markup (not just here) per Task 7's
+   own instruction, not because any test currently asserts the class name —
+   re-grepped for both at fix-round 1 and found nothing else, template,
+   partial or static file, that depends on it either. It used to also carry
+   its own margin-bottom: var(--sp-4) further down this file; that's removed
+   as of fix-round 1 — .stack (screens.css) now owns inter-card spacing on
+   the inbox, and flex gap doesn't collapse with a child's margin, so the
+   two were adding to 40px between cards instead of the 24px used
+   everywhere else. */
+.card,
+.request {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  padding: var(--sp-4);
+}
+
+/* ----------------------------------------------------------- buttons --- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-family: var(--font);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  text-decoration: none;
+}
+.btn:hover { background: var(--sunken); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.btn-primary:hover { background: var(--accent); opacity: .92; }
+
+.btn-quiet {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+.btn-quiet:hover { background: var(--sunken); color: var(--ink-soft); }
+
+/* ------------------------------------------------------------- forms --- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  margin-bottom: var(--sp-4);
+}
+.field label {
+  font-weight: 700;
+  font-size: var(--fs-sm);
+  color: var(--ink);
+}
+/* :not([type=checkbox]):not([type=radio]) guards this against a checkbox
+   or radio sat inside a .field (fill.html's "fill remaining empty cells"
+   checkbox is the first of either in the codebase to do that; the two
+   pre-existing checkboxes, in _cell_form.html and the admin bulk_form.html,
+   both sit outside .field). Without the guard, the browser applies this
+   padding/border/radius/background to the checkbox's own box exactly as it
+   would a text input, rendering it as an oversized bordered rounded square
+   around the native glyph instead of a normal checkbox. */
+.field input:not([type="checkbox"]):not([type="radio"]),
+.field select,
+.field textarea {
+  font-family: var(--font);
+  font-size: var(--fs-md);
+  color: var(--ink);
+  background: var(--surface);
+  /* --field-border, not --hairline: this edge is what tells someone where
+     to type, so WCAG 1.4.11 holds it to 3:1. See tokens.css. */
+  border: 1px solid var(--field-border);
+  border-radius: var(--r-sm);
+  padding: var(--sp-2) var(--sp-3);
+}
+.field input:not([type="checkbox"]):not([type="radio"]):focus,
+.field select:focus,
+.field textarea:focus { border-color: var(--accent); }
+
+.field-help {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.field-error {
+  color: var(--danger);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-top: var(--sp-5);
+}
+
+/* ------------------------------------------------------------ tables --- */
+
+/* .table (reports) — roomy, hairline-separated rows, tabular numerals.
+   .report is the pre-redesign name for the same table; keep it working. */
+.table,
+.report {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.table th, .table td,
+.report th, .report td {
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--hairline);
+  text-align: left;
+}
+.table th,
+.report th {
+  color: var(--ink);
+  font-weight: 700;
+  font-size: var(--fs-sm);
+}
+
+/* Both the day header and the clinician column stay put while scrolling.
+   position: sticky lives on <thead> itself, not on the individual header
+   cells. The grid has two header rows (day names, then AM/PM) — pinning
+   each th to top: 0 independently made the second row slide up and
+   permanently cover the first the moment the wrapper actually gained a
+   real scroll range (round 2's fix exposed this; it was invisible while
+   nothing stuck at all). Sticking the whole <thead> as one unit keeps the
+   two rows at their natural relative offset instead. The header cells
+   still need their own opaque background so tbody rows scrolling
+   underneath the pinned header don't show through, and the corner cell
+   still needs the higher z-index or the header row wins over it as it
+   slides past horizontally. */
+/* table-layout: fixed restores the pre-branch table.rota behaviour. Under
+   auto layout a column sizes to its content, so one 300-char day note
+   (_daynote_form.html allows maxlength="300") or a long staffing warning in a
+   .grid-day header took a disproportionate share and squeezed the other nine
+   day columns. Fixed layout also makes .chip's overflow/text-overflow live:
+   under auto layout the chip's white-space: nowrap set the cell's min-content
+   width to the chip's full text width, so the cell could never be narrower
+   than the chip and the ellipsis could never fire.
+
+   .grid-clin is the only column with a width, and that is deliberate. Fixed
+   layout takes its column widths from the first row alone (CSS 2.1 17.5.2.1)
+   and then distributes any surplus table width over the columns — but auto
+   columns are handled separately there: they "equally divide the remaining
+   horizontal table space". Give every column an explicit width and no auto
+   columns are left, so the surplus splits *proportionally* among the fixed
+   ones instead, and the widest column takes the largest share of it.
+
+   That is what a width on .grid-day used to cause. On a 1080p screen .main is
+   1280 - 2 x 24px of padding = 1232px, so the columns get 1232 - 12 x 2px of
+   border-spacing = 1208px. The fixed sum was 5.5rem + 10 x 3.5rem = 648px (a
+   colspan="2" .grid-day divides its 7rem over the two columns it spans). The
+   560px of surplus then went out in proportion: 88/648 of it, 76px, to the
+   initials column — about 164px of white space around "TH" — and 56/648, 48px,
+   to each AM/PM column, leaving them at ~104px. Pre-branch only th.clin had a
+   width (static/rota.css on master), the ten day columns were auto, and the
+   surplus split equally at ~114px each.
+
+   So the horizontal floor has to live on the table, not on the day columns:
+   42rem = 5.5rem for the initials + 10 x 3.5rem for the sessions (the same
+   per-session floor the colspan arithmetic used to give) + 12 x 2px of
+   border-spacing = 88 + 560 + 24 = 672px. Below 672px .grid-wrap
+   (overflow: auto, screens.css) takes over and scrolls sideways, which is the
+   phone case; above it the table sits at width: 100% and the day columns
+   divide the slack equally again. 672px clears the 1208px available on the
+   target 1080p screen with room to spare — even with the vertical scrollbar a
+   25-clinician week puts on .grid-wrap (25 x --row-h = 850px against its
+   75vh = 810px cap) — so the floor never bites on a desktop. min-width on the
+   *cells* would have been the inert version of this: it is not an input to
+   the fixed-layout algorithm. The floor is one length rather than per-column,
+   so it is sized for the default five open weekdays
+   (PracticeSettings.open_weekdays); a practice that opens six or seven days
+   spreads the same 672px over 12 or 14 columns and starts scrolling a little
+   later than it should.
+
+   No declaration here touches position/top/left/z-index, so the sticky
+   <thead> and sticky .grid-clin below are unaffected. */
+.table-grid { border-collapse: separate; border-spacing: 2px;
+              font-variant-numeric: tabular-nums; width: 100%;
+              min-width: 42rem; table-layout: fixed; }
+.table-grid tbody tr { height: var(--row-h); }
+/* thead carries its own background as well as the cells: border-spacing: 2px
+   leaves a transparent 2px strip between the two header rows, and with only
+   the th cells painted, tbody rows sliding under the pinned header showed
+   through it. */
+.table-grid thead { position: sticky; top: 0; z-index: 2;
+                    background: var(--surface); }
+.table-grid thead th { background: var(--surface); }
+.table-grid .grid-clin { position: sticky; left: 0; z-index: 1;
+                         background: var(--surface); text-align: left;
+                         width: 5.5rem; }
+.table-grid thead .grid-clin { z-index: 3; }
+/* A closed day (bank holiday, practice-closed) must read as closed in the
+   header, where the day is actually named, not only in the body cells.
+   .closed alone is inert here: .table-grid thead th (0,1,2) beats its
+   background and .grid-day (screens.css, 0,1,0) beats its colour on
+   stylesheet order. (0,2,2) clears both, whatever the order. */
+.table-grid thead th.closed { background: var(--sunken); color: var(--muted); }
+/* The row highlight for the signed-in clinician has to be restated on the
+   clinician cell — .table-grid .grid-clin (0,2,0) paints --surface over the
+   .mine row background, and that cell is exactly where the pre-branch design
+   put the highlight. (0,3,1) beats it; nothing about the sticky positioning
+   is touched. */
+.table-grid tr.mine .grid-clin { background: var(--accent-soft); }
+
+/* ------------------------------------------------------------- chips --- */
+
+/* Chips take their colours from variables the template sets per cell, so the
+   browser re-resolves them when the theme changes — no re-render needed. */
+.chip {
+  display: block;
+  background: var(--chip-bg, var(--sunken));
+  color: var(--chip-fg, var(--muted));
+  border-radius: var(--r-md);
+  padding: 5px 2px;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chip.is-empty { background: transparent; }
+/* Drafts stay hatched so they read as provisional at a glance. --wash rather
+   than a literal white: laid over a dark-mode chip tint, a light wash
+   composited to mid-grey and took the chip's light text down to 1.76:1.
+   --wash flips with the theme so it always moves away from the chip
+   background (tokens.css). */
+.chip.is-draft {
+  background-image: repeating-linear-gradient(45deg,
+    transparent, transparent 4px,
+    var(--wash) 4px, var(--wash) 8px);
+}
+
+/* ------------------------------------------------------------ badges --- */
+
+.badge {
+  display: inline-block;
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--r-sm);
+  background: var(--sunken);
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  line-height: 1.3;
+  cursor: pointer;
+}
+.badge.POSSIBLE   { background: var(--danger-soft);  color: var(--danger); }
+.badge.ADVERTISED { background: var(--warning-soft); color: var(--warning); }
+.badge.BOOKED     { background: var(--ok-soft);      color: var(--ok); }
+
+/* ---------------------------------------------------------- feedback --- */
+
+.flashes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-5) 0;
+}
+.flash {
+  background: var(--accent-soft);
+  color: var(--ink);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-md);
+  font-size: var(--fs-sm);
+}
+.warn {
+  color: var(--danger);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+.daynote {
+  color: var(--warning);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+}
+/* margin: 0 because <p class="empty"> is a direct flex child of .stack /
+   .schedule-list on four screens (my_schedule, inbox x2, report_fairness) and
+   flex gap does not collapse with a child's margin — it adds, so the UA's
+   p { margin: 1em 0 } was putting 24px + 13.5px above and below every empty
+   state. An author declaration beats the UA sheet whatever its specificity. */
+.empty {
+  text-align: center;
+  color: var(--muted);
+  margin: 0;
+  padding: var(--sp-6);
+}
+/* The same empty state as a full-width table row. .table th, .table td
+   (0,1,1) beats bare .empty (0,1,0) on both padding and text-align, so inside
+   a report table only .empty's colour was surviving; (0,2,1) restores the
+   centring and the roomy padding it gets everywhere else. */
+.table td.empty,
+.report td.empty {
+  text-align: center;
+  padding: var(--sp-6);
+}
+.neg { color: var(--danger); }
+
+/* ------------------------------------------------------------- modal --- */
+
+#modal {
+  position: fixed;
+  top: 10%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  box-shadow: 0 var(--sp-2) var(--sp-6) var(--shadow);
+}
+#modal:empty { display: none; }
+/* max-height: 80dvh caps the whole modal to leave clearance under the
+   top: 10% offset above; dvh rather than vh so mobile browser chrome
+   showing/hiding doesn't clip it. Only .modal-body scrolls internally
+   (screens.css) — .modal-head, any .warn and .modal-actions stay pinned
+   so Save/Cancel are never pushed below the fold behind a long field
+   list, which is otherwise reachable on the phone-sized viewports most
+   users are on (fix round 1). */
+#modal form {
+  padding: var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  min-width: 20rem;
+  max-height: 80dvh;
+}
+
+/* ------------------------------------------ legacy state compatibility --- */
+/* .mine / .closed / .draft / .unavail / .site-marker predate the chip/table-
+   grid system (Task 5 rewrites grid.html to use it) — kept working here so
+   current templates and tests still render sensibly in the meantime. */
+
+.mine { background: var(--accent-soft); }
+
+.closed { background: var(--sunken); color: var(--muted); }
+
+.unavail { background: var(--sunken); }
+
+/* The hatched texture itself lives on .chip.is-draft (the inner span) —
+   .draft used to also paint a second repeating-linear-gradient here on the
+   <td>, which doubled up with the chip's own hatch into two overlapping
+   textures in one cell. That background-image is removed; the class stays
+   (tests assert on the "draft" class name) as a marker with no visual
+   styling of its own. */
+.draft {
+}
+
+.site-marker {
+  display: inline-block;
+  min-width: 1.1em;
+  height: 1.1em;
+  line-height: 1.1em;
+  padding: 0 2px;
+  border-radius: 50%;
+  background: var(--wash);
+  color: inherit;
+  font-size: .85em;
+  font-weight: 700;
+  margin-left: var(--sp-1);
+  vertical-align: middle;
+  text-align: center;
+}
+
+/* ------------------------------------------------ accessibility helpers --- */
+
+/* Visually hides content while keeping it in the accessibility tree (screen
+   readers still announce it). Used for the grid <caption> — the day/part
+   scopes already carry the visible header text, so the caption's table
+   summary would be redundant clutter on screen but is useful context for
+   assistive tech. */
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+

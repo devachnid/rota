@@ -130,13 +130,30 @@ def test_oklch_to_hex_is_deterministic_and_in_gamut():
     assert a.startswith("#") and len(a) == 7
 
 
-def test_nearest_tint_maps_similar_colours_together():
-    # The v1 default (a light blue) must land on a blue-ish soft tint.
+def test_nearest_tint_preserves_hue_family():
+    # The v1 default is a light blue; it must land in the blue region of the
+    # wheel, never on a green or a red. Which TONE it picks is not the point —
+    # #8ecae6 sits between the two lightness bands, so either is defensible.
     key = palette.nearest_tint("#8ecae6")
     assert key in palette.TINTS
-    assert key.endswith("-soft")
-    # A near-identical colour maps to the same tint.
-    assert palette.nearest_tint("#8fcbe7") == key
+    assert key.rsplit("-", 1)[0] in {"teal", "cyan", "sky", "azure", "blue"}, key
+
+
+def test_nearest_tint_is_stable_for_near_identical_colours():
+    assert palette.nearest_tint("#8ecae6") == palette.nearest_tint("#8fcbe7")
+
+
+@pytest.mark.parametrize("hex_value,expected_hues", [
+    ("#cdb4db", {"violet", "purple", "magenta", "indigo"}),   # pale lavender
+    ("#bde0fe", {"sky", "azure", "cyan", "blue"}),            # pale blue
+    ("#ffadad", {"red", "vermilion", "orange", "pink"}),      # pale red
+    ("#caffbf", {"lime", "green", "emerald", "jade"}),        # pale green
+])
+def test_nearest_tint_keeps_pastels_in_their_hue_family(hex_value, expected_hues):
+    # Pastels are exactly what a colour picker produces, so they are the input
+    # class the migration will actually meet.
+    key = palette.nearest_tint(hex_value)
+    assert key.rsplit("-", 1)[0] in expected_hues, f"{hex_value} -> {key}"
 
 
 def test_nearest_tint_distinguishes_far_apart_colours():
@@ -314,29 +331,46 @@ TINT_CHOICES: list[tuple[str, str]] = [(k, t.label) for k, t in TINTS.items()]
 
 
 def nearest_tint(hex_value: str) -> str:
-    """Closest tint to an arbitrary hex, by distance in OKLab-ish sRGB space.
+    """Closest tint to an arbitrary hex: nearest hue family, then nearest tone.
 
     Used once, by the migration that converts free-form `SessionType.colour`
-    values into palette keys. Malformed input falls back to DEFAULT_TINT.
+    values into palette keys. Hue is resolved first and independently of tone,
+    because getting the hue family right is what makes a migrated colour still
+    look like itself — a pale lavender must not become a green. Only then is
+    the tone chosen, by whichever background's luminance is closer to the
+    source. Malformed input falls back to DEFAULT_TINT.
+
+    A plain nearest-neighbour across all 40 tints does NOT work here: the two
+    tones sit at different lightnesses, so a pastel input can be closer to some
+    other hue's soft tint than to its own hue's strong one.
     """
     try:
         target = hex_to_rgb(hex_value)
     except (ValueError, AttributeError):
         return DEFAULT_TINT
 
-    best, best_d = DEFAULT_TINT, None
-    for key, tint in TINTS.items():
-        candidate = hex_to_rgb(tint.bg)
-        d = sum((a - b) ** 2 for a, b in zip(target, candidate))
+    def dist(a, b):
+        return sum((x - y) ** 2 for x, y in zip(a, b))
+
+    # 1. nearest hue family, judged on its closest tone
+    best_hue, best_d = None, None
+    for name, _ in HUES:
+        d = min(dist(target, hex_to_rgb(TINTS[f"{name}-{t}"].bg)) for t in TONES)
         if best_d is None or d < best_d:
-            best, best_d = key, d
-    return best
+            best_hue, best_d = name, d
+
+    # 2. within that family, the tone whose luminance is closer
+    target_lum = relative_luminance(target)
+    return min(
+        (f"{best_hue}-{t}" for t in TONES),
+        key=lambda k: abs(relative_luminance(hex_to_rgb(TINTS[k].bg)) - target_lum),
+    )
 ```
 
 - [ ] **Step 4: Run tests**
 
 Run: `pytest tests/test_palette.py -q`
-Expected: 10 passed. If `test_every_tint_meets_aa_contrast_in_both_themes` fails, the `_readable_fg` walk needs more range — widen `range(24)` or adjust `_FG_START`; do **not** weaken the 4.5 threshold.
+Expected: 13 passed. If `test_every_tint_meets_aa_contrast_in_both_themes` fails, the `_readable_fg` walk needs more range — widen `range(24)` or adjust `_FG_START`; do **not** weaken the 4.5 threshold.
 
 - [ ] **Step 5: Run the full suite and commit**
 
@@ -1123,18 +1157,10 @@ git commit -m "feat: restyle the htmx cell, day-note and locum editors"
 ```python
 import pytest
 
-from rota import palette
 from rota.models import PracticeSettings
 from tests.factories import MON, make_clinician, make_entry, make_session_type
 
 pytestmark = pytest.mark.django_db
-
-
-def test_every_tint_meets_aa_in_both_themes():
-    """The palette's contrast guarantee, asserted at the app level too."""
-    for key, tint in palette.TINTS.items():
-        assert palette.contrast_ratio(tint.fg, tint.bg) >= 4.5, key
-        assert palette.contrast_ratio(tint.dark_fg, tint.dark_bg) >= 4.5, key
 
 
 def test_grid_table_has_scope_and_caption(admin_client):

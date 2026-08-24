@@ -1,6 +1,8 @@
 from django.core.exceptions import ValidationError
 from django.db import models
 
+from rota import palette
+
 
 class Part(models.TextChoices):
     AM = "AM", "AM"
@@ -23,7 +25,15 @@ class SessionType(models.Model):
     name = models.CharField(max_length=100, unique=True)
     code = models.CharField(max_length=8)
     category = models.CharField(max_length=16, choices=Category.choices)
-    colour = models.CharField(max_length=7, default="#8ecae6")
+    colour = models.CharField(
+        max_length=32, choices=palette.TINT_CHOICES, default=palette.DEFAULT_TINT,
+        help_text="Session tint shown on the grid. All tints are contrast-checked.",
+    )
+    legacy_colour = models.CharField(
+        max_length=7, blank=True, default="",
+        help_text="The free-form hex this type used before the palette migration. "
+                  "Kept for one release in case a mapping looks wrong.",
+    )
     fairness_tracked = models.BooleanField(default=False)
     counts_toward_entitlement = models.BooleanField(default=False)
     allowed_clinicians = models.ManyToManyField(
@@ -53,6 +63,11 @@ class SessionType(models.Model):
             self.allowed_clinicians.filter(pk=clinician.pk).exists()
             or self.allowed_groups.filter(pk=clinician.group_id).exists()
         )
+
+    @property
+    def tint(self):
+        """The Tint for this session type, falling back if the key is unknown."""
+        return palette.TINTS.get(self.colour) or palette.TINTS[palette.DEFAULT_TINT]
 
     def __str__(self):
         return self.name

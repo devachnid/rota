@@ -1,29 +1,31 @@
 {% extends "base.html" %}
 {% block title %}Rota — week of {{ monday }}{% endblock %}
 {% block content %}
-<div class="grid-header">
-  <a href="?week={{ prev_week|date:'Y-m-d' }}">&larr; Prev</a>
+<div class="toolbar">
+  <a href="?week={{ prev_week|date:'Y-m-d' }}" class="btn">&larr; Prev</a>
   <h2>Week of {{ monday|date:"j M Y" }}</h2>
-  <a href="?week={{ next_week|date:'Y-m-d' }}">Next &rarr;</a>
-  <form method="get"><input type="date" name="week"><button>Go</button></form>
+  <a href="?week={{ next_week|date:'Y-m-d' }}" class="btn">Next &rarr;</a>
+  <form method="get"><input type="date" name="week"><button class="btn">Go</button></form>
   {% if has_clinician %}
-  <a href="/me/leave/new/">Request leave</a>
-  <a href="/me/swap/new/">Propose swap</a>
+  <a href="/me/leave/new/" class="btn">Request leave</a>
+  <a href="/me/swap/new/" class="btn">Propose swap</a>
   {% endif %}
   {% if is_admin %}
   <form hx-post="/rota/publish/">
     <input type="hidden" name="start" value="{{ monday|date:'Y-m-d' }}">
     <input type="hidden" name="end" value="{{ week_end|date:'Y-m-d' }}">
-    <button>Publish week</button>
+    <button class="btn btn-primary">Publish week</button>
   </form>
   {% endif %}
 </div>
-<table class="rota">
+<div class="grid-wrap">
+<table class="table-grid">
+<caption class="visually-hidden">Rota for the week of {{ monday|date:"j F Y" }}</caption>
 <thead>
 <tr>
-  <th></th>
+  <th class="grid-clin"></th>
   {% for h in day_headers %}
-  <th colspan="2" class="{% if h.closed %}closed{% endif %}"
+  <th colspan="2" scope="colgroup" class="grid-day{% if h.closed %} closed{% endif %}"
       {% if is_admin %}hx-get="/rota/daynote/{{ h.day|date:'Y-m-d' }}/" hx-target="#modal"{% endif %}>
     {{ h.day|date:"D j M" }}
     {% if h.note %}<div class="daynote">{{ h.note.text }}</div>{% endif %}
@@ -31,32 +33,33 @@
   </th>
   {% endfor %}
 </tr>
-<tr><th></th>{% for h in day_headers %}<th>AM</th><th>PM</th>{% endfor %}</tr>
+<tr><th class="grid-clin"></th>{% for h in day_headers %}<th class="grid-part" scope="col">AM</th><th class="grid-part" scope="col">PM</th>{% endfor %}</tr>
 </thead>
 {% for section in sections %}
 <tbody>
-<tr class="group"><td colspan="{{ colspan }}">{{ section.group.name }}</td></tr>
+<tr class="grid-group"><td colspan="{{ colspan }}">{{ section.group.name }}</td></tr>
 {% for row in section.rows %}
 <tr class="{% if row.mine %}mine{% endif %}">
-  <th class="clin" title="{{ row.clinician.name }}">{{ row.clinician.initials }}</th>
+  <th class="grid-clin" scope="row" title="{{ row.clinician.name }}">{{ row.clinician.initials }}</th>
   {% for cell in row.cells %}
   <td {% if cell.merged %}colspan="2"{% endif %}
-      class="entry
-             {% if cell.entry and not cell.entry.is_published %}draft{% endif %}
-             {% if not cell.entry and cell.unavail %}unavail{% endif %}
-             {% if cell.closed %}closed{% endif %}"
-      {% if cell.entry %}style="background-color:{{ cell.entry.session_type.colour }}"{% endif %}
+      class="{% if cell.entry and not cell.entry.is_published %}draft{% endif %}{% if not cell.entry and cell.unavail %} unavail{% endif %}{% if cell.closed %} closed{% endif %}"
       {% if is_admin %}hx-get="/rota/cell/{{ row.clinician.id }}/{{ cell.day_str }}/{{ cell.part }}/"
       hx-target="#modal"{% endif %}
       title="{{ cell.entry.fill_reason|default:'' }} {{ cell.entry.note|default:'' }}{% if cell.partner %} with {{ cell.partner }}{% endif %}">
-    {% if cell.entry %}{{ cell.entry.session_type.code }}{% if cell.entry.site %}<span class="site-marker">{{ cell.entry.site.name|slice:":1" }}</span>{% endif %}{% endif %}
+    {% if cell.entry %}
+      <span class="chip{% if not cell.entry.is_published %} is-draft{% endif %}"
+            style="--chip-bg: var(--tint-{{ cell.entry.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ cell.entry.session_type.tint.key }}-fg);">
+        {{ cell.entry.session_type.code }}{% if cell.entry.site %}<span class="site-marker">{{ cell.entry.site.name|slice:":1" }}</span>{% endif %}
+      </span>
+    {% else %}<span class="chip is-empty">&nbsp;</span>{% endif %}
   </td>
   {% endfor %}
 </tr>
 {% endfor %}
 {% if section.group.is_locum_group %}
 <tr>
-  <th class="clin">Need</th>
+  <th class="grid-clin" scope="row">Need</th>
   {% for cell in locum_cells %}
   <td>
     {% for r in cell.reqs %}
@@ -75,5 +78,6 @@
 </tbody>
 {% endfor %}
 </table>
+</div>
 <div id="modal"></div>
 {% endblock %}

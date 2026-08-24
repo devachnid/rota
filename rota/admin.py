@@ -43,9 +43,10 @@ class ClinicianAdmin(admin.ModelAdmin):
 
 @admin.register(SessionType)
 class SessionTypeAdmin(admin.ModelAdmin):
-    list_display = ("name", "code", "category", "fairness_tracked",
+    list_display = ("name", "code", "category", "colour", "fairness_tracked",
                     "counts_toward_entitlement")
     filter_horizontal = ("allowed_clinicians", "allowed_groups", "blocks_same_day")
+    readonly_fields = ("legacy_colour",)
 
 
 admin.site.register(Site)
