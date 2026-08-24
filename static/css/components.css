@@ -177,12 +177,22 @@
 }
 
 /* Both the day header and the clinician column stay put while scrolling.
-   The corner cell needs the higher z-index or the header wins over it. */
+   position: sticky lives on <thead> itself, not on the individual header
+   cells. The grid has two header rows (day names, then AM/PM) — pinning
+   each th to top: 0 independently made the second row slide up and
+   permanently cover the first the moment the wrapper actually gained a
+   real scroll range (round 2's fix exposed this; it was invisible while
+   nothing stuck at all). Sticking the whole <thead> as one unit keeps the
+   two rows at their natural relative offset instead. The header cells
+   still need their own opaque background so tbody rows scrolling
+   underneath the pinned header don't show through, and the corner cell
+   still needs the higher z-index or the header row wins over it as it
+   slides past horizontally. */
 .table-grid { border-collapse: separate; border-spacing: 2px;
               font-variant-numeric: tabular-nums; width: 100%; }
 .table-grid tbody tr { height: var(--row-h); }
-.table-grid thead th { position: sticky; top: 0; z-index: 2;
-                       background: var(--surface); }
+.table-grid thead { position: sticky; top: 0; z-index: 2; }
+.table-grid thead th { background: var(--surface); }
 .table-grid .grid-clin { position: sticky; left: 0; z-index: 1;
                          background: var(--surface); text-align: left; }
 .table-grid thead .grid-clin { z-index: 3; }
