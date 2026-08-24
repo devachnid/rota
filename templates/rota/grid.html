@@ -19,7 +19,7 @@
   {% endif %}
 </div>
 <div class="grid-wrap">
-<table class="rota table-grid">
+<table class="table-grid">
 <thead>
 <tr>
   <th class="grid-clin"></th>
@@ -42,7 +42,7 @@
   <th class="grid-clin" title="{{ row.clinician.name }}">{{ row.clinician.initials }}</th>
   {% for cell in row.cells %}
   <td {% if cell.merged %}colspan="2"{% endif %}
-      class="entry{% if cell.entry and not cell.entry.is_published %} draft{% endif %}{% if not cell.entry and cell.unavail %} unavail{% endif %}{% if cell.closed %} closed{% endif %}"
+      class="{% if cell.entry and not cell.entry.is_published %}draft{% endif %}{% if not cell.entry and cell.unavail %} unavail{% endif %}{% if cell.closed %} closed{% endif %}"
       {% if is_admin %}hx-get="/rota/cell/{{ row.clinician.id }}/{{ cell.day_str }}/{{ cell.part }}/"
       hx-target="#modal"{% endif %}
       title="{{ cell.entry.fill_reason|default:'' }} {{ cell.entry.note|default:'' }}{% if cell.partner %} with {{ cell.partner }}{% endif %}">

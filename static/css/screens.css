@@ -5,9 +5,20 @@
 /* ------------------------------------------------------------- grid --- */
 
 /* Horizontally scrollable wrapper so .table-grid's sticky header/first
-   column have a scroll container to stick within. */
+   column have a scroll container to stick within.
+   overflow-y: clip is load-bearing, not decorative — per the CSS Overflow
+   paired-axis rule, setting overflow-x to anything but visible/clip while
+   overflow-y is left at its visible default forces the computed overflow-y
+   to auto too, making .grid-wrap a vertical scroll container as well. It
+   has no height/max-height so that vertical scrollport can never actually
+   scroll, but it still becomes the nearest ancestor scroll container for
+   `thead th { position: sticky; top: 0 }`, which then has zero vertical
+   range to stick within and just scrolls away with the page. `clip` is
+   exempt from the coercion, so do not "simplify" this back down to a lone
+   overflow-x: auto — that silently breaks the sticky header. */
 .grid-wrap {
   overflow-x: auto;
+  overflow-y: clip;
 }
 
 .grid-day {

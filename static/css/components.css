@@ -293,13 +293,13 @@
 
 .unavail { background: var(--sunken); }
 
-/* Same hatched idea as .chip.is-draft above, via the dedicated overlay
-   token instead of a second literal rgba() (and instead of --surface,
-   which flips polarity between themes and would invert the wash). */
+/* The hatched texture itself lives on .chip.is-draft (the inner span) —
+   .draft used to also paint a second repeating-linear-gradient here on the
+   <td>, which doubled up with the chip's own hatch into two overlapping
+   textures in one cell. That background-image is removed; the class stays
+   (tests assert on the "draft" class name) as a marker with no visual
+   styling of its own. */
 .draft {
-  background-image: repeating-linear-gradient(45deg,
-    transparent, transparent 4px,
-    var(--overlay-light) 4px, var(--overlay-light) 8px);
 }
 
 .site-marker {
