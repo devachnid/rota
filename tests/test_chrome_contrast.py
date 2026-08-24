@@ -215,3 +215,57 @@ def test_no_colour_literals_outside_tokens_css(sheet):
     css = _strip_comments((CSS_DIR / sheet).read_text())
     literals = re.findall(r"#[0-9A-Fa-f]{3,8}\b|\brgba?\(|\bhsla?\(", css)
     assert not literals, f"{sheet} contains colour literals: {literals}"
+
+
+# --------------------------------------------------------------------------
+# 5. non-text contrast (WCAG 1.4.11) for UI component boundaries
+# --------------------------------------------------------------------------
+
+# The text tests above all passed on a form whose fields were invisible: every
+# label and value cleared AA, while the border that tells someone WHERE TO TYPE
+# measured 1.17:1 against the field and 1.14:1 against the page. Contrast for
+# text and contrast for a control's boundary are separate success criteria, and
+# only the first was ever asserted. This is that gap.
+NON_TEXT = 3.0  # WCAG 2.1 SC 1.4.11 Non-text Contrast
+
+# (token, background token, where). The visible boundary of an input, select or
+# textarea must be distinguishable from BOTH the control's own fill and the
+# surface the control sits on — a border that only clears one of the two still
+# leaves an edge that disappears on the other side.
+BOUNDARY_PAIRS = [
+    ("field-border", "surface", ".field input / select / textarea fill"),
+    ("field-border", "ground", "the page behind a form on --ground"),
+]
+
+
+@pytest.mark.parametrize("theme", list(THEMES))
+@pytest.mark.parametrize(
+    "token,bg,where", BOUNDARY_PAIRS, ids=[f"{t}-vs-{b}" for t, b, _ in BOUNDARY_PAIRS]
+)
+def test_control_boundaries_meet_non_text_contrast(theme, token, bg, where):
+    tokens = THEMES[theme]
+    ratio = palette.contrast_ratio(tokens[token], tokens[bg])
+    assert ratio >= NON_TEXT, (
+        f"{theme}: --{token} {tokens[token]} on --{bg} {tokens[bg]} = "
+        f"{ratio:.2f}:1, below WCAG 1.4.11's {NON_TEXT}:1 for a UI component "
+        f"boundary ({where})"
+    )
+
+
+def test_form_controls_do_not_use_the_decorative_hairline_for_their_border():
+    """--hairline is a divider between cards and table rows; at ~1.2:1 it is
+    correct there and wrong on a control's edge. Pin the distinction so the
+    two tokens cannot quietly converge again."""
+    components = _strip_comments((CSS_DIR / "components.css").read_text())
+    rule = _block(components, ".field input:not")
+    assert "var(--field-border)" in rule, (
+        "the .field control rule no longer takes its border from --field-border"
+    )
+    assert "var(--hairline)" not in rule, (
+        "the .field control rule is back on --hairline, which fails WCAG 1.4.11"
+    )
+    for theme, tokens in THEMES.items():
+        assert tokens["field-border"] != tokens["hairline"], (
+            f"{theme}: --field-border and --hairline have converged on "
+            f"{tokens['hairline']}; the boundary would fail 1.4.11 again"
+        )

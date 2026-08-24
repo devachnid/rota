@@ -18,6 +18,15 @@
   --surface:     #FFFFFF;
   --sunken:      #F7F8FA;
   --hairline:    #ECEDF1;
+  /* Form-control boundaries, deliberately NOT --hairline. WCAG 1.4.11 holds
+     the visible boundary of a UI component to 3:1, and --hairline (#ECEDF1)
+     measures 1.17:1 against --surface — right for a decorative divider
+     between cards and table rows, far too weak for the edge that tells
+     someone where to type. #8A91A0 measures 3.16:1 on --surface and 3.09:1
+     on --ground. (It is the value --muted used to carry, before --muted
+     moved to #6B7280 for AA text contrast: too weak for text, correct here.)
+     tests/test_chrome_contrast.py asserts it. */
+  --field-border: #8A91A0;
 
   --danger:      #A03A24;  --danger-soft:  #FDEAE6;
   --warning:     #855B1B;  --warning-soft: #FCF2E2;
@@ -64,6 +73,8 @@
     --surface:     #1A1D23;
     --sunken:      #21252C;
     --hairline:    #2C313A;
+    /* 3.18:1 on the dark --surface, 3.38:1 on --ground. See the light block. */
+    --field-border: #626C7D;
     --danger:      #F09A82;  --danger-soft:  #35201B;
     --warning:     #E0B451;  --warning-soft: #33290F;
     --ok:          #6FAE99;  --ok-soft:      #1B2E28;
@@ -86,6 +97,7 @@
   --surface:     #1A1D23;
   --sunken:      #21252C;
   --hairline:    #2C313A;
+  --field-border: #626C7D;
   --danger:      #F09A82;  --danger-soft:  #35201B;
   --warning:     #E0B451;  --warning-soft: #33290F;
   --ok:          #6FAE99;  --ok-soft:      #1B2E28;
