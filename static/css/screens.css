@@ -273,6 +273,18 @@
   display: flex;
   flex-direction: column;
   gap: var(--sp-4);
+  overflow-y: auto;
+  /* A flex item's min-height defaults to auto, which means "never shrink
+     below your content's height" — left at that default, .modal-body would
+     never actually shrink to #modal form's max-height cap, so it would
+     never overflow and overflow-y: auto above would never engage (fix
+     round 1: two earlier CSS fixes on this branch went inert this exact
+     way). min-height: 0 removes that floor so the flex algorithm is free
+     to size .modal-body down to whatever's left after .modal-head, the
+     optional .warn and .modal-actions take their share of the 80dvh cap,
+     at which point the real content height exceeds that and the browser
+     scrolls it. Looks removable; is not. */
+  min-height: 0;
 }
 .modal-body .field {
   margin-bottom: 0;

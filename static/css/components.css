@@ -315,12 +315,20 @@ body {
   box-shadow: 0 var(--sp-2) var(--sp-6) var(--shadow);
 }
 #modal:empty { display: none; }
+/* max-height: 80dvh caps the whole modal to leave clearance under the
+   top: 10% offset above; dvh rather than vh so mobile browser chrome
+   showing/hiding doesn't clip it. Only .modal-body scrolls internally
+   (screens.css) — .modal-head, any .warn and .modal-actions stay pinned
+   so Save/Cancel are never pushed below the fold behind a long field
+   list, which is otherwise reachable on the phone-sized viewports most
+   users are on (fix round 1). */
 #modal form {
   padding: var(--sp-5);
   display: flex;
   flex-direction: column;
   gap: var(--sp-3);
   min-width: 20rem;
+  max-height: 80dvh;
 }
 
 /* ------------------------------------------ legacy state compatibility --- */
