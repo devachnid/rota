@@ -140,14 +140,10 @@ def report_trainees(request):
         ).select_related("clinician").order_by("clinician__name")
     )
 
-    # weekly_rates() calls stage_rule(), which otherwise runs one query per
-    # trainee; there are only a handful of stages, so prefetch them all and
-    # short-circuit the per-instance lookup to keep this page query-flat.
+    # weekly_rates() looks up the stage rule, which otherwise costs one query
+    # per trainee. There are only four stages, so fetch them once and hand the
+    # mapping down.
     stage_rules = {r.stage: r for r in TraineeStageRule.objects.all()}
-    for profile in profiles:
-        cached = stage_rules.get(profile.stage)
-        if cached is not None:
-            profile.stage_rule = lambda cached=cached: cached
 
     # One query for every delivered entry across all trainees/types, bucketed
     # in Python by (clinician, session_type) to avoid N+1 across the table.
@@ -165,7 +161,7 @@ def report_trainees(request):
 
     rows = []
     for profile in profiles:
-        rates = profile.weekly_rates()
+        rates = profile.weekly_rates(stage_rules)
         anchor = trainee_anchor(profile)
         as_of = min(today, profile.placement_end)
         wm = week_monday(as_of)

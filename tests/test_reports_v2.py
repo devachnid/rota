@@ -210,3 +210,30 @@ def test_a4_accrual_ignores_in_flight_week(admin_client, admin_user):
     # Deliberately nothing placed this week (offset 0).
     html = admin_client.get("/reports/staffing/?weeks=1").content.decode()
     assert "behind target" not in html, "in-flight week counted as fully due"
+
+
+def test_trainee_report_query_count_does_not_grow_with_trainees(admin_client):
+    """The point of the prefetched stage-rule mapping. This used to be done
+    by monkeypatching profile.stage_rule with a lambda; the count is what
+    that was protecting, so assert the count rather than the mechanism."""
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    from tests.factories import make_clinician, make_trainee
+
+    PracticeSettings.load()
+
+    make_trainee(clinician=make_clinician("One Trainee", initials="O1"), stage="ST3")
+    with CaptureQueriesContext(connection) as one:
+        assert admin_client.get("/reports/trainees/").status_code == 200
+
+    for i in range(6):
+        make_trainee(clinician=make_clinician(f"Extra {i}", initials=f"X{i}"),
+                     stage="ST2" if i % 2 else "ST3")
+    with CaptureQueriesContext(connection) as many:
+        assert admin_client.get("/reports/trainees/").status_code == 200
+
+    assert len(many) == len(one), (
+        f"query count grew from {len(one)} (1 trainee) to {len(many)} (7) — "
+        f"something in the trainee report is per-profile again"
+    )

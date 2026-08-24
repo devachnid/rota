@@ -218,3 +218,52 @@ def test_practicesettings_admin_refuses_second_row(staff_client):
     PracticeSettings.objects.create(pk=1)
     resp = staff_client.get("/admin/rota/practicesettings/add/")
     assert resp.status_code == 403
+
+
+# --------------------------------------------------------------------------
+# the prefetched stage-rule mapping
+# --------------------------------------------------------------------------
+
+def test_stage_rule_accepts_a_prefetched_mapping():
+    """The report and every trainee fill pass iterate profiles, so they hand
+    weekly_rates() a mapping instead of paying a query each time round."""
+    t = make_trainee(stage="ST3")
+    rules = {r.stage: r for r in TraineeStageRule.objects.all()}
+    assert t.stage_rule(rules) == t.stage_rule()
+    assert t.weekly_rates(rules) == t.weekly_rates()
+
+
+def test_a_mapping_missing_this_stage_reads_as_no_rule_not_a_crash():
+    """This is why the mapping needs no sentinel: absent-from-mapping and
+    row-deleted are the same answer, and weekly_rates already handles it."""
+    t = make_trainee(stage="ST3")
+    assert t.stage_rule({}) is None
+    assert t.weekly_rates({}) == {
+        "vts": (0.0, None, None),
+        "sdl": (0.0, None, None),
+        "mentoring": (0.0, None, None),
+    }
+
+
+def test_the_mapping_is_used_instead_of_the_database():
+    """A mapping is authoritative — passing one must not fall back to a
+    query, or the N+1 it exists to remove would still be there."""
+    from django.test.utils import CaptureQueriesContext
+    from django.db import connection
+
+    t = make_trainee(stage="ST3")
+    rules = {r.stage: r for r in TraineeStageRule.objects.all()}
+    with CaptureQueriesContext(connection) as ctx:
+        t.weekly_rates(rules)
+    assert len(ctx) == 0, f"expected no query, ran {len(ctx)}: {[q['sql'] for q in ctx]}"
+
+
+def test_without_a_mapping_it_still_queries_for_itself():
+    """Callers that hold a single profile keep the simple behaviour."""
+    from django.test.utils import CaptureQueriesContext
+    from django.db import connection
+
+    t = make_trainee(stage="ST3")
+    with CaptureQueriesContext(connection) as ctx:
+        assert t.stage_rule() is not None
+    assert len(ctx) == 1

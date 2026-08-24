@@ -50,15 +50,25 @@ class TraineeProfile(models.Model):
                   "in-progress placement. Blank means accrue from placement "
                   "start.")
 
-    def stage_rule(self):
+    def stage_rule(self, rules=None):
         """The seeded TraineeStageRule for this trainee's stage, or None if
         an admin has deleted the row (the four rows are reference data,
         seeded by migration, but nothing at the DB level stops deletion —
-        callers must treat None as "no rates due", not a fatal error)."""
+        callers must treat None as "no rates due", not a fatal error).
+
+        `rules` is an optional {stage: TraineeStageRule} mapping for callers
+        that already hold them all — the trainee report and every trainee
+        fill pass iterate profiles, and without it each iteration costs a
+        query. A mapping with no entry for this stage yields None, which is
+        the same answer a deleted row gives, so the caller needs no special
+        case for the two.
+        """
+        if rules is not None:
+            return rules.get(self.stage)
         return TraineeStageRule.objects.filter(stage=self.stage).first()
 
-    def weekly_rates(self):
-        rule = self.stage_rule()
+    def weekly_rates(self, rules=None):
+        rule = self.stage_rule(rules)
         if rule is None:
             return {
                 "vts": (0.0, None, None),

@@ -91,7 +91,7 @@ def _run_trainee_pass(ctx, actor, result, session_type, rate_key,
     if session_type is None:
         return
     for profile in _profiles(ctx):
-        rate, weekday, part = profile.weekly_rates()[rate_key]
+        rate, weekday, part = profile.weekly_rates(ctx.stage_rules)[rate_key]
         if rate == 0 or extra_skip(weekday, part):
             continue
         anchor = _anchor(profile)

@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 from rota.models import (Clinician, PatternSlot, PracticeSettings, RotaEntry,
-                         SessionType)
+                         SessionType, TraineeStageRule)
 from rota.services import availability, calendar, fairness
 
 
@@ -64,6 +64,12 @@ class FillContext:
 
         self.settings = PracticeSettings.load()
         self.weights = fairness.weights(end)
+
+        # Four rows of reference data, read once per profile per trainee pass
+        # (VTS, SDL, mentoring) — three queries per trainee without this.
+        # Passed to TraineeProfile.weekly_rates(); a stage missing from the
+        # mapping yields None, the same as a deleted row.
+        self.stage_rules = {r.stage: r for r in TraineeStageRule.objects.all()}
 
         self.open_days = []
         d = start
