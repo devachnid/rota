@@ -1,44 +1,62 @@
 {% extends "base.html" %}
 {% block title %}Requests{% endblock %}
 {% block content %}
-<h1>Pending requests</h1>
-<h2>Leave</h2>
-{% for item in pending_leave %}
-<div class="request">
-  <p><strong>{{ item.req.clinician.name }}</strong> — {{ item.req.session_type.name }},
-     {{ item.req.start_date|date:"j M" }} – {{ item.req.end_date|date:"j M Y" }}
-     ({{ item.n_sessions }} session(s)). {{ item.req.message }}</p>
-  {% if item.overwritten %}
-  <p>Replaces:
-    {% for e in item.overwritten %}
-      {{ e.day|date:"D j M" }} {{ e.part }} {{ e.session_type.name }}{% if e.session_type.fairness_tracked %}
-      <span class="warn">(leaves a {{ e.session_type.name }} gap)</span>{% endif %}{% if not forloop.last %}, {% endif %}
-    {% endfor %}
-  </p>
-  {% endif %}
-  <form method="post" action="/requests/leave/{{ item.req.pk }}/approve/" style="display:inline">
-    {% csrf_token %}<input name="comment" placeholder="comment (optional)"><button>Approve</button>
-  </form>
-  <form method="post" action="/requests/leave/{{ item.req.pk }}/decline/" style="display:inline">
-    {% csrf_token %}<input name="comment" placeholder="comment (optional)"><button>Decline</button>
-  </form>
+<div class="stack">
+  <div class="page-head">
+    <h1>Pending requests</h1>
+  </div>
+  <h2>Leave</h2>
+  {% for item in pending_leave %}
+  <div class="card request">
+    <p><strong>{{ item.req.clinician.name }}</strong> — {{ item.req.session_type.name }},
+       {{ item.req.start_date|date:"j M" }} – {{ item.req.end_date|date:"j M Y" }}
+       ({{ item.n_sessions }} session(s)). {{ item.req.message }}</p>
+    {% if item.overwritten %}
+    <p class="warn">Replaces:
+      {% for e in item.overwritten %}
+        {{ e.day|date:"D j M" }} {{ e.part }} {{ e.session_type.name }}{% if e.session_type.fairness_tracked %} (leaves a {{ e.session_type.name }} gap){% endif %}{% if not forloop.last %}, {% endif %}
+      {% endfor %}
+    </p>
+    {% endif %}
+    <div class="form-actions">
+      <form method="post" action="/requests/leave/{{ item.req.pk }}/approve/">
+        {% csrf_token %}
+        <input name="comment" placeholder="comment (optional)">
+        <button type="submit" class="btn btn-primary">Approve</button>
+      </form>
+      <form method="post" action="/requests/leave/{{ item.req.pk }}/decline/">
+        {% csrf_token %}
+        <input name="comment" placeholder="comment (optional)">
+        <button type="submit" class="btn">Decline</button>
+      </form>
+    </div>
+  </div>
+  {% empty %}
+  <p class="empty">No pending leave requests.</p>
+  {% endfor %}
+  <h2>Swaps (accepted by colleague)</h2>
+  {% for item in pending_swaps %}
+  <div class="card request">
+    <p><strong>{{ item.req.proposer.name }}</strong>
+       ({{ item.req.proposer_day|date:"D j M" }} {{ item.req.proposer_part }})
+       &harr; <strong>{{ item.req.colleague.name }}</strong>
+       ({{ item.req.colleague_day|date:"D j M" }} {{ item.req.colleague_part }}).
+       {{ item.req.message }}</p>
+    {% for p in item.problems %}<p class="warn">{{ p }}</p>{% endfor %}
+    <div class="form-actions">
+      <form method="post" action="/requests/swap/{{ item.req.pk }}/approve/">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary" {% if item.problems %}disabled{% endif %}>Approve &amp; apply</button>
+      </form>
+      <form method="post" action="/requests/swap/{{ item.req.pk }}/decline/">
+        {% csrf_token %}
+        <input name="comment" placeholder="comment (optional)">
+        <button type="submit" class="btn">Decline</button>
+      </form>
+    </div>
+  </div>
+  {% empty %}
+  <p class="empty">No swaps awaiting approval.</p>
+  {% endfor %}
 </div>
-{% empty %}<p>No pending leave requests.</p>{% endfor %}
-<h2>Swaps (accepted by colleague)</h2>
-{% for item in pending_swaps %}
-<div class="request">
-  <p><strong>{{ item.req.proposer.name }}</strong>
-     ({{ item.req.proposer_day|date:"D j M" }} {{ item.req.proposer_part }})
-     &harr; <strong>{{ item.req.colleague.name }}</strong>
-     ({{ item.req.colleague_day|date:"D j M" }} {{ item.req.colleague_part }}).
-     {{ item.req.message }}</p>
-  {% for p in item.problems %}<p class="warn">{{ p }}</p>{% endfor %}
-  <form method="post" action="/requests/swap/{{ item.req.pk }}/approve/" style="display:inline">
-    {% csrf_token %}<button {% if item.problems %}disabled{% endif %}>Approve &amp; apply</button>
-  </form>
-  <form method="post" action="/requests/swap/{{ item.req.pk }}/decline/" style="display:inline">
-    {% csrf_token %}<input name="comment" placeholder="comment (optional)"><button>Decline</button>
-  </form>
-</div>
-{% empty %}<p>No swaps awaiting approval.</p>{% endfor %}
 {% endblock %}

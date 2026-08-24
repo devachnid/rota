@@ -1,31 +1,57 @@
 {% extends "base.html" %}
 {% block title %}Assisted fill{% endblock %}
 {% block content %}
-<h1>Assisted fill</h1>
-<form method="post">{% csrf_token %}
-  <label>From <input type="date" name="start" value="{{ start|date:'Y-m-d' }}"></label>
-  <label>To <input type="date" name="end" value="{{ end|date:'Y-m-d' }}"></label>
-  <label><input type="checkbox" name="fill_default" value="1">
-    Fill remaining empty cells with the default session type</label>
-  <button>Run fill</button>
-</form>
-{% if result %}
-<h2>{{ result.created }} draft session(s) created</h2>
-<p>Drafts are visible only to admins until published.
-   <a href="/rota/?week={{ start|date:'Y-m-d' }}">Review on the grid</a></p>
-{% if result.unfilled %}
-<h3>Unfilled slots</h3>
-<ul>
-  {% for g in unfilled_groups %}
-  <li class="warn">{{ g.session_type }}{% if g.part_label %} {{ g.part_label }}{% endif %}
-      — {{ g.reason }}: {{ g.count }} occurrence{{ g.count|pluralize }} ({{ g.date_range }})</li>
-  {% endfor %}
-</ul>
-{% endif %}
-<form hx-post="/rota/publish/">
-  <input type="hidden" name="start" value="{{ start|date:'Y-m-d' }}">
-  <input type="hidden" name="end" value="{{ end|date:'Y-m-d' }}">
-  <button>Publish {{ start|date:"j M" }} – {{ end|date:"j M" }}</button>
-</form>
-{% endif %}
+<div class="stack">
+  <div class="page-head">
+    <h1>Assisted fill</h1>
+  </div>
+  <div class="card">
+    <form method="post">{% csrf_token %}
+      <div class="field">
+        <label for="id_fill_start">From</label>
+        <input type="date" name="start" id="id_fill_start" value="{{ start|date:'Y-m-d' }}">
+      </div>
+      <div class="field">
+        <label for="id_fill_end">To</label>
+        <input type="date" name="end" id="id_fill_end" value="{{ end|date:'Y-m-d' }}">
+      </div>
+      <div class="field">
+        <label><input type="checkbox" name="fill_default" value="1">
+          Fill remaining empty cells with the default session type</label>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Run fill</button>
+      </div>
+    </form>
+  </div>
+  {% if result %}
+  <div class="card">
+    <h2>{{ result.created }} draft session(s) created</h2>
+    <div class="stat-row">
+      <div class="stat">
+        <span class="stat-value">{{ result.unfilled|length }}</span>
+        <span class="stat-label">Unfilled slot(s)</span>
+      </div>
+    </div>
+    <p>Drafts are visible only to admins until published.
+       <a href="/rota/?week={{ start|date:'Y-m-d' }}">Review on the grid</a></p>
+    {% if result.unfilled %}
+    <h3>Unfilled slots</h3>
+    {% for g in unfilled_groups %}
+    <div class="unfilled-group">
+      {{ g.session_type }}{% if g.part_label %} {{ g.part_label }}{% endif %}
+      — <span class="warn">{{ g.reason }}: {{ g.count }} occurrence{{ g.count|pluralize }} ({{ g.date_range }})</span>
+    </div>
+    {% endfor %}
+    {% endif %}
+    <div class="form-actions">
+      <form hx-post="/rota/publish/">
+        <input type="hidden" name="start" value="{{ start|date:'Y-m-d' }}">
+        <input type="hidden" name="end" value="{{ end|date:'Y-m-d' }}">
+        <button type="submit" class="btn btn-primary">Publish {{ start|date:"j M" }} – {{ end|date:"j M" }}</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+</div>
 {% endblock %}

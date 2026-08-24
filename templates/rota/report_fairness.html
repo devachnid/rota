@@ -1,24 +1,43 @@
 {% extends "base.html" %}
 {% block title %}Fairness report{% endblock %}
 {% block content %}
-<h1>Fairness</h1>
-<p><a href="/reports/leave/">Leave report</a> ·
-   <a href="/reports/staffing/">Staffing report</a> ·
-   <a href="/reports/trainees/">Trainees report</a></p>
-<form method="get">
-  <label>From <input type="date" name="start" value="{{ start|date:'Y-m-d' }}"></label>
-  <label>To <input type="date" name="end" value="{{ end|date:'Y-m-d' }}"></label>
-  <button>Update</button>
-</form>
-{% for table in tables %}
-<h2>{{ table.session_type.name }} ({{ start|date:"j M" }} – {{ end|date:"j M Y" }})</h2>
-<table class="report">
-  <tr><th>Clinician</th><th>Sessions done</th><th>Fair share</th><th>Balance</th></tr>
-  {% for r in table.rows %}
-  <tr><td>{{ r.clinician.name }}</td><td>{{ r.actual }}</td>
-      <td>{{ r.share|floatformat:1 }}</td>
-      <td class="{% if r.balance < 0 %}neg{% endif %}">{{ r.balance|floatformat:1 }}</td></tr>
+<div class="stack">
+  <div class="page-head">
+    <h1>Fairness</h1>
+    <nav class="report-nav" aria-label="Reports">
+      <a href="/reports/leave/">Leave report</a>
+      <a href="/reports/staffing/">Staffing report</a>
+      <a href="/reports/trainees/">Trainees report</a>
+    </nav>
+  </div>
+  <form method="get">
+    <label>From <input type="date" name="start" value="{{ start|date:'Y-m-d' }}"></label>
+    <label>To <input type="date" name="end" value="{{ end|date:'Y-m-d' }}"></label>
+    <button type="submit" class="btn">Update</button>
+  </form>
+  {% for table in tables %}
+  <h2>{{ table.session_type.name }} ({{ start|date:"j M" }} – {{ end|date:"j M Y" }})</h2>
+  <div class="table-scroll">
+    <table class="table">
+      <thead>
+        <tr>
+          <th scope="col">Clinician</th>
+          <th scope="col">Sessions done</th>
+          <th scope="col">Fair share</th>
+          <th scope="col">Balance</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for r in table.rows %}
+      <tr><td>{{ r.clinician.name }}</td><td>{{ r.actual }}</td>
+          <td>{{ r.share|floatformat:1 }}</td>
+          <td class="{% if r.balance < 0 %}neg{% endif %}">{{ r.balance|floatformat:1 }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% empty %}
+  <p class="empty">No fairness-tracked session types configured.</p>
   {% endfor %}
-</table>
-{% empty %}<p>No fairness-tracked session types configured.</p>{% endfor %}
+</div>
 {% endblock %}

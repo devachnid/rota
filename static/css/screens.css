@@ -56,8 +56,15 @@
    upcoming-sessions table, my requests) with one consistent rhythm. On a
    phone — the primary device for this screen — this is just a plain
    single-column flow, which is exactly what's wanted; no separate mobile
-   layout is needed for that to already be comfortable. */
-.schedule-list {
+   layout is needed for that to already be comfortable.
+   .stack (Task 7: reports/fill/inbox) is the identical flex-column-with-gap
+   rhythm, needed for the same reason — h1/h2/h3 margins are reset to 0
+   (tokens.css) so a page built from a loose sequence of heading/table/card
+   sections needs an explicit gap between them. Aliased here rather than
+   duplicated, exactly like .card/.request and .toolbar/.grid-header
+   (components.css) alias their pre-redesign names. */
+.schedule-list,
+.stack {
   display: flex;
   flex-direction: column;
   gap: var(--sp-5);
@@ -105,6 +112,37 @@
 .table-scroll {
   overflow-x: auto;
 }
+
+/* ----------------------------------------------------------- reports --- */
+
+/* Cross-links between the four report pages. Sits inside .page-head next to
+   the <h1> — components.css's flex/space-between on .page-head handles the
+   side-by-side layout; this only styles the links themselves. */
+.report-nav {
+  display: flex;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+.report-nav a {
+  color: var(--ink-soft);
+  font-weight: 600;
+  font-size: var(--fs-sm);
+  text-decoration: none;
+}
+.report-nav a:hover { color: var(--accent); }
+
+/* -------------------------------------------------------- assisted fill --- */
+
+/* One row per (session type, reason) group in the fill screen's grouped
+   unfilled-slot summary — replaces the old one-<li>-per-slot list, which
+   could run to 100+ rows on a realistic multi-week fill. Plain hairline
+   rows rather than a table: there's no tabular alignment to gain from one,
+   just a short line of text per group. */
+.unfilled-group {
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.unfilled-group:last-child { border-bottom: none; }
 
 /* --------------------------------------------------------- auth / login --- */
 
