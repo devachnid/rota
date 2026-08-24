@@ -23,6 +23,12 @@ autofill v2 review processes had accumulated:
 
 ## Settled
 
+- **The `stage_rule` monkeypatch is gone** (`1b4f094`, 2026-08-24).
+  `stage_rule()` and `weekly_rates()` take an optional `{stage: rule}` mapping
+  instead. The same N+1 existed unfixed in the fill engine — three trainee
+  passes each calling `weekly_rates()` per profile — and is fixed too. Guarded
+  by query count rather than by mechanism.
+
 - **The trainee report's "expected" column** shows requirements accruing from
   `requirements_tracked_from` (or placement start when blank), and that is what
   it should show — Tom, 2026-08-24. The system reports what it was asked to
@@ -40,12 +46,6 @@ autofill v2 review processes had accumulated:
   than bolted on. Deferred by Tom, 2026-08-24.
 
 ## Open — minor
-
-- `rota/views/reports.py:150`: `report_trainees` monkeypatches
-  `profile.stage_rule` with a lambda to cache the prefetched stage rules. It
-  works, but a plain helper computing rates from the prefetched dict would be
-  less fragile. (The related crash — a deleted `TraineeStageRule` row 500ing the
-  report and every fill — is fixed.)
 
 - **Closed-day headers render two-tone.** On a bank holiday the day-name cell
   greys correctly but the AM/PM row beneath it stays on the surface colour,
