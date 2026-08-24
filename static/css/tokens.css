@@ -7,7 +7,13 @@
   --accent-soft: #E4F2EC;
   --ink:         #1B1F27;
   --ink-soft:    #454C5A;
-  --muted:       #8A91A0;
+  /* #8A91A0 measured 3.16:1 on --surface, 3.09 on --ground, 2.98 on
+     --sunken — below AA, and every consumer (.btn-quiet, .grid-part,
+     .grid-group td, .nav-user, .field-help, .badge, .empty, .closed,
+     .stat-label, .chip's fallback fg) is small text, so the large-text
+     exemption never applies. #6B7280 measures 4.83 / 4.72 / 4.55.
+     tests/test_chrome_contrast.py holds every chrome pair to 4.5:1. */
+  --muted:       #6B7280;
   --ground:      #FCFCFD;
   --surface:     #FFFFFF;
   --sunken:      #F7F8FA;
@@ -17,12 +23,21 @@
   --warning:     #855B1B;  --warning-soft: #FCF2E2;
   --ok:          #23604A;  --ok-soft:      #E4F2EC;
 
-  /* Shadows and light overlays sit outside the themed palette: a shadow
-     must stay dark and a wash overlay must stay light regardless of theme,
-     so unlike every other token above these two are allowed a literal
-     colour rather than a value that flips with light/dark mode. */
-  --shadow:        rgb(27 31 39 / 18%);
-  --overlay-light: rgb(255 255 255 / 55%);
+  /* Shadows and washes are the two alpha tokens; they sit outside the themed
+     palette but in opposite ways.
+
+     --shadow must stay dark in both themes, so it keeps a literal.
+
+     --wash is the opposite: it is laid OVER a chip's tint background (the
+     draft hatch, the site-marker disc) with the chip's own foreground on top,
+     so it has to move AWAY from that background — light over a light tint,
+     dark over a dark one. Its predecessor --overlay-light stayed light in
+     both themes; composited over a dark-mode chip that landed at mid-grey and
+     dropped the chip text to 1.76-2.03:1 across all 40 tints. Measured after
+     the flip: >=6.57:1 light, >=10.90:1 dark. tests/test_chrome_contrast.py
+     composites it and asserts AA so the polarity cannot silently invert. */
+  --shadow: rgb(27 31 39 / 18%);
+  --wash:   rgb(255 255 255 / 55%);
 
   --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
   --sp-5: 24px; --sp-6: 32px; --sp-7: 48px;
@@ -53,9 +68,10 @@
     --warning:     #E0B451;  --warning-soft: #33290F;
     --ok:          #6FAE99;  --ok-soft:      #1B2E28;
 
-    /* Stronger against the darker ground; still dark, never inverted. */
-    --shadow:        rgb(0 0 0 / 55%);
-    --overlay-light: rgb(255 255 255 / 55%);
+    /* Shadow: stronger against the darker ground; still dark, never inverted.
+       Wash: flipped to dark, because here it sits over a dark chip tint. */
+    --shadow: rgb(0 0 0 / 55%);
+    --wash:   rgb(0 0 0 / 35%);
   }
 }
 
@@ -74,8 +90,8 @@
   --warning:     #E0B451;  --warning-soft: #33290F;
   --ok:          #6FAE99;  --ok-soft:      #1B2E28;
 
-  --shadow:        rgb(0 0 0 / 55%);
-  --overlay-light: rgb(255 255 255 / 55%);
+  --shadow: rgb(0 0 0 / 55%);
+  --wash:   rgb(0 0 0 / 35%);
 }
 
 * { box-sizing: border-box; }

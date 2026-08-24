@@ -27,6 +27,17 @@ HUES: list[tuple[str, float]] = [
 
 TONES: tuple[str, str] = ("soft", "strong")
 
+# Display names for hue families whose key does not describe the colour. The
+# keys are stored in SessionType.colour and are referenced as CSS custom
+# property names (--tint-slate-soft-bg), so renaming one means a migration and
+# a template ripple; the human-readable label the admin dropdown shows is free
+# to tell the truth. "slate" sits at 360 deg, which in OKLCH is a red-pink —
+# slate-soft renders #ffe2ec — so it is labelled Rose, the colour word for
+# that position on the ring, between pink (342) and red (18). The palette
+# having no true neutral is a separate, real gap: a design decision for the
+# project owner, not something a label can fix.
+LABELS: dict[str, str] = {"slate": "Rose"}
+
 # Background lightness/chroma per tone, per theme. Soft tints are the default
 # for most session types; strong ones let a related type share a hue at a
 # heavier weight (PMC-Urgent vs PMC-Routine).
@@ -193,7 +204,7 @@ def _build() -> dict[str, Tint]:
             key = f"{name}-{tone}"
             tints[key] = Tint(
                 key=key,
-                label=f"{name.capitalize()} — {tone}",
+                label=f"{LABELS.get(name, name.capitalize())} — {tone}",
                 bg=bg,
                 fg=_readable_fg(bg, hue, "light"),
                 dark_bg=dark_bg,

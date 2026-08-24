@@ -70,6 +70,21 @@
   gap: var(--sp-5);
 }
 
+/* my_schedule.html's "My requests" <ul> is a direct flex child of
+   .schedule-list and otherwise entirely unstyled, so it took the UA's
+   margin: 1em 0 on top of the 24px flex gap (gap does not collapse with a
+   child's margin, it adds) and the UA's padding-inline-start: 40px, which
+   indented it past every other section on the page. Both are UA declarations,
+   so any author rule beats them; the child combinator keeps it to a list that
+   is itself a stack item rather than any nested list inside a card. The
+   remaining padding is what the markers hang in — dropping it to 0 would clip
+   them outside the box. */
+.schedule-list > ul,
+.stack > ul {
+  margin: 0;
+  padding-inline-start: var(--sp-5);
+}
+
 /* .page-head carries its own margin-bottom: var(--sp-5) (components.css:69),
    meant for the case where it's a sibling *before* a following block (as in
    my_schedule.html). Flex gap does not collapse with a child's margin — it
