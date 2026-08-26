@@ -122,6 +122,25 @@ Then:
 Point the Cloudflare tunnel ingress at `http://127.0.0.1:8321`.
 Backups land in `backups/`, kept 30 days.
 
+### Redeploying
+
+**`collectstatic` is not optional on a redeploy.** With `DEBUG=0` every
+`{% static %}` resolves through a manifest that `collectstatic` writes, so
+pulling code that references a new asset — a font, a stylesheet — without
+rebuilding the manifest makes *every page* return 500, with the traceback
+going only to the journal. That has happened.
+
+    set -a; . /etc/rota.env; set +a
+    git pull
+    pip install -r requirements.txt
+    python manage.py migrate
+    python manage.py collectstatic --noinput
+    python manage.py check            # fails loudly if the manifest is stale
+    systemctl restart rota
+
+`manage.py check` verifies that every asset the templates reference is in the
+manifest, so run it before the restart rather than after.
+
 **Check the deployment is not in debug mode.** `DEBUG` defaults to off, but a
 stray `DEBUG=1` turns on tracebacks, publishes the URL map on every 404, and
 drops HSTS and the `Secure` cookie flags. Two commands tell you:

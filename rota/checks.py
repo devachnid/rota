@@ -1,0 +1,81 @@
+"""Deploy-time checks for things that otherwise fail on every page view.
+
+A deployment can be configured correctly, start cleanly, pass `check --deploy`,
+and still return 500 for every request. That happened: with DEBUG off the
+static files are served through a manifest built by `collectstatic`, and a
+deployment that pulled new code without re-running it had no manifest entry for
+a font `base.html` references — so `{% static %}` raised ValueError while
+rendering, on every page, with the traceback going only to the journal.
+
+The failure belongs at deploy time, where someone is watching.
+"""
+
+import re
+from pathlib import Path
+
+from django.conf import settings
+from django.core.checks import Error, register
+
+# {% static 'x' %} / {% static "x" %}, literal paths only. A tag whose argument
+# is a variable cannot be resolved without rendering, and is skipped rather
+# than guessed at.
+_STATIC_TAG = re.compile(r"""\{%\s*static\s+["']([^"']+)["']\s*%\}""")
+
+
+def _uses_manifest_storage() -> bool:
+    backend = settings.STORAGES.get("staticfiles", {}).get("BACKEND", "")
+    return "Manifest" in backend
+
+
+def _template_static_refs() -> dict[str, set[str]]:
+    refs: dict[str, set[str]] = {}
+    for root in settings.TEMPLATES[0]["DIRS"]:
+        for path in Path(root).rglob("*.html"):
+            for m in _STATIC_TAG.finditer(path.read_text()):
+                refs.setdefault(m.group(1), set()).add(
+                    str(path.relative_to(settings.BASE_DIR))
+                )
+    return refs
+
+
+@register("staticfiles")
+def static_manifest_covers_templates(app_configs, **kwargs):
+    """Every literal {% static %} path must be in the manifest."""
+    if not _uses_manifest_storage():
+        return []  # dev and tests serve straight off disk
+
+    from django.contrib.staticfiles.storage import staticfiles_storage
+
+    refs = _template_static_refs()
+    if not refs:
+        return []
+
+    try:
+        manifest = staticfiles_storage.hashed_files
+    except Exception as exc:  # unreadable manifest is the same class of problem
+        return [Error(
+            f"The static files manifest could not be read ({exc}).",
+            hint="Run: python manage.py collectstatic --noinput",
+            id="rota.E001",
+        )]
+
+    if not manifest:
+        return [Error(
+            "Static files are served through a manifest, but the manifest is "
+            "empty or missing, so every page that uses {% static %} will "
+            "raise ValueError while rendering.",
+            hint="Run: python manage.py collectstatic --noinput",
+            id="rota.E002",
+        )]
+
+    missing = sorted(p for p in refs if p not in manifest)
+    if missing:
+        detail = "; ".join(f"{p} (in {', '.join(sorted(refs[p]))})" for p in missing)
+        return [Error(
+            f"{len(missing)} static file(s) referenced by templates are not in "
+            f"the manifest, so those pages will return 500: {detail}",
+            hint="An asset was added or renamed since the last collectstatic. "
+                 "Run: python manage.py collectstatic --noinput",
+            id="rota.E003",
+        )]
+    return []
