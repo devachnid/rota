@@ -132,7 +132,33 @@ AUTHENTICATION_BACKENDS = [
 ]
 AXES_FAILURE_LIMIT = 5
 AXES_COOLOFF_TIME = 1  # hours
-AXES_LOCKOUT_PARAMETERS = ["username"]
+
+# Addresses whose forwarded-IP header is believed. cloudflared connects over
+# loopback, and the systemd unit binds gunicorn there on purpose — see
+# accounts/client_ip.py for why that binding is load-bearing.
+TRUSTED_PROXY_IPS = frozenset(
+    h.strip() for h in os.environ.get(
+        "TRUSTED_PROXY_IPS", "127.0.0.1,::1"
+    ).split(",") if h.strip()
+)
+
+# Without this axes uses REMOTE_ADDR, which behind the tunnel is always
+# 127.0.0.1 — one key for every user in the world. django-ipware would also do
+# it, but that is a new dependency and this project does not take those.
+AXES_CLIENT_IP_CALLABLE = "accounts.client_ip.client_ip"
+
+# Each top-level entry is an independent lockout; a nested list would be one
+# combined key. So this locks a username after AXES_FAILURE_LIMIT failures
+# *and, separately*, an address after the same — the second is what stops one
+# source spraying many accounts, which username-only keying cannot see.
+#
+# The cost is that clinicians sharing the surgery's NAT share an address, so a
+# run of fumbled logins there could lock the building out. AXES_RESET_ON_SUCCESS
+# below is what makes that acceptable: any successful login clears the counters
+# for that client, so ordinary mistakes do not accumulate towards a lockout —
+# only an unbroken run of failures does.
+AXES_LOCKOUT_PARAMETERS = ["username", "ip_address"]
+AXES_RESET_ON_SUCCESS = True
 
 # axes requires a request object during authenticate(), which the test
 # client's login()/force_login() don't provide — disable it under pytest.

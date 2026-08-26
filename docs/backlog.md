@@ -23,6 +23,16 @@ autofill v2 review processes had accumulated:
 
 ## Settled
 
+- **Axes now locks by address as well as username** (2026-08-26). The earlier
+  decision — username only, because behind the tunnel every request carries the
+  tunnel's IP — was correct about the symptom and wrong about the fix: axes was
+  falling back to `REMOTE_ADDR` because django-ipware is not installed.
+  `AXES_CLIENT_IP_CALLABLE` resolves `CF-Connecting-IP` with no new dependency,
+  and `AXES_RESET_ON_SUCCESS` keeps a shared surgery NAT address from locking
+  the building out. Verified end to end: five failures across five different
+  usernames from one address now blocks it, and an unrelated address is
+  unaffected. Clears the `axes.W006` system check.
+
 - **The palette has a true neutral** (2026-08-24). It had none: all 40 tints
   were colours, and the family at hue 360° was named "slate" while rendering a
   pink, which `DEFAULT_TINT` pointed at. That family is now `rose`, which is what
@@ -66,10 +76,6 @@ Deliberate choices, recorded so they stop being re-reported by each review pass.
 
 - **systemd units run as root.** Correct for this single-purpose LXC. Revisit
   only if the container ever hosts anything else.
-- **Axes lockout is keyed on username only.** Correct behind the Cloudflare
-  tunnel, where every request carries the tunnel's IP and IP-keying would be
-  useless. Accepted consequence: someone who knows a GP's email can lock that
-  account for an hour.
 - **Fill re-run has no preview step**, though the spec asks for previews on
   destructive actions. Accepted: re-run provably touches only its own unpublished
   drafts, never published or manually-set entries, and that is enforced by tests.

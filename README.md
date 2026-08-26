@@ -144,6 +144,27 @@ manifest, so run it before the restart rather than after. It has to be
 `collectstatic` and `migrate`, which legitimately run before a manifest
 exists.
 
+### Login rate limiting behind the tunnel
+
+axes locks out by username **and** by client address. The address comes from
+Cloudflare's `CF-Connecting-IP`, believed only when the request arrives from
+`TRUSTED_PROXY_IPS` (loopback by default, where cloudflared connects) — see
+`accounts/client_ip.py` for why it is that header and not `X-Forwarded-For`.
+
+Nothing to configure for a standard tunnel. **Do verify the header actually
+arrives**, because if it does not, every attempt is recorded as `127.0.0.1`
+and address-based lockout quietly stops meaning anything:
+
+    python manage.py shell -c "from axes.models import AccessAttempt; print(list(AccessAttempt.objects.values_list('ip_address', 'username')[:5]))"
+
+Fail a login once from outside, then run that. Real client addresses mean it
+is working; `127.0.0.1` means the header is being stripped somewhere and only
+username keying is live.
+
+If gunicorn is ever put behind something other than cloudflared, set
+`TRUSTED_PROXY_IPS` in `/etc/rota.env` to that proxy's address — and never to
+`0.0.0.0` or a wildcard, which would let any client name its own address.
+
 **Check the deployment is not in debug mode.** `DEBUG` defaults to off, but a
 stray `DEBUG=1` turns on tracebacks, publishes the URL map on every 404, and
 drops HSTS and the `Secure` cookie flags. Two commands tell you:
