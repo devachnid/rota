@@ -38,7 +38,22 @@ def _template_static_refs() -> dict[str, set[str]]:
     return refs
 
 
-@register("staticfiles")
+# A DEPLOY check, deliberately, and not tagged "staticfiles".
+#
+# Both of those are load-bearing and were got wrong first time round:
+#
+#   - `collectstatic` runs `requires_system_checks = [Tags.staticfiles]`, so
+#     tagging this "staticfiles" made it run before collectstatic did anything
+#     — blocking the one command that fixes the problem, with a hint telling
+#     you to run the command it had just blocked.
+#   - `migrate` runs "__all__" checks, so even an untagged non-deploy check
+#     breaks a first deployment, where no manifest exists yet and none should.
+#
+# Deploy checks are skipped by ordinary management commands and run only for
+# `manage.py check --deploy`, which is precisely the "is this safe to serve"
+# question this is asking. That is the same reason Django files its own HSTS
+# and cookie checks there.
+@register(deploy=True)
 def static_manifest_covers_templates(app_configs, **kwargs):
     """Every literal {% static %} path must be in the manifest."""
     if not _uses_manifest_storage():

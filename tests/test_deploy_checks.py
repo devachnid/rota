@@ -87,13 +87,34 @@ def test_the_font_base_html_needs_is_among_the_references():
     assert "templates/base.html" in refs["fonts/plus-jakarta-sans-latin.woff2"]
 
 
-def test_the_check_is_registered_to_run_on_plain_manage_py_check():
-    """Not only under --deploy: `check` is the command people actually type,
-    and `migrate` runs system checks too."""
+def test_the_check_never_blocks_the_command_that_fixes_it():
+    """The first version of this check ran before `collectstatic` and told you
+    to run `collectstatic`.
+
+    Two mistakes, both worth pinning. Tagging it "staticfiles" made
+    `collectstatic` run it, because that command restricts system checks to
+    exactly that tag. And an untagged non-deploy check still breaks `migrate`,
+    which runs "__all__" — so a first deployment, where no manifest exists yet
+    and none should, could not get off the ground.
+
+    A deploy check is skipped by ordinary management commands and runs for
+    `manage.py check --deploy`, which is the question being asked: is this
+    safe to serve.
+    """
     from django.core.checks.registry import registry
+    from django.contrib.staticfiles.apps import StaticFilesConfig  # noqa: F401
 
     fn = checks.static_manifest_covers_templates
-    assert fn in registry.get_checks(include_deployment_checks=False), (
-        "the manifest check only runs with --deploy, so a redeploy that skips "
-        "collectstatic would still reach users"
+
+    assert fn not in registry.get_checks(include_deployment_checks=False), (
+        "the manifest check runs during ordinary management commands — it will "
+        "block collectstatic and migrate before a manifest can exist"
+    )
+    assert fn in registry.get_checks(include_deployment_checks=True), (
+        "the manifest check is not registered as a deploy check, so nothing "
+        "runs it at all"
+    )
+    assert "staticfiles" not in getattr(fn, "tags", ()), (
+        "tagged 'staticfiles', which is the exact tag collectstatic runs — "
+        "the check would block the command it tells you to run"
     )

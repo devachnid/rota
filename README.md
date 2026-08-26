@@ -135,11 +135,14 @@ going only to the journal. That has happened.
     pip install -r requirements.txt
     python manage.py migrate
     python manage.py collectstatic --noinput
-    python manage.py check            # fails loudly if the manifest is stale
+    python manage.py check --deploy   # fails loudly if the manifest is stale
     systemctl restart rota
 
-`manage.py check` verifies that every asset the templates reference is in the
-manifest, so run it before the restart rather than after.
+`check --deploy` verifies that every asset the templates reference is in the
+manifest, so run it before the restart rather than after. It has to be
+`--deploy` rather than plain `check`: an ordinary check would also run during
+`collectstatic` and `migrate`, which legitimately run before a manifest
+exists.
 
 **Check the deployment is not in debug mode.** `DEBUG` defaults to off, but a
 stray `DEBUG=1` turns on tracebacks, publishes the URL map on every 404, and
