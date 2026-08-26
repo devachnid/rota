@@ -98,11 +98,36 @@ is the reference for what the settings actually mean.
 ## Deploy (LXC + Cloudflare tunnel)
 
     pip install -r requirements.txt
-    DEBUG=0 SECRET_KEY=... python manage.py collectstatic --noinput
-    DEBUG=0 SECRET_KEY=... python manage.py migrate
-    cp deploy/gunicorn.service /etc/systemd/system/rota.service   # edit env vars first
+
+Create the secrets file first — root-only, never in the unit file:
+
+    umask 077
+    .venv/bin/python -c 'from django.core.management.utils import get_random_secret_key as k; print("SECRET_KEY=" + k())' > /etc/rota.env
+    cat >> /etc/rota.env <<'EOF'
+    DEBUG=0
+    ALLOWED_HOSTS=rota.example.org
+    CSRF_TRUSTED_ORIGINS=https://rota.example.org
+    EOF
+    chmod 600 /etc/rota.env
+
+Then:
+
+    set -a; . /etc/rota.env; set +a
+    python manage.py collectstatic --noinput
+    python manage.py migrate
+    cp deploy/gunicorn.service /etc/systemd/system/rota.service
     cp deploy/rota-backup.* /etc/systemd/system/
     systemctl daemon-reload && systemctl enable --now rota rota-backup.timer
 
 Point the Cloudflare tunnel ingress at `http://127.0.0.1:8321`.
 Backups land in `backups/`, kept 30 days.
+
+**Check the deployment is not in debug mode.** `DEBUG` defaults to off, but a
+stray `DEBUG=1` turns on tracebacks, publishes the URL map on every 404, and
+drops HSTS and the `Secure` cookie flags. Two commands tell you:
+
+    curl -sI https://your-host/accounts/login/ | grep -i 'strict-transport\|set-cookie'
+    curl -s https://your-host/no-such-path/ | grep -c 'Django tried these URL patterns'
+
+The first must show `Strict-Transport-Security` and a `csrftoken` cookie marked
+`Secure`; the second must print `0`.

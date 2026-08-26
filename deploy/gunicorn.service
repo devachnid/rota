@@ -4,10 +4,34 @@ After=network.target
 
 [Service]
 WorkingDirectory=/root/rota
-Environment=DEBUG=0
-Environment=SECRET_KEY=CHANGE-ME
-Environment=ALLOWED_HOSTS=rota.example.org
-Environment=CSRF_TRUSTED_ORIGINS=https://rota.example.org
+
+# Secrets go in an environment file, not in Environment= lines. Unit files
+# under /etc/systemd/system are world-readable by default, so a SECRET_KEY
+# written here is readable by every local account — and with that key an
+# attacker can forge a session cookie for any user, including a rota admin.
+#
+# Create it once, readable only by root:
+#
+#   umask 077
+#   /root/rota/.venv/bin/python -c \
+#     'from django.core.management.utils import get_random_secret_key as k; \
+#      print("SECRET_KEY=" + k())' > /etc/rota.env
+#   chmod 600 /etc/rota.env
+#
+# and add the rest of the settings to it:
+#
+#   DEBUG=0
+#   ALLOWED_HOSTS=rota.example.org
+#   CSRF_TRUSTED_ORIGINS=https://rota.example.org
+#
+# DEBUG defaults to 0 in config/settings.py, so omitting it is safe — but set
+# it explicitly so the file states the intent.
+EnvironmentFile=/etc/rota.env
+
+# Bound to loopback on purpose: the Cloudflare tunnel is the only way in.
+# settings.py trusts X-Forwarded-Proto to decide a request is HTTPS, which is
+# only sound while nothing can reach gunicorn directly and set that header
+# itself. Do not change this to 0.0.0.0.
 ExecStart=/root/rota/.venv/bin/gunicorn config.wsgi --bind 127.0.0.1:8321 --workers 2
 Restart=always
 

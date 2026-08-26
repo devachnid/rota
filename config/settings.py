@@ -3,13 +3,34 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.environ.get("SECRET_KEY", "dev-insecure-key")
-DEBUG = os.environ.get("DEBUG", "1") == "1"
+import sys
 
-if not DEBUG and not os.environ.get("SECRET_KEY"):
+# Running under pytest. Django's test runner forces DEBUG=False anyway, and the
+# suite must not require a real SECRET_KEY in the environment to run.
+_TESTING = "pytest" in sys.modules
+
+# DEBUG defaults OFF. It used to default ON, which meant a deployment that
+# simply forgot to set the variable came up with tracebacks, the URL map on
+# every 404, no HSTS, cookies without the Secure flag, and — because the
+# SECRET_KEY guard below only fires when DEBUG is off — the placeholder key
+# that is published in this repository. A staging deployment did exactly that.
+# Forgetting a variable must fail towards safety, so development now opts in
+# with DEBUG=1 rather than production opting out with DEBUG=0.
+DEBUG = os.environ.get("DEBUG", "0") == "1"
+
+if not os.environ.get("SECRET_KEY") and not _TESTING:
     from django.core.exceptions import ImproperlyConfigured
 
-    raise ImproperlyConfigured("SECRET_KEY env var must be set when DEBUG=0")
+    if not DEBUG:
+        raise ImproperlyConfigured(
+            "SECRET_KEY env var must be set. Generate one with:\n"
+            "  python -c \"from django.core.management.utils import "
+            "get_random_secret_key as k; print(k())\""
+        )
+
+SECRET_KEY = os.environ.get("SECRET_KEY") or (
+    "test-only-key-not-used-outside-pytest" if _TESTING else "dev-insecure-key"
+)
 
 ALLOWED_HOSTS = [h for h in os.environ.get("ALLOWED_HOSTS", "").split(",") if h]
 CSRF_TRUSTED_ORIGINS = [
@@ -68,8 +89,15 @@ DATABASES = {
 }
 
 AUTH_USER_MODEL = "accounts.User"
+# MinimumLengthValidator alone accepts "password" and "12345678". These four
+# are Django's full set: length, similarity to the user's own email, the
+# 20k-common-password list, and all-numeric.
 AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+     "OPTIONS": {"min_length": 12}},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
 LOGIN_URL = "/accounts/login/"
@@ -86,10 +114,13 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    # The manifest storage requires a collectstatic run, which the test suite
+    # has no reason to do — keyed off _TESTING as well as DEBUG so that
+    # defaulting DEBUG to off does not make every test need a build step.
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"
-        if not DEBUG
-        else "django.contrib.staticfiles.storage.StaticFilesStorage"
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"
+        if (DEBUG or _TESTING)
+        else "whitenoise.storage.CompressedManifestStaticFilesStorage"
     },
 }
 
@@ -105,9 +136,12 @@ AXES_LOCKOUT_PARAMETERS = ["username"]
 
 # axes requires a request object during authenticate(), which the test
 # client's login()/force_login() don't provide — disable it under pytest.
-import sys  # noqa: E402
-if "pytest" in sys.modules:
+if _TESTING:
     AXES_ENABLED = False
+
+# Nothing in this app reads the CSRF cookie from JavaScript — base.html feeds
+# htmx the token from the template context — so it can be closed to scripts.
+CSRF_COOKIE_HTTPONLY = True
 
 if not DEBUG:
     SECURE_SSL_REDIRECT = False  # TLS terminates at the Cloudflare tunnel
