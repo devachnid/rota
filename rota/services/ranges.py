@@ -34,7 +34,13 @@ def parse_int_list(value: str) -> list[int]:
                 b.strip().isascii() and b.strip().isdigit() for b in bits
             ):
                 raise ValidationError(_ERROR, params={"part": part})
-            low, high = int(bits[0]), int(bits[1])
+            try:
+                low, high = int(bits[0]), int(bits[1])
+            except ValueError as exc:
+                # isascii()+isdigit() rejects the character classes we can
+                # name, but CPython also caps int()'s digit count (4300);
+                # this is the belt for that belt-and-braces.
+                raise ValidationError(_ERROR, params={"part": part}) from exc
             if high < low:
                 raise ValidationError(
                     "%(part)r counts downwards, so it would never match anything. "
@@ -45,7 +51,10 @@ def parse_int_list(value: str) -> list[int]:
         else:
             if not (part.isascii() and part.isdigit()):
                 raise ValidationError(_ERROR, params={"part": part})
-            out.append(int(part))
+            try:
+                out.append(int(part))
+            except ValueError as exc:
+                raise ValidationError(_ERROR, params={"part": part}) from exc
     return out
 
 

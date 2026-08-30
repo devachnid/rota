@@ -37,11 +37,28 @@ def test_parse_rejects_malformed_input(bad):
 def test_unicode_digits_are_rejected_as_validation_errors_not_value_errors(
     unicode_digit
 ):
-    """str.isdigit() is true for these; int() rejects them. Gating on isdigit()
-    alone let a raw ValueError escape — the same failure this module exists to
-    prevent, from a rarer input."""
+    """str.isdigit() is true for all of these. Most of them (the superscripts
+    and subscripts) then make int() raise; isascii() rejects those before
+    int() ever sees them. "٣" (Arabic-Indic three) is different: it is
+    Unicode category Nd, so int("٣") succeeds and silently returns 3 — a
+    number the admin never typed. isascii() rejects that case too, on the
+    same non-ASCII grounds, closing off both failure shapes at once."""
     with pytest.raises(ValidationError):
         parse_int_list(unicode_digit)
+
+
+@pytest.mark.parametrize("value", [
+    "9" * 5000,                    # over CPython's 4300-digit int() limit
+    f"{'9' * 5000}-{'9' * 5000}",  # the same, in the range branch
+])
+def test_absurdly_long_digit_strings_raise_validation_errors(value):
+    """isascii() and isdigit() are both true here, but int() still refuses.
+    The module's guarantee is that it raises nothing but ValidationError —
+    a guarantee is worth having only if it has no exceptions."""
+    with pytest.raises(ValidationError):
+        parse_int_list(value)
+    with pytest.raises(ValidationError):
+        validate_int_list(value, 1, 12, "months")
 
 
 def test_a_descending_range_is_rejected_rather_than_silently_empty():
