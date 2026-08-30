@@ -29,6 +29,7 @@ class TraineeProfileInline(admin.StackedInline):
 @admin.register(Clinician)
 class ClinicianAdmin(admin.ModelAdmin):
     list_display = ("name", "initials", "group", "active", "is_trainer",
+                    "start_date", "end_date",
                     "leave_entitlement_sessions", "pattern_link")
     list_filter = ("group", "active")
     inlines = [TraineeProfileInline]
@@ -39,6 +40,30 @@ class ClinicianAdmin(admin.ModelAdmin):
             '<a href="{}?clinician_id={}">Edit pattern</a>', url, obj.pk
         )
     pattern_link.short_description = "Pattern"
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        outside = self._entries_outside_window(obj)
+        if outside:
+            messages.warning(
+                request,
+                f"{obj.name} has {outside} rota entr"
+                f"{'y' if outside == 1 else 'ies'} outside "
+                f"{obj.start_date or 'any start'} – {obj.end_date or 'any end'}. "
+                f"Nothing has been deleted; review them on the grid."
+            )
+
+    @staticmethod
+    def _entries_outside_window(clinician):
+        from django.db.models import Q
+        if not clinician.start_date and not clinician.end_date:
+            return 0
+        q = Q()
+        if clinician.start_date:
+            q |= Q(day__lt=clinician.start_date)
+        if clinician.end_date:
+            q |= Q(day__gt=clinician.end_date)
+        return RotaEntry.objects.filter(q, clinician=clinician).count()
 
 
 @admin.register(SessionType)
