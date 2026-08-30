@@ -73,6 +73,11 @@ class AvailabilityResolver:
     """
 
     def __init__(self, pattern_rows, clinicians, leave_requests):
+        # Built from prefetched rows, so the caller's iterable shape must not
+        # matter. pattern_rows is walked twice below (once by PatternResolver,
+        # once to build _with_pattern) — a one-shot generator would silently
+        # leave _with_pattern empty and has_pattern() False for everyone.
+        pattern_rows = list(pattern_rows)
         self._patterns = PatternResolver(pattern_rows)
         self._clinicians = {c.id: c for c in clinicians}
         self._with_pattern = {row.clinician_id for row in pattern_rows}
