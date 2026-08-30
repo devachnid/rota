@@ -77,6 +77,53 @@ def test_the_cap_does_not_refuse_anything_a_real_field_would_hold():
     assert parse_int_list("0-6") == list(range(0, 7))
 
 
+def test_the_total_output_is_bounded_not_just_each_range():
+    """Per-segment caps compose: fifty thousand legal segments cost as much as
+    one illegal one. Not reachable through today's max_length-limited fields,
+    but this parser deliberately does not know about its callers."""
+    with pytest.raises(ValidationError):
+        parse_int_list(",".join(["1-1000"] * 50000))
+
+
+def test_the_total_bound_covers_plain_numbers_as_well_as_ranges():
+    """Nothing about composing is particular to the range branch — a list of
+    single numbers grows the same list, one element per comma."""
+    with pytest.raises(ValidationError):
+        parse_int_list(",".join(["1"] * 200000))
+
+
+def test_the_total_refusal_reads_differently_from_the_per_range_refusal():
+    """Two limits, so two messages: an admin who hits the total one needs to
+    know that shortening a single range may not be enough to clear it."""
+    with pytest.raises(ValidationError) as total:
+        parse_int_list(",".join(["1-1000"] * 50000))
+    with pytest.raises(ValidationError) as one_range:
+        parse_int_list("1-99999999")
+    assert "in total" in str(total.value)
+    assert "10000" in str(total.value)
+    assert "single range" in str(one_range.value)
+
+
+def test_ordinary_multi_segment_values_are_unaffected():
+    assert parse_int_list("1-3,10-12") == [1, 2, 3, 10, 11, 12]
+    assert parse_int_list("1,2,3,4,5,6,7,8,9,10,11,12") == list(range(1, 13))
+
+
+def test_a_refusal_message_can_always_be_rendered():
+    """int() accepts 4300 digits and str() refuses 4301, so the span of
+    "0-<4300 nines>" is one digit longer than either of its bounds and one
+    digit too long to write down. Django formats a ValidationError's message
+    lazily, so naming that span in the refusal put a raw ValueError back on
+    the escape path — the very failure class rounds 1 and 2 closed, this time
+    thrown by the refusal rather than by the parse."""
+    value = "0-" + "9" * 4300
+    with pytest.raises(ValidationError) as exc:
+        parse_int_list(value)
+    assert str(exc.value)  # rendering the message must not raise either
+    with pytest.raises(ValidationError):
+        validate_int_list(value, 1, 12, "months")
+
+
 def test_a_descending_range_is_rejected_rather_than_silently_empty():
     """range(6, 1) is empty, so `6-1` would quietly mean 'never applies' —
     a rule that silently does nothing is worse than one that refuses."""
