@@ -31,7 +31,7 @@ def run_fill(actor, start, end, fill_default=False):
             for day in ctx.open_days:
                 for part in ["AM", "PM"]:
                     for c in ctx.clinicians:
-                        if (ctx.works_on(c.id, day, part)
+                        if (ctx.available(c.id, day, part)
                                 and ctx.is_free(c.id, day, part)
                                 and c.id in ctx.eligible_ids(default)):
                             e = entries.assign(actor, c, day, part, default,

@@ -6,5 +6,5 @@ def impact_score(ctx, day, part):
     """
     return sum(
         1 for c in ctx.clinicians
-        if ctx.works_on(c.id, day, part) and ctx.is_free(c.id, day, part)
+        if ctx.available(c.id, day, part) and ctx.is_free(c.id, day, part)
     )

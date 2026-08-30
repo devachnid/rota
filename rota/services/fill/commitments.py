@@ -14,7 +14,7 @@ def run(ctx, actor, result):
                 continue
             for part in com.parts_list():
                 cid = com.clinician_id
-                if not (ctx.works_on(cid, day, part)
+                if not (ctx.available(cid, day, part)
                         and ctx.is_free(cid, day, part)):
                     continue
                 entry = entries.assign(
