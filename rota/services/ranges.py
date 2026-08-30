@@ -13,25 +13,27 @@ and PracticeSettings.open_weekdays.
 from django.core.exceptions import ValidationError
 
 _ERROR = (
-    "%(label)s: %(part)r is not a number or a range like 1-6. "
+    "%(part)r is not a number or a range like 1-6. "
     "Use commas between values, for example 1,3,5 or 1-6,9-12."
 )
 
 
 def parse_int_list(value: str) -> list[int]:
-    """"1-6,9-12" -> [1,2,3,4,5,6,9,10,11,12]. Blank -> []."""
+    """1-6,9-12 -> [1,2,3,4,5,6,9,10,11,12]. Blank -> []."""
     out: list[int] = []
     for raw in (value or "").split(","):
         part = raw.strip()
         if not part:
             if (value or "").strip():
                 # "1,,2" is a typo, not an empty list
-                raise ValidationError(_ERROR, params={"label": "value", "part": raw})
+                raise ValidationError(_ERROR, params={"part": raw})
             continue
         if "-" in part:
             bits = part.split("-")
-            if len(bits) != 2 or not all(b.strip().isdigit() for b in bits):
-                raise ValidationError(_ERROR, params={"label": "value", "part": part})
+            if len(bits) != 2 or not all(
+                b.strip().isascii() and b.strip().isdigit() for b in bits
+            ):
+                raise ValidationError(_ERROR, params={"part": part})
             low, high = int(bits[0]), int(bits[1])
             if high < low:
                 raise ValidationError(
@@ -41,8 +43,8 @@ def parse_int_list(value: str) -> list[int]:
                 )
             out.extend(range(low, high + 1))
         else:
-            if not part.isdigit():
-                raise ValidationError(_ERROR, params={"label": "value", "part": part})
+            if not (part.isascii() and part.isdigit()):
+                raise ValidationError(_ERROR, params={"part": part})
             out.append(int(part))
     return out
 

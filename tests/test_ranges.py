@@ -33,6 +33,17 @@ def test_parse_rejects_malformed_input(bad):
         parse_int_list(bad)
 
 
+@pytest.mark.parametrize("unicode_digit", ["²", "⁶-9", "1-³", "٣"])
+def test_unicode_digits_are_rejected_as_validation_errors_not_value_errors(
+    unicode_digit
+):
+    """str.isdigit() is true for these; int() rejects them. Gating on isdigit()
+    alone let a raw ValueError escape — the same failure this module exists to
+    prevent, from a rarer input."""
+    with pytest.raises(ValidationError):
+        parse_int_list(unicode_digit)
+
+
 def test_a_descending_range_is_rejected_rather_than_silently_empty():
     """range(6, 1) is empty, so `6-1` would quietly mean 'never applies' —
     a rule that silently does nothing is worse than one that refuses."""
