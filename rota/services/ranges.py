@@ -17,6 +17,14 @@ _ERROR = (
     "Use commas between values, for example 1,3,5 or 1-6,9-12."
 )
 
+# A parser-level sanity bound, not a domain one. Every field that uses this
+# holds months or weekdays, so any range spanning more than a thousand values
+# is a typo — and materialising it is how one extra digit turns a coverage
+# rule into a hundred-million-element list. The bounds check in
+# validate_int_list runs too late to help: parse_int_list has already built
+# the list by then.
+_MAX_SPAN = 1000
+
 
 def parse_int_list(value: str) -> list[int]:
     """1-6,9-12 -> [1,2,3,4,5,6,9,10,11,12]. Blank -> []."""
@@ -46,6 +54,14 @@ def parse_int_list(value: str) -> list[int]:
                     "%(part)r counts downwards, so it would never match anything. "
                     "Write it as %(fixed)s.",
                     params={"part": part, "fixed": f"{high}-{low}"},
+                )
+            span = high - low + 1
+            if span > _MAX_SPAN:
+                raise ValidationError(
+                    "%(part)r spans %(span)s values, more than the %(cap)s-value "
+                    "limit for a single range. That is almost certainly a typo, "
+                    "not a genuine month or weekday range.",
+                    params={"part": part, "span": span, "cap": _MAX_SPAN},
                 )
             out.extend(range(low, high + 1))
         else:

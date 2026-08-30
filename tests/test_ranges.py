@@ -61,6 +61,22 @@ def test_absurdly_long_digit_strings_raise_validation_errors(value):
         validate_int_list(value, 1, 12, "months")
 
 
+def test_a_range_wider_than_the_cap_is_refused_before_it_is_built():
+    """The bounds check in validate_int_list runs after parse_int_list has
+    already materialised the list, so it cannot help. "1-99999999" is ten
+    characters and one typo away from a real value."""
+    with pytest.raises(ValidationError):
+        parse_int_list("1-99999999")
+    with pytest.raises(ValidationError):
+        validate_int_list("1-99999999", 1, 12, "months")
+
+
+def test_the_cap_does_not_refuse_anything_a_real_field_would_hold():
+    """Months are 1-12 and weekdays 0-6; the cap must be nowhere near them."""
+    assert parse_int_list("1-12") == list(range(1, 13))
+    assert parse_int_list("0-6") == list(range(0, 7))
+
+
 def test_a_descending_range_is_rejected_rather_than_silently_empty():
     """range(6, 1) is empty, so `6-1` would quietly mean 'never applies' —
     a rule that silently does nothing is worse than one that refuses."""
