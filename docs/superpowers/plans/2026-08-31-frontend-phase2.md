@@ -82,60 +82,11 @@ In `Rule.__init__`, add a keyword-only `media` parameter defaulting to `None` an
 
 - [ ] **Step 5: Replace the refusal with a real read**
 
-Replace the `assert "@" not in css` guard and the flat `re.finditer` loop in `_parse` with a version that splits at-rule blocks out first:
+Replace the `assert "@" not in css` guard and the flat `re.finditer` loop in `_parse` with a reader that pulls `@media` and `@supports` block bodies out and parses them as real rulesets, tagged with their query.
 
-```python
-    rules, order = [], first_order
+**Number every rule by its position in the document**, whether it sits at top level or inside an at-rule block. `order` *is* the cascade (CSS 2.2 §6.4.3), and the media block this phase adds sits at the **end** of `screens.css`, so its rules must carry the **highest** order. A two-pass reader that walks all the at-rule blocks first and the top-level rules second gets this backwards, and the mistake is invisible until a cascade assertion silently scores the wrong way round. A single left-to-right walk that tracks brace depth is the straightforward way to get it right.
 
-    # Pull each at-rule block out, parse its body tagged with its query, and
-    # leave a gap in the source so the top-level pass does not see it. Only
-    # conditional group rules (@media, @supports) nest rulesets; an @import
-    # or @charset has no block and would break this, so refuse those.
-    for match in re.finditer(r"@(\w+)([^{]*)\{", css):
-        assert match.group(1) in ("media", "supports"), (
-            f"{sheet} has an @{match.group(1)} rule; this parser only handles "
-            f"@media and @supports"
-        )
-
-    def _rulesets(body, media, order):
-        found = []
-        for m in re.finditer(r"([^{}]+)\{([^{}]*)\}", body):
-            declarations = {}
-            for declaration in m.group(2).split(";"):
-                if ":" not in declaration:
-                    continue
-                prop, _, value = declaration.partition(":")
-                declarations[prop.strip()] = value.strip()
-            for selector in (s.strip() for s in m.group(1).split(",")):
-                if selector:
-                    found.append(Rule(sheet, order, selector, declarations,
-                                      media=media))
-            order += 1
-        return found, order
-
-    # Walk the sheet once, tracking whether we are inside an at-rule block by
-    # counting braces. Everything at depth 0 is top-level; a block opened by
-    # an at-rule contributes its body under that query.
-    remainder, cursor = [], 0
-    for match in re.finditer(r"@(?:media|supports)([^{]*)\{", css):
-        remainder.append(css[cursor:match.start()])
-        depth, i = 1, match.end()
-        while depth and i < len(css):
-            if css[i] == "{":
-                depth += 1
-            elif css[i] == "}":
-                depth -= 1
-            i += 1
-        found, order = _rulesets(css[match.end():i - 1], match.group(1).strip(), order)
-        rules.extend(found)
-        cursor = i
-    remainder.append(css[cursor:])
-
-    found, order = _rulesets("".join(remainder), None, order)
-    rules.extend(found)
-    rules.sort(key=lambda r: r.order)
-    return rules, order
-```
+Refuse anything that is not `@media` or `@supports` — those are the only at-rules that nest rulesets, and a blockless `@import` or `@charset` would be mis-read as selector text. Keep `_parse` returning its existing `(rules, order)` tuple; `_read_all()` depends on that shape.
 
 - [ ] **Step 6: Run the whole cascade module**
 
