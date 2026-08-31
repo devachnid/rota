@@ -43,9 +43,10 @@
   {% if date_error %}<p class="errornote">{{ date_error }}</p>{% endif %}
 
   {% if clinician %}
-  <p>Ticked boxes are the sessions {{ clinician.name }} works, as of the day
-     before {{ effective_from }}. Save writes only the cells you change,
-     dated {{ effective_from }}.</p>
+  <p>Ticked boxes are the sessions {{ clinician.name }} works on
+     {{ effective_from }} — the pattern in force on that date, including any
+     change already dated {{ effective_from }} itself. Save writes only the
+     cells you change, dated {{ effective_from }}.</p>
   <table>
     <thead>
       <tr><th>Day</th><th>AM</th><th>PM</th></tr>

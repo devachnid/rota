@@ -178,3 +178,86 @@ def test_the_page_shows_the_pattern_history(staff_client, clinician):
     # which only _pattern_history produces.
     assert "Mon AM, Mon PM" in html  # LONG_AGO: weekday 0, AM and PM
     assert "Wed AM" in html          # future: weekday 2, AM only
+
+
+@pytest.mark.django_db
+def test_loading_an_existing_date_shows_that_date_s_own_pattern(
+    staff_client, clinician
+):
+    """The history table invites the admin to load a date that already has
+    rows. It must show what that date sets, not what preceded it — otherwise
+    the boxes render wrong and Save writes the wrong thing back."""
+    future = date.today() + timedelta(days=30)
+    PatternSlot.objects.create(clinician=clinician, weekday=2, part="AM",
+                               works=True, effective_from=future)
+    html = staff_client.post(URL, {
+        "action": "load", "clinician_id": clinician.pk,
+        "effective_from": future.isoformat(),
+    }).content.decode()
+    assert 'name="d2_AM" checked' in html.replace('checked=""', "checked"), (
+        "a row set at this very date rendered unticked"
+    )
+
+
+@pytest.mark.django_db
+def test_round_tripping_an_existing_date_changes_nothing(staff_client, clinician):
+    """Load a date, save it back untouched, and the rows must be identical."""
+    future = date.today() + timedelta(days=30)
+    PatternSlot.objects.create(clinician=clinician, weekday=2, part="AM",
+                               works=True, effective_from=future)
+    before = {(r.weekday, r.part, r.works)
+              for r in PatternSlot.objects.filter(clinician=clinician)}
+    staff_client.post(URL, {
+        "action": "save", "clinician_id": clinician.pk,
+        "effective_from": future.isoformat(),
+        "d0_AM": "on", "d0_PM": "on", "d2_AM": "on",
+    })
+    after = {(r.weekday, r.part, r.works)
+             for r in PatternSlot.objects.filter(clinician=clinician)}
+    assert after == before
+
+
+@pytest.mark.django_db
+def test_loading_a_fresh_date_still_shows_the_pattern_that_precedes_it(
+    staff_client, clinician
+):
+    """The add-a-future-change flow must not regress."""
+    future = date.today() + timedelta(days=60)
+    html = staff_client.post(URL, {
+        "action": "load", "clinician_id": clinician.pk,
+        "effective_from": future.isoformat(),
+    }).content.decode().replace('checked=""', "checked")
+    assert 'name="d0_AM" checked' in html
+
+
+@pytest.mark.django_db
+def test_the_post_save_redirect_lands_on_a_page_that_re_saves_identically(
+    staff_client, clinician
+):
+    """The same hazard by its other route. Save a future change, follow the
+    redirect the view itself issues, and press Save again on exactly what it
+    renders: the second save must be a no-op. Before the fix the redirect
+    landed on the day-before view, so the editor's own round trip reverted
+    the change it had just written."""
+    future = date.today() + timedelta(days=30)
+    staff_client.post(URL, {
+        "action": "save", "clinician_id": clinician.pk,
+        "effective_from": future.isoformat(),
+        "d0_AM": "on", "d0_PM": "on", "d2_AM": "on",
+    })
+    after_first = {(r.weekday, r.part, r.works)
+                   for r in PatternSlot.objects.filter(clinician=clinician)}
+    assert (2, "AM", True) in after_first
+
+    html = staff_client.get(
+        URL, {"clinician_id": clinician.pk, "effective_from": future.isoformat()}
+    ).content.decode().replace('checked=""', "checked")
+    posted = {f"d{w}_{p}": "on"
+              for w in range(7) for p in ("AM", "PM")
+              if f'name="d{w}_{p}" checked' in html}
+    staff_client.post(URL, {
+        "action": "save", "clinician_id": clinician.pk,
+        "effective_from": future.isoformat(), **posted,
+    })
+    assert {(r.weekday, r.part, r.works)
+            for r in PatternSlot.objects.filter(clinician=clinician)} == after_first

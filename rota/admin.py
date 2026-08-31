@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date
 
 from django.contrib import admin, messages
 from django.contrib.admin.utils import NestedObjects
@@ -275,13 +275,27 @@ class PatternSlotAdmin(admin.ModelAdmin):
         grid = None
         history = []
         if clinician:
-            prior = current_pattern(clinician, effective_from - timedelta(days=1))
+            # The pattern in force *on* the chosen date, not the day before
+            # it. For a date with no rows of its own the two are identical,
+            # so the add-a-future-change flow still opens on the pattern it
+            # would be changing. For a date that already has rows -- exactly
+            # what the Pattern history table invites an admin to click --
+            # the day-before view rendered those rows' own sessions
+            # unticked, and Save then posted the boxes as rendered and
+            # flipped them to works=False in place. Destroying the value it
+            # had just been asked to show.
+            #
+            # bulk_set_pattern's own `prior` lookup still compares against
+            # the day before, on purpose: that comparison is what makes a
+            # save write only genuine differences, and it is not what the
+            # admin is looking at.
+            in_force = current_pattern(clinician, effective_from)
             grid = [
                 {
                     "weekday": weekday,
                     "label": WEEKDAY_LABELS[weekday],
-                    "am_checked": prior.get((weekday, "AM"), False),
-                    "pm_checked": prior.get((weekday, "PM"), False),
+                    "am_checked": in_force.get((weekday, "AM"), False),
+                    "pm_checked": in_force.get((weekday, "PM"), False),
                 }
                 for weekday in range(7)
             ]
