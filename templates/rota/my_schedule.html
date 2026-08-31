@@ -64,7 +64,7 @@
       {% if week.count_label %}<span class="ms-week-count">{{ week.count_label }}</span>{% endif %}
     </div>
     {% for row in week.days %}
-    <div class="ms-day">
+    <div class="ms-day{% if row.is_leave %} is-leave{% endif %}">
       <span class="ms-date"><b>{{ row.day|date:"D j" }}</b> {{ row.day|date:"M" }}</span>
       <span class="ms-cells">
         {% if row.am %}

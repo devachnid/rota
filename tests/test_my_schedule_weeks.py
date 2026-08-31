@@ -102,6 +102,69 @@ def test_a_week_of_nothing_but_absence_says_so(gp_client, gp_user):
     assert _ctx(gp_client)["weeks"][0]["count_label"] == "On leave all week"
 
 
+# -------------------------------------------------- reduced emphasis ---
+
+def test_a_full_day_of_leave_is_flagged_and_rendered_at_reduced_emphasis(
+        gp_client, gp_user):
+    """Spec: "Leave days render at reduced emphasis." There was no absence
+    branch in my_schedule.html and no modifier in screens.css at all —
+    every day rendered identically regardless of category."""
+    c = make_clinician(user=gp_user)
+    make_pattern(c)
+    today = date.today()
+    monday = today - timedelta(days=today.weekday())
+    al = make_session_type("Annual Leave", code="AL", category="ABSENCE")
+    make_entry(c, day=monday, part="AM", session_type=al)
+    make_entry(c, day=monday, part="PM", session_type=al)
+    days = _ctx(gp_client)["weeks"][0]["days"]
+    row = next(d for d in days if d["day"] == monday)
+    assert row["is_leave"] is True
+    assert 'class="ms-day is-leave"' in _html(gp_client)
+
+
+def test_a_working_day_is_not_flagged_as_leave(gp_client, gp_user):
+    c = make_clinician(user=gp_user)
+    make_pattern(c)
+    today = date.today()
+    monday = today - timedelta(days=today.weekday())
+    make_entry(c, day=monday, part="AM",
+               session_type=make_session_type("Routine", code="ROUT"))
+    days = _ctx(gp_client)["weeks"][0]["days"]
+    row = next(d for d in days if d["day"] == monday)
+    assert row["is_leave"] is False
+
+
+def test_a_half_day_of_leave_is_not_flagged_as_a_leave_day(gp_client, gp_user):
+    """Reduced emphasis is for a day that IS leave, not a day that merely
+    contains some — a half-and-half mix must keep the working half at full
+    weight, so the row as a whole stays unflagged."""
+    c = make_clinician(user=gp_user)
+    make_pattern(c)
+    today = date.today()
+    monday = today - timedelta(days=today.weekday())
+    al = make_session_type("Annual Leave", code="AL", category="ABSENCE")
+    rout = make_session_type("Routine", code="ROUT")
+    make_entry(c, day=monday, part="AM", session_type=al)
+    make_entry(c, day=monday, part="PM", session_type=rout)
+    days = _ctx(gp_client)["weeks"][0]["days"]
+    row = next(d for d in days if d["day"] == monday)
+    assert row["is_leave"] is False
+
+
+def test_a_dashes_only_day_is_not_flagged_as_leave(gp_client, gp_user):
+    """A day you simply do not work is not the same state as a day you are
+    on leave from — dashes must not pick up the same reduced-emphasis
+    treatment leave gets."""
+    c = make_clinician(user=gp_user)
+    make_pattern(c, weekdays=(5, 6))  # weekend only; Monday is a dash day
+    today = date.today()
+    monday = today - timedelta(days=today.weekday())
+    days = _ctx(gp_client)["weeks"][0]["days"]
+    row = next((d for d in days if d["day"] == monday), None)
+    if row is not None:  # Monday is a non-open weekday and may be hidden
+        assert row["is_leave"] is False
+
+
 def test_today_says_not_in_when_you_have_no_sessions(gp_client, gp_user):
     c = make_clinician(user=gp_user)
     make_pattern(c, weekdays=())

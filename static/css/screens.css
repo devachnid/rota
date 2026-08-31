@@ -173,6 +173,16 @@
 
 .ms-day:last-child { border-bottom: 0; }
 
+/* A leave day still shows its (already colour-coded) absence chip at full
+   strength — the chip's tint is the primary signal. This dims the
+   surrounding date instead, the same reduced-emphasis idiom .day-not-in and
+   .ms-status already use: --muted measures 4.55:1 against --surface, so
+   this stays AA even though it reads lighter. (0,3,0) beats .ms-date's
+   own (0,1,0), and the bold day-of-month drops to the same weight as the
+   rest of the row rather than competing with it for attention. */
+.ms-day.is-leave .ms-date { color: var(--muted); }
+.ms-day.is-leave .ms-date b { font-weight: 500; }
+
 .ms-date {
   flex: none;
   width: 5.5rem;

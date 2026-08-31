@@ -20,6 +20,17 @@ def _blocks(today, open_weekdays, closed, entries_by):
     otherwise-non-open weekday, WITH a published entry is shown anyway:
     hiding a real session from the person rostered to work it is worse
     than the tidiness of omitting an empty row.
+
+    am/pm are looked up straight from entries_by and rendered chip-or-dash
+    by the template, not run through cell_state() the way the grid and the
+    day view are. That is deliberate, not an oversight: this page is the
+    clinician looking at their own schedule, so a ghost leave chip — the
+    "approved leave with no entry yet, go check the pattern" integrity
+    warning cell_state exists to raise for whoever fixes the rota — has no
+    reader here who could act on it. The spec settles this page on
+    chip-or-dash only; it does not (yet) settle whether ghosts belong on
+    the day view for non-admins, which is why day.py still calls
+    cell_state() for that screen.
     """
     monday = today - timedelta(days=today.weekday())
     absence = SessionType.Category.ABSENCE
@@ -33,7 +44,10 @@ def _blocks(today, open_weekdays, closed, entries_by):
             is_open = day.weekday() in open_weekdays and day not in closed
             if not is_open and am is None and pm is None:
                 continue
-            days.append({"day": day, "am": am, "pm": pm})
+            day_sessions = [e for e in (am, pm) if e is not None]
+            is_leave = bool(day_sessions) and all(
+                e.session_type.category == absence for e in day_sessions)
+            days.append({"day": day, "am": am, "pm": pm, "is_leave": is_leave})
         sessions = [e for row in days
                     for e in (row["am"], row["pm"]) if e is not None]
         if not days:
