@@ -176,7 +176,19 @@ def specificity(selector: str) -> tuple[int, int, int]:
 
 
 def rule(selector: str) -> Rule:
-    """The one rule written with exactly this selector text."""
+    """The one rule written with exactly this selector text.
+
+    Phase 2's `@media (max-width: 640px)` block legitimately repeats a few
+    selectors that already had a top-level rule — `body`, `.nav`, and
+    `.day-roster td` all now have one rule outside the block and a second,
+    narrower-purpose one inside it (padding for the fixed tab bar, hiding
+    the desktop nav, an auto width for the day view's cells below the
+    breakpoint). `rule()` and `declares()` still assume one match per
+    selector, so calling either on any of those three raises "expected
+    exactly one rule" — not a bug, just this helper not knowing which of
+    the two you mean. Use `_rules_for()` (test_responsive_nav.py) or filter
+    RULES directly by `.media` when a test needs one of them.
+    """
     found = [r for r in RULES if r.selector == selector]
     assert len(found) == 1, (
         f"expected exactly one rule for {selector!r}, found {found}"
