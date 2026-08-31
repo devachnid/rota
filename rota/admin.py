@@ -97,15 +97,24 @@ class PatternSlotAdmin(admin.ModelAdmin):
         if clinician_id:
             clinician = get_object_or_404(Clinician, pk=clinician_id)
 
-        try:
-            effective_from = date.fromisoformat(
-                request.POST.get("effective_from")
-                or request.GET.get("effective_from") or ""
-            )
-        except ValueError:
+        raw_date = (request.POST.get("effective_from")
+                    or request.GET.get("effective_from") or "")
+        date_error = ""
+        if raw_date:
+            try:
+                effective_from = date.fromisoformat(raw_date)
+            except ValueError:
+                # Never fall back to today: today is the value that overwrites
+                # the live pattern, so a typo would be destructive.
+                effective_from = date.today()
+                date_error = (f"{raw_date!r} is not a date (use YYYY-MM-DD). "
+                              f"Nothing was saved.")
+        else:
             effective_from = date.today()
 
-        if request.method == "POST" and clinician:
+        action = request.POST.get("action")
+        if request.method == "POST" and action == "save" and clinician \
+                and not date_error:
             desired = {
                 (weekday, part): f"d{weekday}_{part}" in request.POST
                 for weekday in range(7)
@@ -123,6 +132,7 @@ class PatternSlotAdmin(admin.ModelAdmin):
             )
 
         grid = None
+        history = []
         if clinician:
             prior = current_pattern(clinician, effective_from - timedelta(days=1))
             grid = [
@@ -134,6 +144,7 @@ class PatternSlotAdmin(admin.ModelAdmin):
                 }
                 for weekday in range(7)
             ]
+            history = self._pattern_history(clinician)
 
         context = {
             **self.admin_site.each_context(request),
@@ -142,9 +153,25 @@ class PatternSlotAdmin(admin.ModelAdmin):
             "clinicians": clinicians,
             "clinician": clinician,
             "effective_from": effective_from,
+            "date_error": date_error,
             "grid": grid,
+            "history": history,
         }
         return render(request, "admin/rota/patternslot/bulk_form.html", context)
+
+    @staticmethod
+    def _pattern_history(clinician):
+        """Every effective_from and what it sets, so the editor stops hiding
+        the fact that other dates exist."""
+        by_date = {}
+        for row in PatternSlot.objects.filter(clinician=clinician).order_by(
+            "effective_from", "weekday", "part"
+        ):
+            by_date.setdefault(row.effective_from, []).append(
+                f"{WEEKDAY_LABELS[row.weekday][:3]} {row.part}"
+                f"{'' if row.works else ' off'}")
+        return [{"effective_from": d, "sessions": ", ".join(v)}
+                for d, v in sorted(by_date.items())]
 
 
 @admin.register(CoverageRule)

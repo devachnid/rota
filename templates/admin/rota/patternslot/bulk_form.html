@@ -3,30 +3,38 @@
 {% block content %}
 <h1>Bulk edit clinician pattern</h1>
 
-<form method="get" style="margin-bottom:1.5em;">
-  <label>Clinician
-    <select name="clinician_id" onchange="this.form.submit()">
-      <option value="">— choose —</option>
-      {% for c in clinicians %}
-      <option value="{{ c.id }}" {% if clinician.id == c.id %}selected{% endif %}>
-        {{ c.name }}
-      </option>
-      {% endfor %}
-    </select>
-  </label>
-  <label>Effective from
-    <input type="date" name="effective_from" value="{{ effective_from|date:'Y-m-d' }}">
-  </label>
-  <input type="submit" value="Load" class="default">
-</form>
-
-{% if clinician %}
+{% comment %}
+  One form, deliberately. The date input used to live in a separate GET form
+  while the checkboxes and a hidden copy of effective_from lived here, so
+  changing the date and pressing Save posted the stale value — normally today,
+  which overwrites the live pattern. The date you can see is now the date that
+  posts.
+{% endcomment %}
 <form method="post">
   {% csrf_token %}
-  <input type="hidden" name="clinician_id" value="{{ clinician.id }}">
-  <input type="hidden" name="effective_from" value="{{ effective_from|date:'Y-m-d' }}">
+  <p>
+    <label>Clinician
+      <select name="clinician_id" onchange="this.form.action.value='load'; this.form.submit();">
+        <option value="">— choose —</option>
+        {% for c in clinicians %}
+        <option value="{{ c.id }}" {% if clinician.id == c.id %}selected{% endif %}>
+          {{ c.name }}
+        </option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Effective from
+      <input type="date" name="effective_from" value="{{ effective_from|date:'Y-m-d' }}">
+    </label>
+    <button type="submit" name="action" value="load">Load</button>
+  </p>
+
+  {% if date_error %}<p class="errornote">{{ date_error }}</p>{% endif %}
+
+  {% if clinician %}
   <p>Ticked boxes are the sessions {{ clinician.name }} works, as of the day
-     before {{ effective_from }}. Save writes only the cells you change.</p>
+     before {{ effective_from }}. Save writes only the cells you change,
+     dated {{ effective_from }}.</p>
   <table>
     <thead>
       <tr><th>Day</th><th>AM</th><th>PM</th></tr>
@@ -41,7 +49,21 @@
       {% endfor %}
     </tbody>
   </table>
-  <input type="submit" value="Save pattern" class="default">
+  <p><button type="submit" name="action" value="save" class="default">Save pattern</button></p>
+  {% endif %}
 </form>
+
+{% if history %}
+<h2>Pattern history</h2>
+<p>Every date this clinician's pattern changes on. Rows all sharing one date —
+   especially today's — are the fingerprint of the overwrite bug.</p>
+<table>
+  <thead><tr><th>Effective from</th><th>Sets</th></tr></thead>
+  <tbody>
+    {% for h in history %}
+    <tr><th>{{ h.effective_from }}</th><td>{{ h.sessions }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
 {% endif %}
 {% endblock %}
