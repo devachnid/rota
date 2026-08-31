@@ -47,10 +47,17 @@ def grid(request):
     pattern_rows = list(PatternSlot.objects.filter(
         clinician__in=active
     ).order_by("effective_from"))
-    approved_leave = LeaveRequest.objects.filter(
-        status=LeaveRequest.Status.APPROVED,
-        start_date__lte=days[-1], end_date__gte=days[0],
-    ).select_related("session_type")
+    # min()/max(), not days[0]/days[-1]: parse_int_list preserves input
+    # order, so open_weekdays = "4,0,1,2,3" makes the positional pair run
+    # backwards and the overlap filter match nothing at all. And `days` can
+    # be empty -- open_weekdays = "" parses to [] and PracticeSettings.clean()
+    # accepts it -- which is an IndexError on either subscript.
+    approved_leave = LeaveRequest.objects.none()
+    if days:
+        approved_leave = LeaveRequest.objects.filter(
+            status=LeaveRequest.Status.APPROVED,
+            start_date__lte=max(days), end_date__gte=min(days),
+        ).select_related("session_type")
     resolver = availability.AvailabilityResolver(
         pattern_rows, active, approved_leave)
 
@@ -87,7 +94,21 @@ def grid(request):
                     # (nothing would ever show for them otherwise). Ghosting
                     # every session leave spans would put chips on every
                     # part-timer's days off.
-                    ghostable = works or not resolver.has_pattern(clinician.id)
+                    #
+                    # Two things the "no pattern" clause must not skip:
+                    #  - the contractual window. leave.sessions_affected()
+                    #    and works_on() both refuse to write outside it, so a
+                    #    chip there accuses approval of missing an entry it
+                    #    was right not to write. `works` already carries the
+                    #    window; the no-pattern branch has to ask separately.
+                    #  - a closed day. sessions_affected() skips days where
+                    #    calendar.is_open() is false, so a bank holiday
+                    #    inside a leave range correctly has no entry, and a
+                    #    ghost there is noise on every Christmas closure.
+                    no_pattern_here = (not resolver.has_pattern(clinician.id)
+                                       and resolver.in_service(clinician.id, d))
+                    ghostable = ((works or no_pattern_here)
+                                 and d not in closed)
                     cells.append({
                         "day": d, "day_str": d.isoformat(), "part": part,
                         "entry": entry, "merged": merged and part == "AM",
@@ -125,5 +146,9 @@ def grid(request):
         "is_admin": is_admin,
         "has_clinician": has_clinician,
         "colspan": len(days) * 2 + 1,
-        "week_end": days[-1] if days else monday,
+        # max(), for the same reason as the leave filter above: this is one
+        # end of a date range (the Publish button posts monday..week_end into
+        # a day__range), and a reordered open_weekdays would make days[-1]
+        # earlier than monday and publish nothing.
+        "week_end": max(days) if days else monday,
     })
