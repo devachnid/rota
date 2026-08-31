@@ -43,6 +43,25 @@ def test_the_currently_chosen_tint_is_selected(staff_client):
     assert 'value="amber-soft" checked' in html.replace('checked=""', "checked")
 
 
+@pytest.mark.django_db
+def test_choosing_a_tint_through_the_admin_actually_saves_it(staff_client):
+    """A widget that renders beautifully and cannot save would still pass
+    every test above -- this posts through the real change view and checks
+    the value actually persisted, rather than trusting the rendered HTML."""
+    st = make_session_type("Duty4", code="DT4")
+    st.colour = "amber-soft"
+    st.save()
+    r = staff_client.post(
+        f"/admin/rota/sessiontype/{st.pk}/change/",
+        {"name": st.name, "code": st.code, "category": st.category,
+         "colour": "violet-strong"},
+        follow=True,
+    )
+    assert r.status_code == 200, r.content.decode()[:2000]
+    st.refresh_from_db()
+    assert st.colour == "violet-strong"
+
+
 def test_no_colour_is_hardcoded_in_the_widget():
     """Every colour must come from the palette, or the two drift apart."""
     import re
