@@ -23,6 +23,32 @@ def _html(client, day=TUE):
     return client.get(f"/rota/day/{day.isoformat()}/").content.decode()
 
 
+def _tbody(html, after=None):
+    """The contents of one <tbody>...</tbody>.
+
+    The roster table's tbody is the first one on the page (the pinned block
+    above it, when present, is a <div>, not a table). The on-leave table's
+    tbody is the first one after the "On leave" heading. Slicing this way —
+    rather than checking string presence anywhere in the page — is what lets
+    a test tell "in the roster" apart from "in the on-leave group": both
+    groups can render the same clinician name and chip code, just under
+    different headings.
+    """
+    if after is not None:
+        html = html[html.index(after):]
+    start = html.index("<tbody>")
+    end = html.index("</tbody>", start)
+    return html[start:end]
+
+
+def _roster_tbody(html):
+    return _tbody(html)
+
+
+def _on_leave_tbody(html):
+    return _tbody(html, after="On leave")
+
+
 def test_a_clinician_working_the_day_appears_with_both_parts(gp_client, gp_user):
     c = make_clinician("Emma Hall", user=gp_user)
     make_pattern(c)
@@ -42,9 +68,12 @@ def test_a_clinician_on_leave_all_day_is_in_the_leave_group_not_the_roster(
     al = make_session_type("Annual Leave", code="AL", category="ABSENCE")
     make_entry(c, day=TUE, part="AM", session_type=al)
     make_entry(c, day=TUE, part="PM", session_type=al)
-    resp = _html(gp_client)
-    assert "Anwer Al-Hasani" in resp
-    assert "On leave" in resp
+    html = _html(gp_client)
+    # Table membership, not string presence: the same name and "On leave"
+    # heading text would both appear even if the row landed in the wrong
+    # table, which is exactly the bug this test exists to catch.
+    assert "Anwer Al-Hasani" not in _roster_tbody(html)
+    assert "Anwer Al-Hasani" in _on_leave_tbody(html)
 
 
 def test_half_a_day_of_leave_keeps_the_clinician_in_the_roster(gp_client, gp_user):
@@ -56,7 +85,30 @@ def test_half_a_day_of_leave_keeps_the_clinician_in_the_roster(gp_client, gp_use
     make_entry(c, day=TUE, part="AM", session_type=al)
     make_entry(c, day=TUE, part="PM", session_type=rout)
     html = _html(gp_client)
-    assert "Esther Lomas" in html and "ROUT" in html
+    assert "Esther Lomas" in _roster_tbody(html)
+    assert "ROUT" in _roster_tbody(html)
+    # Nobody else is on leave in this fixture, so if she were misclassified
+    # the "On leave" table would appear at all (and hold her row) — check
+    # both, so this doesn't just pass because the table happens to exist for
+    # another reason.
+    assert "On leave" not in html
+
+
+def test_absence_in_one_part_and_no_entry_at_all_in_the_other_is_roster_not_leave(
+        gp_client, gp_user):
+    """A full-timer with an absence entry in AM and nothing recorded for PM
+    is off for half the day and unallocated for the other half — not "on
+    leave all day". Unlike the fixture above (which pairs the absence entry
+    with a working entry), this one leaves the other part with no entry at
+    all, which is the shape that `all()` over a one-element dict got wrong."""
+    make_clinician("Viewer", user=gp_user)
+    c = make_clinician("Priya Chandra")
+    make_pattern(c)
+    al = make_session_type("Annual Leave", code="AL", category="ABSENCE")
+    make_entry(c, day=TUE, part="AM", session_type=al)
+    html = _html(gp_client)
+    assert "Priya Chandra" in _roster_tbody(html)
+    assert "On leave" not in html
 
 
 def test_someone_who_does_not_work_that_day_is_on_the_not_in_line(
@@ -151,6 +203,22 @@ def test_a_pinned_type_with_nobody_on_it_shows_no_block(gp_client, gp_user):
     make_clinician("Viewer", user=gp_user)
     make_session_type("Duty", code="DUTY", pin_on_day_view=True)
     assert "day-pinned" not in _html(gp_client)
+
+
+def test_a_clinician_past_their_end_date_with_a_stray_pinned_entry_appears_nowhere(
+        gp_client, gp_user):
+    """The roster loop skips anyone failing resolver.in_service(); the pinned
+    block must apply the same test. Otherwise a clinician whose end_date has
+    passed but who still has a leftover entry for a pinned session type shows
+    up in the pinned block while correctly appearing in none of
+    roster / on-leave / not-in."""
+    make_clinician("Viewer", user=gp_user)
+    c = make_clinician("Fatima Iqbal", end_date=date(2026, 9, 1))
+    make_pattern(c)
+    duty = make_session_type("Duty", code="DUTY", pin_on_day_view=True)
+    make_entry(c, day=TUE, part="AM", session_type=duty)  # TUE is after end_date
+    html = _html(gp_client)
+    assert "Fatima Iqbal" not in html
 
 
 # --------------------------------------------------------------- closed ---

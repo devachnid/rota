@@ -56,11 +56,6 @@ def day_view(request, day=None):
         entries = entries.filter(is_published=True)
     entries = list(entries)
 
-    pinned = sorted(
-        (e for e in entries if e.session_type.pin_on_day_view),
-        key=lambda e: (e.session_type.name, e.clinician.name, e.part),
-    )
-
     by_clinician = {}
     for e in entries:
         by_clinician.setdefault(e.clinician_id, {})[e.part] = e
@@ -85,6 +80,17 @@ def day_view(request, day=None):
     resolver = availability.AvailabilityResolver(
         pattern_rows, active, approved_leave)
 
+    # Filtered by the same in-service test the roster loop below applies —
+    # otherwise a clinician past their end_date with a stray entry for a
+    # pinned session type would appear here despite belonging to none of
+    # roster / on-leave / not-in.
+    pinned = sorted(
+        (e for e in entries
+         if e.session_type.pin_on_day_view
+         and resolver.in_service(e.clinician_id, target)),
+        key=lambda e: (e.session_type.name, e.clinician.name, e.part),
+    )
+
     roster, on_leave, not_in = [], [], []
     for c in active:
         if not resolver.in_service(c.id, target):
@@ -96,8 +102,20 @@ def day_view(request, day=None):
                        partner=partner.get((c.id, part)))
             for part in ("AM", "PM")
         ]
+        # On-leave means every part the clinician works is covered by an
+        # absence entry — not that every entry they happen to have is
+        # absence-category. A cell is "off" when nothing is expected there
+        # at all (cell_state already worked that out); a part where off is
+        # False is a part they work, and it needs an absence entry to count
+        # as covered. A clinician with no worked parts at all (nothing to
+        # cover) is never "on leave" — that's not_in below.
         absence = SessionType.Category.ABSENCE
-        if mine and all(e.session_type.category == absence for e in mine.values()):
+        worked_cells = [cell for cell in cells if not cell["off"]]
+        is_on_leave = bool(worked_cells) and all(
+            cell["entry"] and cell["entry"].session_type.category == absence
+            for cell in worked_cells
+        )
+        if is_on_leave:
             on_leave.append({"clinician": c, "cells": cells})
         elif mine or any(not cell["off"] for cell in cells):
             roster.append({"clinician": c, "cells": cells})
