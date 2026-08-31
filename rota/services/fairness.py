@@ -28,17 +28,30 @@ def counts(session_type, start, end, include_drafts=True):
     }
 
 
+def _in_service(as_of):
+    """The fairness pool: active *and* inside their contractual window on
+    `as_of`. `active` alone was the last place on the branch still asking the
+    old question, and the two fields sit side by side precisely so a leaver
+    can be dated out without anyone remembering to untick a box."""
+    return [c for c in Clinician.objects.filter(active=True)
+            if availability.in_service(c, as_of)]
+
+
 def weights(as_of):
     return {
         c.id: availability.weekly_sessions(c, as_of)
-        for c in Clinician.objects.filter(active=True)
+        for c in _in_service(as_of)
     }
 
 
 def fair_shares(session_type, start, end, include_drafts=True):
     actuals = counts(session_type, start, end, include_drafts)
-    pool = [c for c in Clinician.objects.filter(active=True)
-            if session_type.is_eligible(c)]
+    # Anchored on `end`, the same date the weights below are already read
+    # at: the report answers "who should be carrying this now", and a
+    # clinician who has left by the end of the window cannot be given a
+    # session in it. Anchoring on `start` would keep a leaver in the table
+    # with a share they can never work.
+    pool = [c for c in _in_service(end) if session_type.is_eligible(c)]
     pool_ids = {c.id for c in pool}
     # An out-of-pool clinician (manual assignment, or later removed from the
     # pool) must not inflate every pool member's share — the numerator has

@@ -11,6 +11,19 @@ def _current_slot(clinician, weekday, part, as_of):
     )
 
 
+def in_service(clinician, day):
+    """Active and inside the contractual window on `day`.
+
+    The two clinician-level halves of the availability question, with the
+    pattern and leave left out. Everything that asks "is this person one of
+    ours on this date?" — the pattern-free ghost clause on the grid, the
+    fairness pool, weekly_sessions — must ask it here rather than testing
+    `active` alone, which is what let a clinician past their end_date keep
+    full fairness weight.
+    """
+    return bool(clinician.active and clinician.in_window(day))
+
+
 def works_on(clinician, day, part):
     """Single-clinician availability. Issues queries; use AvailabilityResolver
     for anything that asks repeatedly.
@@ -19,7 +32,7 @@ def works_on(clinician, day, part):
     window, then the pattern — so `leave.sessions_affected()` cannot write
     leave outside a clinician's window while the grid hides it.
     """
-    if not clinician.active or not clinician.in_window(day):
+    if not in_service(clinician, day):
         return False
     slot = _current_slot(clinician, day.weekday(), part, day)
     return bool(slot and slot.works)
@@ -52,6 +65,18 @@ class PatternResolver:
 
 
 def weekly_sessions(clinician, as_of):
+    """How many sessions a week this clinician's pattern gives them as of
+    `as_of` — and nothing at all if they are not in service on that date.
+
+    fairness.weights() and fairness.fair_shares() are built on this, and were
+    the last consumer still asking `active` alone. A clinician past their
+    end_date but still flagged active — exactly the state the two separate
+    fields invite — carried full weight: a share on the fairness report they
+    can never work, a balance sinking further every week, and a denominator
+    in coverage._pick() that diluted every real candidate's share.
+    """
+    if not in_service(clinician, as_of):
+        return 0
     return sum(
         1
         for weekday in range(7)
@@ -95,11 +120,17 @@ class AvailabilityResolver:
         this session" — Task 5's ghosting rule needs to tell them apart."""
         return clinician_id in self._with_pattern
 
-    def works_on(self, clinician_id, day, part):
+    def in_service(self, clinician_id, day):
+        """Active and inside the contractual window — works_on() without the
+        pattern, for callers whose question does not involve one. The grid's
+        no-pattern ghost clause is exactly that: a clinician with no pattern
+        rows at all still must not be ghosted on a date they are not
+        employed for."""
         clinician = self._clinicians.get(clinician_id)
-        if clinician is None or not clinician.active:
-            return False
-        if not clinician.in_window(day):
+        return clinician is not None and in_service(clinician, day)
+
+    def works_on(self, clinician_id, day, part):
+        if not self.in_service(clinician_id, day):
             return False
         return self._patterns.works_on(clinician_id, day, part)
 
