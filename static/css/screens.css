@@ -52,49 +52,30 @@
 
 /* -------------------------------------------------------- my schedule --- */
 
-/* Stacks every section of the page (leave card, swaps-awaiting cards, the
-   upcoming-sessions table, my requests) with one consistent rhythm. On a
-   phone — the primary device for this screen — this is just a plain
-   single-column flow, which is exactly what's wanted; no separate mobile
-   layout is needed for that to already be comfortable.
-   .stack (Task 7: reports/fill/inbox) is the identical flex-column-with-gap
-   rhythm, needed for the same reason — h1/h2/h3 margins are reset to 0
-   (tokens.css) so a page built from a loose sequence of heading/table/card
-   sections needs an explicit gap between them. Aliased here rather than
-   duplicated, exactly like .card/.request and .toolbar/.grid-header
-   (components.css) alias their pre-redesign names. */
-.schedule-list,
+/* .stack is the flex-column-with-gap rhythm the reports, assisted-fill and
+   requests-inbox screens use (each wraps its content in <div
+   class="stack">) — h1/h2/h3 margins are reset to 0 (tokens.css) so a page
+   built from a loose sequence of heading/table/card sections needs an
+   explicit gap between them. It used to be aliased with .schedule-list,
+   my_schedule.html's own top-level wrapper; that page now builds its rhythm
+   from the .ms-* section margins below instead, so the alias is gone, but
+   .stack itself stays — the other four screens still depend on it. */
 .stack {
   display: flex;
   flex-direction: column;
   gap: var(--sp-5);
 }
 
-/* my_schedule.html's "My requests" <ul> is a direct flex child of
-   .schedule-list and otherwise entirely unstyled, so it took the UA's
-   margin: 1em 0 on top of the 24px flex gap (gap does not collapse with a
-   child's margin, it adds) and the UA's padding-inline-start: 40px, which
-   indented it past every other section on the page. Both are UA declarations,
-   so any author rule beats them; the child combinator keeps it to a list that
-   is itself a stack item rather than any nested list inside a card. The
-   remaining padding is what the markers hang in — dropping it to 0 would clip
-   them outside the box. */
-.schedule-list > ul,
-.stack > ul {
-  margin: 0;
-  padding-inline-start: var(--sp-5);
-}
-
 /* .page-head carries its own margin-bottom: var(--sp-5) (components.css:69),
-   meant for the case where it's a sibling *before* a following block (as in
-   my_schedule.html). Flex gap does not collapse with a child's margin — it
-   adds — so on the report/fill/inbox screens, where .page-head is .stack's
-   first child, that margin stacked on top of .stack's own 24px gap would
-   double the rhythm under every page title to 48px, against the 24px
-   between any other two sections in the same stack. Zero it out for that
-   specific combination; (0,2,0) beats components.css's bare .page-head
-   (0,1,0) on specificity, so this wins regardless of stylesheet order —
-   same interaction, same fix shape, as .page-head .form-actions below. */
+   meant for the case where it's a sibling *before* a following block. Flex
+   gap does not collapse with a child's margin — it adds — so on the
+   report/fill/inbox screens, where .page-head is .stack's first child, that
+   margin stacked on top of .stack's own 24px gap would double the rhythm
+   under every page title to 48px, against the 24px between any other two
+   sections in the same stack. Zero it out for that specific combination;
+   (0,2,0) beats components.css's bare .page-head (0,1,0) on specificity, so
+   this wins regardless of stylesheet order — same interaction, same fix
+   shape, as .page-head .form-actions below. */
 .stack > .page-head {
   margin-bottom: 0;
 }
@@ -105,13 +86,15 @@
    flex item's box, so it drags the "Request leave" / "Propose a swap"
    buttons down out of line with the <h1>. Override it back to 0 specifically
    for this combination; (0,2,0) beats components.css's bare .form-actions
-   (0,1,0) on specificity, so this wins regardless of stylesheet order. */
+   (0,1,0) on specificity, so this wins regardless of stylesheet order.
+   my_schedule.html is still the one page whose .page-head carries
+   .form-actions, so this stays scoped exactly where it's needed. */
 .page-head .form-actions {
   margin-top: 0;
 }
 
-/* Leave balance figures as a small stat row inside the .card. Wraps under
-   its own gap on narrow screens rather than squeezing four columns tight. */
+/* Assisted fill's unfilled-slot count is a small stat row. Wraps under its
+   own gap on narrow screens rather than squeezing columns tight. */
 .stat-row {
   display: flex;
   flex-wrap: wrap;
@@ -136,11 +119,106 @@
   letter-spacing: .04em;
 }
 
-/* The upcoming-sessions table scrolls inside its own pane on narrow
-   viewports rather than forcing the whole page to scroll sideways. */
+/* The report tables scroll inside their own pane on narrow viewports rather
+   than forcing the whole page to scroll sideways. My Schedule's own agenda
+   used to be one of these (the five-column table this phase replaces); the
+   rule stays for the four report screens that still use it. */
 .table-scroll {
   overflow-x: auto;
 }
+
+/* ---- the agenda: awaiting swaps / today / next four weeks / leave / requests --- */
+
+.ms-awaiting, .ms-today, .ms-weeks, .ms-leave, .ms-requests {
+  margin-bottom: var(--sp-6);
+}
+
+.ms-today-label { font-size: var(--fs-lg); margin: 0 0 var(--sp-2); }
+
+.ms-today-note, .ms-today-cells {
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-md);
+  padding: var(--sp-3) var(--sp-4);
+  margin: 0;
+}
+
+.ms-today-cells { display: flex; gap: var(--sp-2); align-items: center; }
+
+.ms-week { margin-bottom: var(--sp-5); }
+
+.ms-week-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.ms-week-count { font-weight: 500; letter-spacing: 0; text-transform: none; }
+
+.ms-day {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: var(--row-h);
+  padding: var(--sp-1) 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.ms-day:last-child { border-bottom: 0; }
+
+.ms-date {
+  flex: none;
+  width: 5.5rem;
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.ms-cells { display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; }
+.ms-dash { color: var(--muted); }
+
+/* --muted on --accent-soft (the "today" box's background) measures below
+   AA for small text — --muted is only audited against --surface / --ground
+   / --sunken (tests/test_chrome_contrast.py). A day with only one of AM/PM
+   filled renders a bare .ms-dash directly on that background, so it needs
+   its own foreground rather than inheriting the shared one above; (0,2,0)
+   beats .ms-dash's (0,1,0) on specificity. */
+.ms-today-cells .ms-dash { color: var(--ink-soft); }
+
+.ms-status { color: var(--muted); font-size: var(--fs-sm); }
+
+.ms-balance {
+  display: flex;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+
+.ms-balance > div {
+  flex: 1;
+  padding: var(--sp-3) var(--sp-2);
+  text-align: center;
+  border-right: 1px solid var(--hairline);
+}
+
+.ms-balance > div:last-child { border-right: 0; }
+
+.ms-v {
+  display: block;
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ms-k { font-size: var(--fs-xs); color: var(--muted); }
 
 /* ---------------------------------------------------------- day view --- */
 
