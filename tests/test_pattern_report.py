@@ -34,21 +34,43 @@ def test_it_lists_each_clinician_and_their_effective_dates():
 
 
 @pytest.mark.django_db
-def test_a_single_date_history_is_flagged():
-    """Every row at one date is what the overwrite bug leaves behind."""
-    c = make_clinician("Flat", initials="FL")
+def test_a_clinician_whose_pattern_was_set_once_and_never_revised_is_not_flagged():
+    """The normal healthy state for a stable rota. Flagging it was the bug:
+    a report that flags most of the practice teaches its reader to skip it."""
+    c = make_clinician("Steady", initials="SD")
     for part in ("AM", "PM"):
         PatternSlot.objects.create(clinician=c, weekday=0, part=part,
                                    works=True, effective_from=date(2025, 1, 1))
-    assert "single date" in _run().lower()
+    out = _run()
+    assert "Steady" in out, "every clinician's history is still printed"
+    assert "suspect" not in out.lower()
 
 
 @pytest.mark.django_db
-def test_rows_dated_today_are_flagged():
+def test_a_date_that_turns_sessions_off_is_surfaced():
+    """The shape an overwrite leaves on the sessions it displaced. A
+    deliberate reduction looks identical, so this is a place to look."""
+    c = make_clinician("Reduced", initials="RD")
+    PatternSlot.objects.create(clinician=c, weekday=0, part="AM",
+                               works=True, effective_from=date(2025, 1, 1))
+    PatternSlot.objects.create(clinician=c, weekday=0, part="AM",
+                               works=False, effective_from=date(2025, 6, 1))
+    assert "2025-06-01" in _run()
+
+
+@pytest.mark.django_db
+def test_rows_dated_today_are_shown_but_not_flagged():
+    """The old code called every row dated today "suspect"; a routine save
+    made today looks exactly like a bug replaying today's date, so the fix
+    demotes it to plain context shown inline, not a signal that feeds the
+    closing tally."""
     c = make_clinician("Todayed", initials="TD")
     PatternSlot.objects.create(clinician=c, weekday=0, part="AM",
                                works=True, effective_from=date.today())
-    assert "today" in _run().lower()
+    out = _run()
+    assert "<- today" in out, "the plain inline marker should still be there"
+    assert "place to look" not in out.lower(), (
+        "a today-dated row with no reduction must not feed the signal tally")
 
 
 @pytest.mark.django_db

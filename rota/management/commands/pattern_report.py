@@ -1,9 +1,19 @@
-"""Show each clinician's pattern history, and flag what looks like damage.
+"""Show each clinician's pattern history — an inspection aid, not a detector.
 
 The bulk editor used to post a stale `effective_from` — normally today — so a
 pattern meant for a future date overwrote the live one, and a second save at
-the same date updated the first in place. The original values are gone; this
-reports what is there so it can be re-entered through the fixed editor.
+the same date updated the first in place. The overwrite produced rows that
+look entirely legitimate: the same shape as a deliberate change, and a
+clinician whose pattern was set once and never revised looks exactly like a
+healthy one. That is exactly why the original values are gone, and exactly
+why this command cannot tell you which rows are damage — it can only show
+you the history so a human can compare it against what the practice actually
+does.
+
+The one genuine signal it does surface: a date whose rows turn sessions off
+(`works=False`). That is the shape an overwrite leaves on the sessions it
+displaced — but a deliberate reduction looks identical, so it is a place to
+look, not a verdict.
 
 Read-only by design. A repair would be inventing data.
 """
@@ -18,11 +28,21 @@ WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 
 class Command(BaseCommand):
-    help = "Report each clinician's pattern history and flag likely damage."
+    help = ("Show each clinician's pattern history for manual review. "
+            "Cannot identify damage automatically.")
 
     def handle(self, *args, **options):
         today = date.today()
-        flagged = 0
+        no_pattern = 0
+        worth_checking = 0
+
+        self.stdout.write(
+            "This cannot identify damage automatically: an overwritten row "
+            "looks exactly like a deliberate change, and a pattern set once "
+            "and never revised looks exactly like a healthy one. Read each "
+            "clinician's history below against what the practice actually "
+            "does.\n"
+        )
 
         for clinician in Clinician.objects.order_by("name"):
             rows = list(PatternSlot.objects.filter(
@@ -31,7 +51,7 @@ class Command(BaseCommand):
             self.stdout.write(f"\n{clinician.name} ({clinician.initials})")
 
             if not rows:
-                flagged += 1
+                no_pattern += 1
                 self.stdout.write(self.style.WARNING(
                     "  no pattern rows — cannot be scheduled, and approving "
                     "leave will write nothing"))
@@ -41,23 +61,30 @@ class Command(BaseCommand):
             for row in rows:
                 by_date.setdefault(row.effective_from, []).append(row)
 
+            reducing_dates = []
             for eff, day_rows in sorted(by_date.items()):
                 sessions = ", ".join(
                     f"{WEEKDAYS[r.weekday]} {r.part}{'' if r.works else ' off'}"
                     for r in day_rows)
-                marker = "  <- today" if eff == today else ""
+                markers = []
+                if eff == today:
+                    markers.append("today")
+                if any(not r.works for r in day_rows):
+                    markers.append("turns sessions off")
+                    reducing_dates.append(eff)
+                marker = f"  <- {', '.join(markers)}" if markers else ""
                 self.stdout.write(f"  {eff}  {sessions}{marker}")
 
-            notes = []
-            if len(by_date) == 1:
-                notes.append("entire history sits at a single date")
-            if today in by_date:
-                notes.append("has rows dated today")
-            if notes:
-                flagged += 1
+            if reducing_dates:
+                worth_checking += 1
+                dates = ", ".join(str(d) for d in reducing_dates)
                 self.stdout.write(self.style.WARNING(
-                    "  suspect: " + "; ".join(notes)))
+                    f"  place to look: turns sessions off on {dates} — a "
+                    f"deliberate reduction looks identical, so this is not "
+                    f"a verdict"))
 
         self.stdout.write(
-            f"\n{flagged} clinician(s) flagged. Nothing has been changed."
+            f"\n{no_pattern} clinician(s) with no pattern rows. "
+            f"{worth_checking} clinician(s) have a date that turns sessions "
+            f"off and are worth checking by hand. Nothing has been changed."
         )
