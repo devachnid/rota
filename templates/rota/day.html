@@ -6,71 +6,94 @@
     <h1>{{ target|date:"D j M" }}</h1>
     <p class="day-count">{{ in_count }} in &middot; {{ leave_count }} on leave</p>
   </div>
+  <div class="day-step">
+    <a href="/rota/day/{{ prev_day|date:'Y-m-d' }}/" class="btn" rel="prev">&larr;<span class="visually-hidden"> previous open day</span></a>
+    <a href="/rota/day/{{ next_day|date:'Y-m-d' }}/" class="btn" rel="next">&rarr;<span class="visually-hidden"> next open day</span></a>
+  </div>
 </div>
 
 {% if day_note %}<p class="day-note">{{ day_note.text }}</p>{% endif %}
 
-<table class="day-roster">
-  <caption class="visually-hidden">Who is working on {{ target|date:"j F Y" }}</caption>
-  <thead>
-    <tr><th scope="col">Clinician</th><th scope="col">AM</th><th scope="col">PM</th></tr>
-  </thead>
-  <tbody>
-  {% for row in roster %}
-    <tr>
-      <th scope="row">{{ row.clinician.name }}</th>
-      {% for cell in row.cells %}
-      <td>
-        {% if cell.entry %}
-          <span class="chip{% if not cell.entry.is_published %} is-draft{% endif %}"
-                style="--chip-bg: var(--tint-{{ cell.entry.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ cell.entry.session_type.tint.key }}-fg);">
-            {{ cell.entry.session_type.code }}{% if cell.entry.site %}<span class="site-marker">{{ cell.entry.site.name|slice:":1" }}</span>{% endif %}
-          </span>
-          {% if cell.partner %}<span class="day-partner">with {{ cell.partner }}</span>{% endif %}
-        {% elif cell.ghost_leave %}
-          <span class="chip is-ghost"
-                title="Approved leave with no rota entry — check the clinician's pattern"
-                style="--chip-bg: transparent; --chip-fg: var(--tint-{{ cell.ghost_leave.tint.key }}-fg); --chip-edge: var(--tint-{{ cell.ghost_leave.tint.key }}-fg);">
-            {{ cell.ghost_leave.code }}
-          </span>
-        {% else %}
-          <span class="day-dash">&mdash;</span>
-        {% endif %}
-      </td>
-      {% endfor %}
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
+{% if is_closed %}
+  <p class="day-closed">{% if closed_reason %}{{ closed_reason }}{% else %}Surgery closed{% endif %}</p>
+{% else %}
+  {% if pinned %}
+  <div class="day-pinned">
+    {% for e in pinned %}
+    <div class="day-pin-row">
+      <span class="day-pin-who">{{ e.clinician.name }}</span>
+      <span class="day-pin-part">{{ e.part }}</span>
+      <span class="chip{% if not e.is_published %} is-draft{% endif %}"
+            style="--chip-bg: var(--tint-{{ e.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ e.session_type.tint.key }}-fg);">
+        {{ e.session_type.code }}{% if e.site %}<span class="site-marker">{{ e.site.name|slice:":1" }}</span>{% endif %}
+      </span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
 
-{% if on_leave %}
-<h2 class="day-group">On leave</h2>
-<table class="day-roster">
-  <tbody>
-  {% for row in on_leave %}
-    <tr>
-      <th scope="row">{{ row.clinician.name }}</th>
-      {% for cell in row.cells %}
-      <td>
-        {% if cell.entry %}
-          <span class="chip{% if not cell.entry.is_published %} is-draft{% endif %}"
-                style="--chip-bg: var(--tint-{{ cell.entry.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ cell.entry.session_type.tint.key }}-fg);">
-            {{ cell.entry.session_type.code }}
-          </span>
-        {% else %}
-          <span class="day-dash">&mdash;</span>
-        {% endif %}
-      </td>
-      {% endfor %}
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
-{% endif %}
+  <table class="day-roster">
+    <caption class="visually-hidden">Who is working on {{ target|date:"j F Y" }}</caption>
+    <thead>
+      <tr><th scope="col">Clinician</th><th scope="col">AM</th><th scope="col">PM</th></tr>
+    </thead>
+    <tbody>
+    {% for row in roster %}
+      <tr>
+        <th scope="row">{{ row.clinician.name }}</th>
+        {% for cell in row.cells %}
+        <td>
+          {% if cell.entry %}
+            <span class="chip{% if not cell.entry.is_published %} is-draft{% endif %}"
+                  style="--chip-bg: var(--tint-{{ cell.entry.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ cell.entry.session_type.tint.key }}-fg);">
+              {{ cell.entry.session_type.code }}{% if cell.entry.site %}<span class="site-marker">{{ cell.entry.site.name|slice:":1" }}</span>{% endif %}
+            </span>
+            {% if cell.partner %}<span class="day-partner">with {{ cell.partner }}</span>{% endif %}
+          {% elif cell.ghost_leave %}
+            <span class="chip is-ghost"
+                  title="Approved leave with no rota entry — check the clinician's pattern"
+                  style="--chip-bg: transparent; --chip-fg: var(--tint-{{ cell.ghost_leave.tint.key }}-fg); --chip-edge: var(--tint-{{ cell.ghost_leave.tint.key }}-fg);">
+              {{ cell.ghost_leave.code }}
+            </span>
+          {% else %}
+            <span class="day-dash">&mdash;</span>
+          {% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
 
-{% if not_in %}
-<p class="day-not-in">Not in {{ weekday_name }}s:
-  {% for c in not_in %}{{ c.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
-</p>
+  {% if on_leave %}
+  <h2 class="day-group">On leave</h2>
+  <table class="day-roster">
+    <tbody>
+    {% for row in on_leave %}
+      <tr>
+        <th scope="row">{{ row.clinician.name }}</th>
+        {% for cell in row.cells %}
+        <td>
+          {% if cell.entry %}
+            <span class="chip{% if not cell.entry.is_published %} is-draft{% endif %}"
+                  style="--chip-bg: var(--tint-{{ cell.entry.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ cell.entry.session_type.tint.key }}-fg);">
+              {{ cell.entry.session_type.code }}
+            </span>
+          {% else %}
+            <span class="day-dash">&mdash;</span>
+          {% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  {% if not_in %}
+  <p class="day-not-in">Not in {{ weekday_name }}s:
+    {% for c in not_in %}{{ c.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+  </p>
+  {% endif %}
 {% endif %}
 {% endblock %}

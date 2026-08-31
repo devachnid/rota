@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
@@ -7,6 +7,25 @@ from rota.models import (Clinician, ClosedDay, DayNote, LeaveRequest,
                          PatternSlot, PracticeSettings, RotaEntry, SessionType)
 from rota.services import availability
 from rota.services.cells import cell_state
+
+_STEP_LIMIT = 14  # a fortnight: enough to clear Christmas, short enough to end
+
+
+def _adjacent_open_day(target, delta, open_weekdays, closed):
+    """The previous or next day the surgery is open.
+
+    Bounded, because open_weekdays can legitimately be empty — it parses from
+    a free-text field that clean() accepts blank — and an unbounded walk
+    looking for an open day would then never return.
+    """
+    if not open_weekdays:
+        return target + timedelta(days=delta)
+    day = target
+    for _ in range(_STEP_LIMIT):
+        day += timedelta(days=delta)
+        if day.weekday() in open_weekdays and day not in closed:
+            return day
+    return target + timedelta(days=delta)
 
 
 @login_required
@@ -19,16 +38,28 @@ def day_view(request, day=None):
         target = date.today()
 
     settings = PracticeSettings.load()
-    closed_days = set(
-        ClosedDay.objects.filter(day=target).values_list("day", flat=True))
-    is_closed = (target in closed_days
-                 or target.weekday() not in settings.open_weekday_list())
+
+    span = timedelta(days=_STEP_LIMIT)
+    nearby_closed = set(ClosedDay.objects.filter(
+        day__range=(target - span, target + span)
+    ).values_list("day", flat=True))
+    open_weekdays = set(settings.open_weekday_list())
+    prev_day = _adjacent_open_day(target, -1, open_weekdays, nearby_closed)
+    next_day = _adjacent_open_day(target, +1, open_weekdays, nearby_closed)
+
+    is_closed = (target in nearby_closed
+                 or target.weekday() not in open_weekdays)
 
     entries = RotaEntry.objects.filter(day=target).select_related(
         "session_type", "clinician", "site")
     if not request.user.is_rota_admin:
         entries = entries.filter(is_published=True)
     entries = list(entries)
+
+    pinned = sorted(
+        (e for e in entries if e.session_type.pin_on_day_view),
+        key=lambda e: (e.session_type.name, e.clinician.name, e.part),
+    )
 
     by_clinician = {}
     for e in entries:
@@ -86,4 +117,7 @@ def day_view(request, day=None):
         "weekday_name": target.strftime("%A"),
         "day_note": DayNote.objects.filter(day=target).first(),
         "is_admin": request.user.is_rota_admin,
+        "pinned": pinned,
+        "prev_day": prev_day,
+        "next_day": next_day,
     })
