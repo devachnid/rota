@@ -68,6 +68,15 @@ Two things follow:
 Fairness is pooled by **who is eligible** for the type, which is why the next
 setting matters as much as this one.
 
+## Pin on day view
+
+Puts this type in its own block at the **top of the day view**, above the
+roster, so "who is on Duty today" is answered without reading every row.
+
+Leave it off for the bulk of the rota. Pinning Routine would put most of the
+practice in the pinned block and defeat the point of having one. If nothing is
+pinned, the block does not appear at all.
+
 ## Counts toward entitlement
 
 **Tick this on absence types only.**

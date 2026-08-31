@@ -36,6 +36,12 @@ class SessionType(models.Model):
                   "Kept for one release in case a mapping looks wrong.",
     )
     fairness_tracked = models.BooleanField(default=False)
+    pin_on_day_view = models.BooleanField(
+        default=False,
+        help_text="Show this type in its own block at the top of the day view. "
+                  "Use it for the roles someone would open the day view to check "
+                  "— Duty above all. Leave it off for the bulk of the rota.",
+    )
     counts_toward_entitlement = models.BooleanField(default=False)
     allowed_clinicians = models.ManyToManyField(
         "rota.Clinician", blank=True, related_name="restricted_session_types"
