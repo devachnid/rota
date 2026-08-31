@@ -10,6 +10,7 @@ from .models import (Clinician, ClinicianGroup, ClosedDay, CoverageRule,
                      PatternSlot, PracticeSettings, RecurringCommitment, RotaEntry, RotaEntryLog,
                      SessionType, Site, SwapRequest, TraineeProfile, TraineeStageRule)
 from .services.patterns import bulk_set_pattern, current_pattern
+from .admin_widgets import TintSwatchSelect
 
 WEEKDAY_LABELS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday",
                   "Saturday", "Sunday"]
@@ -68,10 +69,23 @@ class ClinicianAdmin(admin.ModelAdmin):
 
 @admin.register(SessionType)
 class SessionTypeAdmin(admin.ModelAdmin):
-    list_display = ("name", "code", "category", "colour", "fairness_tracked",
-                    "counts_toward_entitlement")
+    list_display = ("name", "code", "category", "colour_swatch",
+                    "fairness_tracked", "counts_toward_entitlement")
     filter_horizontal = ("allowed_clinicians", "allowed_groups", "blocks_same_day")
     readonly_fields = ("legacy_colour",)
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        if db_field.name == "colour":
+            kwargs["widget"] = TintSwatchSelect
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
+
+    @admin.display(description="Colour")
+    def colour_swatch(self, obj):
+        tint = obj.tint
+        return format_html(
+            '<span style="display:inline-block; padding:2px 10px; '
+            'border-radius:6px; background:{}; color:{}">{}</span>',
+            tint.bg, tint.fg, tint.label)
 
 
 admin.site.register(Site)
