@@ -138,3 +138,59 @@ def test_the_deactivate_action_exists_and_works(staff_client):
     })
     c.refresh_from_db()
     assert c.active is False
+
+
+@pytest.mark.django_db
+def test_a_published_entry_survives_an_attempted_delete_post(staff_client):
+    """The GET test only greps page text. This is the behaviour that matters:
+    a confirmed delete against a clinician with published rota must not go
+    through."""
+    from rota.models import Clinician, RotaEntry
+    from tests.factories import make_entry, make_session_type
+
+    c = make_clinician("Protected", initials="PR")
+    st = make_session_type("Routine", code="R3")
+    make_entry(c, part="AM", session_type=st, is_published=True)
+    make_entry(c, part="PM", session_type=st, is_published=False)
+
+    staff_client.post(f"/admin/rota/clinician/{c.pk}/delete/", {"post": "yes"})
+
+    assert Clinician.objects.filter(pk=c.pk).exists(), (
+        "a clinician with published rota was deleted"
+    )
+    assert RotaEntry.objects.filter(clinician=c).count() == 2, (
+        "entries were deleted even though the clinician was not"
+    )
+
+
+@pytest.mark.django_db
+def test_the_bulk_delete_action_also_refuses_a_published_clinician(staff_client):
+    from rota.models import Clinician
+    from tests.factories import make_entry, make_session_type
+
+    c = make_clinician("Bulky", initials="BK")
+    make_entry(c, part="AM", session_type=make_session_type("Routine", code="R4"),
+               is_published=True)
+
+    staff_client.post("/admin/rota/clinician/", {
+        "action": "delete_selected",
+        "_selected_action": [str(c.pk)],
+        "post": "yes",
+    })
+
+    assert Clinician.objects.filter(pk=c.pk).exists()
+
+
+def test_rota_entry_is_still_the_only_protect_fk_on_clinician():
+    """The deletion guard filters protected objects rather than clearing them,
+    but the reasoning behind what it filters assumes this. If a new PROTECT
+    relation appears, revisit ClinicianAdmin.get_deleted_objects."""
+    from django.db.models import PROTECT
+    from rota.models import Clinician
+
+    protecting = {
+        f"{rel.related_model.__name__}.{rel.field.name}"
+        for rel in Clinician._meta.related_objects
+        if getattr(rel.field.remote_field, "on_delete", None) is PROTECT
+    }
+    assert protecting == {"RotaEntry.clinician"}

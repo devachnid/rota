@@ -1,9 +1,12 @@
 from datetime import date, timedelta
 
 from django.contrib import admin, messages
+from django.contrib.admin.utils import NestedObjects
+from django.db import router
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import path, reverse
+from django.urls import NoReverseMatch, path, reverse
 from django.utils.html import format_html
+from django.utils.text import capfirst
 
 from .models import (Clinician, ClinicianGroup, ClosedDay, CoverageRule,
                      DayNote, LeaveRequest, LocumRequirement, Part,
@@ -67,18 +70,28 @@ class ClinicianAdmin(admin.ModelAdmin):
             ]
             return deletable, model_count, perms_needed, protected
 
-        # No published entries. The only reason any RotaEntry landed in
-        # `protected` above is that the FK itself is PROTECT — Django's
-        # collector does not know about is_published, so it protects drafts
-        # just as hard as published rows. delete_model()/delete_queryset()
-        # below remove those drafts before the real delete runs, so nothing
-        # here is actually protected; clear it or the confirmation page (and
-        # the POST-confirm check, which refuses to proceed while `protected`
-        # is non-empty) blocks a deletion that is in fact safe.
-        protected = []
+        # No published entries. Django's collector still protects every
+        # RotaEntry tied to these clinicians — PROTECT raises for the whole
+        # batch on that field, so it cannot distinguish a draft from a
+        # published row. delete_model()/delete_queryset() remove the drafts
+        # before the real delete runs, so those specific rows are not
+        # actually a problem. But RotaEntry.clinician being the only PROTECT
+        # relation on Clinician is a fact about today's schema, not something
+        # this method enforces — so rather than trust that and blank the
+        # whole list, re-run the collector ourselves, remove by identity only
+        # the drafts we are about to delete, and re-format whatever (if
+        # anything) is still protected. If a future PROTECT relation ever
+        # lands something else in there, it stays protected here too.
+        drafts = set(RotaEntry.objects.filter(
+            clinician__in=objs, is_published=False))
 
-        n_drafts = RotaEntry.objects.filter(
-            clinician__in=objs, is_published=False).count()
+        collector = NestedObjects(using=router.db_for_write(self.model))
+        collector.collect(objs)
+        still_protected = collector.protected - drafts
+        protected = [self._format_protected(obj, request)
+                     for obj in still_protected]
+
+        n_drafts = len(drafts)
         if n_drafts:
             deletable = list(deletable) + [
                 f"{n_drafts} unpublished rota entr"
@@ -90,6 +103,27 @@ class ClinicianAdmin(admin.ModelAdmin):
         # else's history. Locum bookings survive with the name set to null.
         # The audit log is unaffected: it stores names as text, not a key.
         return deletable, model_count, perms_needed, protected
+
+    def _format_protected(self, obj, request):
+        """Render a still-protected object the same way
+        django.contrib.admin.utils.get_deleted_objects does — a verbose
+        name, and a link to the change view where one exists — so an object
+        that survives the drafts filter above (something other than this
+        clinician's own unpublished RotaEntry rows) still reads the way
+        Django's own confirmation page would have shown it.
+        """
+        opts = obj._meta
+        no_edit_link = f"{capfirst(opts.verbose_name)}: {obj}"
+        if not self.admin_site.is_registered(obj.__class__):
+            return no_edit_link
+        try:
+            admin_url = reverse(
+                f"{self.admin_site.name}:{opts.app_label}_{opts.model_name}_change",
+                None, (obj.pk,))
+        except NoReverseMatch:
+            return no_edit_link
+        return format_html(
+            '{}: <a href="{}">{}</a>', capfirst(opts.verbose_name), admin_url, obj)
 
     def delete_model(self, request, obj):
         RotaEntry.objects.filter(clinician=obj, is_published=False).delete()
