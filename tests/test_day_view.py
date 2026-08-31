@@ -11,7 +11,7 @@ import pytest
 
 from rota.models import LeaveRequest, PatternSlot, PracticeSettings
 from tests.factories import (make_clinician, make_entry, make_pattern,
-                             make_session_type)
+                             make_session_type, make_site)
 
 pytestmark = pytest.mark.django_db
 
@@ -42,15 +42,16 @@ def _tbody(html, after=None):
 
 
 def _roster_tbody(html):
-    """Extract the roster table's tbody by identifying it via its <thead>.
+    """Extract the roster table's tbody by identifying it via its caption.
 
-    The roster table (containing clinician schedule) is the only day-roster table
-    with a <thead> element. The on-leave table has no <thead>. This structural
-    difference allows reliable identification regardless of document order.
+    Both the roster and the on-leave table carry a <thead> now (item 6:
+    screen readers need column headers on both, not just the roster), so a
+    "the only table with a <thead>" check no longer tells them apart — and
+    would have silently started reading the wrong table's tbody instead of
+    failing loudly. The caption text is unique to each table regardless of
+    document order, which a <thead>-position check never was.
     """
-    # The first </thead> in the document marks the end of the roster table's header.
-    # The first tbody after that point is the roster table's tbody.
-    return _tbody(html, after='</thead>')
+    return _tbody(html, after="Who is working")
 
 
 def _on_leave_tbody(html):
@@ -66,6 +67,40 @@ def test_a_clinician_working_the_day_appears_with_both_parts(gp_client, gp_user)
     html = _html(gp_client)
     assert "Emma Hall" in html
     assert html.count("ROUT") >= 2
+
+
+def test_a_chip_with_a_site_carries_the_site_marker(gp_client, gp_user):
+    """Named in the spec: the site rides inside the chip on .site-marker
+    rather than a column of its own."""
+    make_clinician("Viewer", user=gp_user)
+    c = make_clinician("Owen Priestley")
+    make_pattern(c)
+    site = make_site("Branch Surgery")
+    make_entry(c, day=TUE, part="AM",
+               session_type=make_session_type("Routine", code="ROUT"),
+               site=site)
+    roster = _roster_tbody(_html(gp_client))
+    assert 'class="site-marker"' in roster
+    assert ">B<" in roster  # the site name's first letter
+
+
+def test_a_companion_group_entry_shows_the_partners_name(gp_client, gp_user):
+    """Named in the spec: .day-partner carries the companion's name for a
+    half of a companion_group pair."""
+    import uuid
+    make_clinician("Viewer", user=gp_user)
+    a = make_clinician("Priya Anand")
+    b = make_clinician("Rohan Bakshi")
+    make_pattern(a)
+    make_pattern(b)
+    rout = make_session_type("Routine", code="ROUT")
+    group = uuid.uuid4()
+    make_entry(a, day=TUE, part="AM", session_type=rout, companion_group=group)
+    make_entry(b, day=TUE, part="AM", session_type=rout, companion_group=group)
+    roster = _roster_tbody(_html(gp_client))
+    assert "day-partner" in roster
+    assert "with Rohan Bakshi" in roster
+    assert "with Priya Anand" in roster
 
 
 def test_a_clinician_on_leave_all_day_is_in_the_leave_group_not_the_roster(
@@ -117,6 +152,30 @@ def test_absence_in_one_part_and_no_entry_at_all_in_the_other_is_roster_not_leav
     html = _html(gp_client)
     assert "Priya Chandra" in _roster_tbody(html)
     assert "On leave" not in html
+
+
+def test_a_clinician_with_no_pattern_and_approved_leave_is_a_ghost_in_the_roster(
+        gp_client, gp_user):
+    """cell_state ghosts a leave chip for a clinician with no PatternSlot
+    rows at all — nothing else would ever render for them otherwise, and
+    the grid shows exactly this ghost. Bucketing on `cell["off"]` alone put
+    this clinician on the "Not in Tuesdays" line instead: off is True (no
+    entry, works_on() False with no pattern), so the old condition
+    `mine or any(not cell["off"] for cell in cells)` was False. That both
+    dropped the admin integrity warning the ghost carries and asserted a
+    lie — that they do not work Tuesdays — when the truth is nobody has
+    entered their pattern yet."""
+    make_clinician("Viewer", user=gp_user)
+    c = make_clinician("Locum Newcomer")  # deliberately: no make_pattern()
+    al = make_session_type("Annual Leave", code="AL", category="ABSENCE")
+    LeaveRequest.objects.create(
+        clinician=c, session_type=al, start_date=TUE, end_date=TUE,
+        status=LeaveRequest.Status.APPROVED)
+    html = _html(gp_client)
+    assert "Locum Newcomer" in _roster_tbody(html)
+    assert "is-ghost" in _roster_tbody(html)
+    not_in_line = html[html.index('class="day-not-in"'):]
+    assert "Locum Newcomer" not in not_in_line
 
 
 def test_someone_who_does_not_work_that_day_is_on_the_not_in_line(
@@ -242,6 +301,44 @@ def test_a_closed_day_says_so_and_shows_no_roster(gp_client, gp_user):
     assert "day-roster" not in html
 
 
+def test_a_closed_day_with_a_real_entry_still_shows_the_roster(gp_client, gp_user):
+    """The bug this fix exists for: a ClosedDay plus a published Routine
+    entry used to make the day view render the closure sentence and
+    nothing else. This is the one screen built to answer "who is on
+    today" — it must be able to answer that on a bank holiday too, when
+    someone really is rostered on."""
+    from rota.models import ClosedDay
+    make_clinician("Viewer", user=gp_user)
+    c = make_clinician("Farida Chowdhury")
+    make_pattern(c)
+    ClosedDay.objects.create(day=TUE, reason="August bank holiday")
+    make_entry(c, day=TUE, part="AM",
+               session_type=make_session_type("Routine", code="ROUT"))
+    html = _html(gp_client)
+    assert "August bank holiday" in html
+    assert "day-roster" in html
+    assert "Farida Chowdhury" in _roster_tbody(html)
+    assert "ROUT" in _roster_tbody(html)
+
+
+def test_a_closed_day_with_only_a_leave_entry_still_shows_the_leave_group(
+        gp_client, gp_user):
+    """The same rule, exercised through the on-leave branch rather than the
+    roster: an absence entry on a closed day is still an entry, and the
+    body must render for it too."""
+    from rota.models import ClosedDay
+    make_clinician("Viewer", user=gp_user)
+    c = make_clinician("Grzegorz Nowak")
+    make_pattern(c)
+    al = make_session_type("Annual Leave", code="AL", category="ABSENCE")
+    ClosedDay.objects.create(day=TUE, reason="Training day")
+    make_entry(c, day=TUE, part="AM", session_type=al)
+    make_entry(c, day=TUE, part="PM", session_type=al)
+    html = _html(gp_client)
+    assert "Training day" in html
+    assert "Grzegorz Nowak" in _on_leave_tbody(html)
+
+
 def test_a_closed_day_still_shows_its_day_note(gp_client, gp_user):
     from rota.models import ClosedDay, DayNote
     make_clinician("Viewer", user=gp_user)
@@ -255,6 +352,74 @@ def test_a_weekend_is_closed_without_a_closedday_row(gp_client, gp_user):
     saturday = date(2026, 9, 12)
     assert saturday.weekday() == 5
     assert "day-roster" not in _html(gp_client, day=saturday)
+
+
+# --------------------------------------------------------- header count ---
+
+def test_the_count_line_matches_the_rendered_roster_and_leave_groups(
+        gp_client, gp_user):
+    """Named in the spec: "<n> in · <m> on leave". n is the roster's row
+    count, m the on-leave group's — not the size of the full clinician
+    list, which is what a header computed before the split would show."""
+    make_clinician("Viewer", user=gp_user)
+    working = make_clinician("Amara Osei")
+    make_pattern(working)
+    make_entry(working, day=TUE, part="AM",
+               session_type=make_session_type("Routine", code="ROUT"))
+    on_leave = make_clinician("Baljit Bhatt")
+    make_pattern(on_leave)
+    al = make_session_type("Annual Leave", code="AL", category="ABSENCE")
+    make_entry(on_leave, day=TUE, part="AM", session_type=al)
+    make_entry(on_leave, day=TUE, part="PM", session_type=al)
+    html = _html(gp_client)
+    # Viewer has no pattern and is filed under "Not in", so it must not be
+    # counted in either figure — this is the assertion a header wired to
+    # len(active) instead of len(roster) would fail.
+    assert "1 in &middot; 1 on leave" in html
+
+
+def test_the_count_line_is_suppressed_when_a_closed_day_has_nothing_to_count(
+        gp_client, gp_user):
+    """The body is suppressed for a closed day with no entries (the pinned
+    test_a_closed_day_says_so_and_shows_no_roster case); the count line
+    above it must be suppressed along with it rather than reading
+    "0 in · 0 on leave" over a body that was refused."""
+    from rota.models import ClosedDay
+    make_clinician("Viewer", user=gp_user)
+    ClosedDay.objects.create(day=TUE, reason="Bank holiday")
+    assert "day-count" not in _html(gp_client)
+
+
+def test_the_count_line_still_shows_when_a_closed_day_has_entries(
+        gp_client, gp_user):
+    from rota.models import ClosedDay
+    make_clinician("Viewer", user=gp_user)
+    c = make_clinician("Priti Patel")
+    make_pattern(c)
+    ClosedDay.objects.create(day=TUE, reason="Training day")
+    make_entry(c, day=TUE, part="AM",
+               session_type=make_session_type("Routine", code="ROUT"))
+    html = _html(gp_client)
+    assert "day-count" in html
+    assert "1 in &middot; 0 on leave" in html
+
+
+# -------------------------------------------------------------- on leave ---
+
+def test_the_on_leave_table_has_column_headers_and_a_caption(gp_client, gp_user):
+    """The roster table already has both (WCAG: a screen-reader user needs
+    column headers to tell AM from PM, not just the row's clinician name).
+    The on-leave table carried neither."""
+    make_clinician("Viewer", user=gp_user)
+    c = make_clinician("Nadia Farooqi")
+    make_pattern(c)
+    al = make_session_type("Annual Leave", code="AL", category="ABSENCE")
+    make_entry(c, day=TUE, part="AM", session_type=al)
+    make_entry(c, day=TUE, part="PM", session_type=al)
+    html = _html(gp_client)
+    after_heading = html[html.index('class="day-group"'):]
+    assert "<thead>" in after_heading
+    assert "<caption" in after_heading
 
 
 # -------------------------------------------------------------- steppers ---

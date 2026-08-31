@@ -4,7 +4,7 @@
 <div class="day-head">
   <div>
     <h1>{{ target|date:"D j M" }}</h1>
-    <p class="day-count">{{ in_count }} in &middot; {{ leave_count }} on leave</p>
+    {% if show_body %}<p class="day-count">{{ in_count }} in &middot; {{ leave_count }} on leave</p>{% endif %}
   </div>
   <div class="day-step">
     <a href="/rota/day/{{ prev_day|date:'Y-m-d' }}/" class="btn" rel="prev">&larr;<span class="visually-hidden"> previous open day</span></a>
@@ -16,7 +16,8 @@
 
 {% if is_closed %}
   <p class="day-closed">{% if closed_reason %}{{ closed_reason }}{% else %}Surgery closed{% endif %}</p>
-{% else %}
+{% endif %}
+{% if show_body %}
   {% if pinned %}
   <div class="day-pinned">
     {% for e in pinned %}
@@ -68,6 +69,10 @@
   {% if on_leave %}
   <h2 class="day-group">On leave</h2>
   <table class="day-roster">
+    <caption class="visually-hidden">Who is on leave on {{ target|date:"j F Y" }}</caption>
+    <thead>
+      <tr><th scope="col">Clinician</th><th scope="col">AM</th><th scope="col">PM</th></tr>
+    </thead>
     <tbody>
     {% for row in on_leave %}
       <tr>

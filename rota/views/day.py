@@ -117,14 +117,36 @@ def day_view(request, day=None):
         )
         if is_on_leave:
             on_leave.append({"clinician": c, "cells": cells})
-        elif mine or any(not cell["off"] for cell in cells):
+        elif mine or any(not cell["off"] or cell["ghost_leave"]
+                          for cell in cells):
+            # cell["ghost_leave"] alone (off True, no entry) is the "no
+            # pattern entered yet" case: cell_state ghosts it precisely
+            # because nothing else would ever show for that clinician. The
+            # grid renders that ghost; filing them under "Not in" instead
+            # would drop the integrity warning and assert a lie — that they
+            # do not work this day — when the truth is nobody has entered
+            # their pattern.
             roster.append({"clinician": c, "cells": cells})
         else:
             not_in.append(c)
 
+    # A closure statement is true and worth showing, but it is not a reason
+    # to withhold rostered work: when the day carries real RotaEntry rows,
+    # the body renders alongside the closure line, not instead of it. This
+    # is deliberately keyed on `entries`, not on `roster` being non-empty —
+    # a clinician whose pattern says they work a closed Tuesday still lands
+    # in `roster` as a dash row even with zero entries that day, and that
+    # must not be enough to light up the body on its own. Only a closed day
+    # with no entries at all keeps the old behaviour — the closure line
+    # alone, and the header count line suppressed along with the body it
+    # would otherwise describe.
+    has_entries = bool(entries)
+    show_body = not is_closed or has_entries
+
     return render(request, "rota/day.html", {
         "target": target,
         "is_closed": is_closed,
+        "show_body": show_body,
         "closed_reason": next(
             (cd.reason for cd in ClosedDay.objects.filter(day=target)), ""),
         "roster": roster,
