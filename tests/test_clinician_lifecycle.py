@@ -88,3 +88,53 @@ def test_saving_a_window_warns_about_entries_outside_it_but_deletes_nothing(
     assert any("outside" in str(m) for m in r.context["messages"]), (
         "no warning was shown about the entries outside the new window"
     )
+
+
+@pytest.mark.django_db
+def test_deleting_a_clinician_with_only_drafts_takes_the_drafts_with_them(
+    staff_client
+):
+    from rota.models import Clinician, RotaEntry
+    from tests.factories import make_entry, make_session_type
+
+    c = make_clinician("Draftsonly", initials="DO")
+    make_entry(c, part="AM", session_type=make_session_type("Routine", code="R1"),
+               is_published=False)
+    assert RotaEntry.objects.filter(clinician=c).count() == 1
+
+    staff_client.post(f"/admin/rota/clinician/{c.pk}/delete/", {"post": "yes"})
+
+    assert not Clinician.objects.filter(pk=c.pk).exists()
+    assert RotaEntry.objects.filter(clinician_id=c.pk).count() == 0
+
+
+@pytest.mark.django_db
+def test_a_published_entry_blocks_deletion_and_says_how_many(staff_client):
+    from rota.models import Clinician
+    from tests.factories import make_entry, make_session_type
+
+    c = make_clinician("Published", initials="PB")
+    st = make_session_type("Routine", code="R2")
+    make_entry(c, part="AM", session_type=st, is_published=True)
+
+    r = staff_client.get(f"/admin/rota/clinician/{c.pk}/delete/")
+    body = r.content.decode()
+
+    assert Clinician.objects.filter(pk=c.pk).exists()
+    assert "1" in body and "published" in body.lower()
+    assert "deactivat" in body.lower(), (
+        "the refusal should point at the alternative, not just say no"
+    )
+
+
+@pytest.mark.django_db
+def test_the_deactivate_action_exists_and_works(staff_client):
+    from rota.models import Clinician
+
+    c = make_clinician("Deactivateme", initials="DM")
+    staff_client.post("/admin/rota/clinician/", {
+        "action": "deactivate_clinicians",
+        "_selected_action": [str(c.pk)],
+    })
+    c.refresh_from_db()
+    assert c.active is False

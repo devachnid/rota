@@ -34,6 +34,71 @@ class ClinicianAdmin(admin.ModelAdmin):
                     "leave_entitlement_sessions", "pattern_link")
     list_filter = ("group", "active")
     inlines = [TraineeProfileInline]
+    actions = ["deactivate_clinicians"]
+
+    @admin.action(description="Deactivate selected clinicians")
+    def deactivate_clinicians(self, request, queryset):
+        n = queryset.update(active=False)
+        self.message_user(
+            request,
+            f"Deactivated {n} clinician(s). Their history is intact and they "
+            f"no longer appear in any eligibility pool.")
+
+    def get_deleted_objects(self, objs, request):
+        """RotaEntry.clinician is PROTECT, and that fires while rendering the
+        confirmation page — before any delete code runs. So the split between
+        "deletable drafts" and "protected published entries" has to happen
+        here, not in delete_model.
+        """
+        deletable, model_count, perms_needed, protected = \
+            super().get_deleted_objects(objs, request)
+
+        published = RotaEntry.objects.filter(
+            clinician__in=objs, is_published=True)
+        n_published = published.count()
+
+        if n_published:
+            protected = list(protected) + [
+                f"{n_published} published rota entr"
+                f"{'y' if n_published == 1 else 'ies'} — deletion would destroy "
+                f"rota history. Deactivate this clinician instead: it keeps "
+                f"their record and history, and removes them from every "
+                f"eligibility pool."
+            ]
+            return deletable, model_count, perms_needed, protected
+
+        # No published entries. The only reason any RotaEntry landed in
+        # `protected` above is that the FK itself is PROTECT — Django's
+        # collector does not know about is_published, so it protects drafts
+        # just as hard as published rows. delete_model()/delete_queryset()
+        # below remove those drafts before the real delete runs, so nothing
+        # here is actually protected; clear it or the confirmation page (and
+        # the POST-confirm check, which refuses to proceed while `protected`
+        # is non-empty) blocks a deletion that is in fact safe.
+        protected = []
+
+        n_drafts = RotaEntry.objects.filter(
+            clinician__in=objs, is_published=False).count()
+        if n_drafts:
+            deletable = list(deletable) + [
+                f"{n_drafts} unpublished rota entr"
+                f"{'y' if n_drafts == 1 else 'ies'} (will be deleted)"
+            ]
+        # Everything else cascades: pattern slots, leave requests, recurring
+        # commitments, the trainee profile, and swap requests — including ones
+        # where this clinician was the *colleague*, which touches someone
+        # else's history. Locum bookings survive with the name set to null.
+        # The audit log is unaffected: it stores names as text, not a key.
+        return deletable, model_count, perms_needed, protected
+
+    def delete_model(self, request, obj):
+        RotaEntry.objects.filter(clinician=obj, is_published=False).delete()
+        super().delete_model(request, obj)
+
+    def delete_queryset(self, request, queryset):
+        RotaEntry.objects.filter(
+            clinician__in=queryset, is_published=False).delete()
+        super().delete_queryset(request, queryset)
 
     def pattern_link(self, obj):
         url = reverse("admin:rota_patternslot_bulk")
