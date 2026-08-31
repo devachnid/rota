@@ -16,8 +16,15 @@
         <input type="date" name="end" id="id_fill_end" value="{{ end|date:'Y-m-d' }}">
       </div>
       <div class="field">
-        <label><input type="checkbox" name="fill_default" value="1">
+        {% if default_type %}
+        <label><input type="checkbox" name="fill_default" value="1" checked>
+          Fill remaining empty cells with <strong>{{ default_type.name }}</strong></label>
+        {% else %}
+        <label><input type="checkbox" name="fill_default" value="1" disabled>
           Fill remaining empty cells with the default session type</label>
+        <p class="field-help">No default session type is set, so this would do
+          nothing. Set one in Practice settings to enable it.</p>
+        {% endif %}
       </div>
       <div class="form-actions">
         <button type="submit" class="btn btn-primary">Run fill</button>
