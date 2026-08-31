@@ -11,7 +11,16 @@ WEEKS_SHOWN = 4
 
 
 def _blocks(today, open_weekdays, closed, entries_by):
-    """Four Monday-based blocks of open days, with a count for each."""
+    """Four Monday-based blocks of open days, with a count for each.
+
+    A day is shown if the surgery is open on it, OR the clinician has an
+    entry on it — whichever is true. A closed day (or a weekday outside
+    open_weekdays) with nothing on it stays hidden: that is not your day
+    off, and a weekend is not either. But a closed day, or an
+    otherwise-non-open weekday, WITH a published entry is shown anyway:
+    hiding a real session from the person rostered to work it is worse
+    than the tidiness of omitting an empty row.
+    """
     monday = today - timedelta(days=today.weekday())
     absence = SessionType.Category.ABSENCE
     blocks = []
@@ -20,17 +29,21 @@ def _blocks(today, open_weekdays, closed, entries_by):
         days = []
         for offset in range(7):
             day = start + timedelta(days=offset)
-            if day.weekday() not in open_weekdays or day in closed:
+            am, pm = entries_by.get((day, "AM")), entries_by.get((day, "PM"))
+            is_open = day.weekday() in open_weekdays and day not in closed
+            if not is_open and am is None and pm is None:
                 continue
-            days.append({
-                "day": day,
-                "am": entries_by.get((day, "AM")),
-                "pm": entries_by.get((day, "PM")),
-            })
+            days.append({"day": day, "am": am, "pm": pm})
         sessions = [e for row in days
                     for e in (row["am"], row["pm"]) if e is not None]
-        if sessions and all(e.session_type.category == absence
-                            for e in sessions):
+        if not days:
+            # Nothing to count — "Surgery closed all week" is the body's
+            # own words for this; a "0 sessions" label beside it would
+            # read as an ordinary week where nothing happened to be
+            # booked, which is not what happened.
+            label = ""
+        elif sessions and all(e.session_type.category == absence
+                              for e in sessions):
             label = "On leave all week"
         else:
             n = len(sessions)

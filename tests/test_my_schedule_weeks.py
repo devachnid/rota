@@ -5,6 +5,13 @@ conflate:
   - a day the SURGERY is closed is not shown at all
   - a day you do not work, on an open day, IS shown, as dashes
 The first is not your day off. The second is.
+
+Fix round 1 added a third: a day is shown if the surgery is open on it OR
+the clinician has an entry on it. A closed day (or a weekday outside
+open_weekdays, like a weekend) with nothing on it stays hidden — that's the
+rule above. But hiding a REAL published session from the person rostered to
+it is worse than the tidiness of omitting an empty row, so a closed day (or
+non-open weekday) that does carry an entry is shown anyway.
 """
 
 from datetime import date, timedelta
@@ -158,3 +165,92 @@ def test_not_in_today_is_worded_for_a_human(gp_client, gp_user):
     if date.today().weekday() > 4:
         pytest.skip("weekend: today_state is 'closed', not 'not_in'")
     assert "Not in today" in _html(gp_client)
+
+
+# --------------------------------------------------------- fix round 1 ---
+
+def test_a_closed_day_with_an_entry_is_shown(gp_client, gp_user):
+    """The other half of the rule fix round 1 added: hiding a real
+    published session from the person rostered to it is worse than the
+    tidiness of hiding an empty closed day."""
+    c = make_clinician(user=gp_user)
+    today = date.today()
+    monday = today - timedelta(days=today.weekday())
+    victim = monday if monday != today else monday + timedelta(days=1)
+    ClosedDay.objects.create(day=victim, reason="Bank holiday")
+    make_entry(c, day=victim, part="AM",
+               session_type=make_session_type("Routine", code="ROUT"))
+    days = [d["day"] for d in _ctx(gp_client)["weeks"][0]["days"]]
+    assert victim in days
+
+
+def test_a_closed_day_with_no_entry_still_stays_absent(gp_client, gp_user):
+    """Same closed day, no entry this time: still not your day off, still
+    not shown. Sits next to the entry case above so the two halves of the
+    rule are pinned side by side, rather than trusting that
+    test_a_closed_day_is_absent_from_its_block alone still covers this once
+    the day-inclusion condition changed."""
+    make_clinician(user=gp_user)
+    today = date.today()
+    monday = today - timedelta(days=today.weekday())
+    victim = monday if monday != today else monday + timedelta(days=1)
+    ClosedDay.objects.create(day=victim, reason="Bank holiday")
+    days = [d["day"] for d in _ctx(gp_client)["weeks"][0]["days"]]
+    assert victim not in days
+
+
+def test_a_published_entry_on_a_non_open_weekday_is_not_swallowed(
+        gp_client, gp_user, monkeypatch):
+    """The bug this fix round exists for: test_my_schedule.py's
+    test_shows_upcoming_sessions_and_balance creates an entry at
+    today + 1 day with no weekday guard, so whenever the suite runs on a
+    Friday or Saturday that entry lands on a weekend and used to vanish —
+    roughly two days in seven. Pin a specific Friday rather than depend on
+    when this test happens to run."""
+    import rota.views.my_schedule as my_schedule_view
+
+    friday = date(2026, 9, 4)
+    assert friday.weekday() == 4  # confirms the fixture date is a Friday
+
+    class _FixedDate(date):
+        @classmethod
+        def today(cls):
+            return friday
+
+    monkeypatch.setattr(my_schedule_view, "date", _FixedDate)
+
+    c = make_clinician(user=gp_user)
+    saturday = friday + timedelta(days=1)
+    assert saturday.weekday() == 5  # not in the default open_weekdays
+    make_entry(c, day=saturday, part="AM",
+               session_type=make_session_type("Routine", code="ROUT"))
+    html = _html(gp_client)
+    assert "ROUT" in html
+
+
+def test_a_blank_open_weekdays_does_not_crash_the_page(gp_client, gp_user):
+    """This branch was bitten by exactly this last phase — a blank
+    open_weekdays made the grid raise IndexError on days[-1]. My Schedule's
+    own day-building logic never indexes into an empty list, but nothing
+    proved that until now."""
+    make_clinician(user=gp_user)
+    settings = PracticeSettings.load()
+    settings.open_weekdays = ""
+    settings.save()
+    resp = gp_client.get("/me/")
+    assert resp.status_code == 200
+    assert all(w["days"] == [] for w in resp.context["weeks"])
+
+
+def test_a_week_with_no_open_days_does_not_contradict_its_own_body(
+        gp_client, gp_user):
+    """A block with no days must not also claim "0 sessions" beside
+    "Surgery closed all week" — that reads like an ordinary quiet week
+    rather than a week the surgery was shut for."""
+    make_clinician(user=gp_user)
+    settings = PracticeSettings.load()
+    settings.open_weekdays = ""
+    settings.save()
+    ctx = _ctx(gp_client)
+    assert all(w["count_label"] == "" for w in ctx["weeks"])
+    assert "ms-week-count" not in _html(gp_client)

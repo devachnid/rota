@@ -61,7 +61,7 @@
   <div class="ms-week">
     <div class="ms-week-head">
       <span>{{ week.heading }}</span>
-      <span class="ms-week-count">{{ week.count_label }}</span>
+      {% if week.count_label %}<span class="ms-week-count">{{ week.count_label }}</span>{% endif %}
     </div>
     {% for row in week.days %}
     <div class="ms-day">
