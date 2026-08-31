@@ -77,10 +77,18 @@ def my_schedule(request):
     ).select_related("session_type", "site")
     entries_by = {(e.day, e.part): e for e in entries}
 
-    if today in closed or today.weekday() not in open_weekdays:
-        today_state = "closed"
-    elif entries_by.get((today, "AM")) or entries_by.get((today, "PM")):
+    # Same rule as _blocks(): a session the clinician actually has beats
+    # the closure. Checked first and unconditionally, so an entry on a
+    # closed or non-open "today" still reports "working" and renders,
+    # rather than telling a GP the surgery is shut on a day they have a
+    # session sitting in the rota. "closed" and "not_in" are reserved for
+    # the no-entry cases below.
+    today_am = entries_by.get((today, "AM"))
+    today_pm = entries_by.get((today, "PM"))
+    if today_am or today_pm:
         today_state = "working"
+    elif today in closed or today.weekday() not in open_weekdays:
+        today_state = "closed"
     else:
         today_state = "not_in"
 
@@ -88,8 +96,7 @@ def my_schedule(request):
         "clinician": clinician,
         "today": today,
         "today_state": today_state,
-        "today_cells": [entries_by.get((today, "AM")),
-                        entries_by.get((today, "PM"))],
+        "today_cells": [today_am, today_pm],
         "today_closed_reason": next(
             (cd.reason for cd in ClosedDay.objects.filter(day=today)), ""),
         "weeks": _blocks(today, open_weekdays, closed, entries_by),

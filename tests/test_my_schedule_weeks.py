@@ -254,3 +254,26 @@ def test_a_week_with_no_open_days_does_not_contradict_its_own_body(
     ctx = _ctx(gp_client)
     assert all(w["count_label"] == "" for w in ctx["weeks"])
     assert "ms-week-count" not in _html(gp_client)
+
+
+# --------------------------------------------------------- fix round 2 ---
+
+def test_today_is_working_even_when_the_surgery_is_closed(gp_client, gp_user):
+    """The same rule _blocks() carries, applied to the Today box: a session
+    the clinician actually has beats the closure. A closed "today" with an
+    entry on it must report "working" and render that session, not the
+    closure note — the Today-box instance of the same defect fix round 1
+    closed for the week blocks. today_state's other two states — a closed
+    day with no entry, and an open day with none — are pinned by
+    test_today_says_closed_when_the_surgery_is_shut and
+    test_today_says_not_in_when_you_have_no_sessions above, and both keep
+    passing under the reordered condition."""
+    c = make_clinician(user=gp_user)
+    today = date.today()
+    ClosedDay.objects.create(day=today, reason="Bank holiday")
+    make_entry(c, day=today, part="AM",
+               session_type=make_session_type("Routine", code="ROUT"))
+    assert _ctx(gp_client)["today_state"] == "working"
+    html = _html(gp_client)
+    assert "ROUT" in html
+    assert "Surgery closed" not in html
