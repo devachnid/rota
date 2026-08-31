@@ -71,8 +71,16 @@ def inbox(request):
 def leave_approve(request, pk):
     req = get_object_or_404(LeaveRequest, pk=pk,
                             status=LeaveRequest.Status.PENDING)
+    written = len(leave_svc.sessions_affected(req))
     leave_svc.approve(request.user, req, request.POST.get("comment", ""))
-    messages.success(request, f"Approved leave for {req.clinician.name}.")
+    if written:
+        messages.success(request, f"Leave approved ({written} session(s)).")
+    else:
+        messages.warning(
+            request,
+            f"Leave approved, but no rota sessions were written — "
+            f"{req.clinician.name} has no working pattern covering those dates. "
+            f"It will not count towards their entitlement.")
     return redirect("/requests/")
 
 

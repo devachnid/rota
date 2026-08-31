@@ -22,6 +22,13 @@
     <p><strong>{{ item.req.clinician.name }}</strong> — {{ item.req.session_type.name }},
        {{ item.req.start_date|date:"j M" }} – {{ item.req.end_date|date:"j M Y" }}
        ({{ item.n_sessions }} session(s)). {{ item.req.message }}</p>
+    {% if item.n_sessions == 0 %}
+    <p class="warn">Writes <strong>no sessions</strong> —
+      {{ item.req.clinician.name }} has no working pattern covering
+      {{ item.req.start_date|date:"j M" }} – {{ item.req.end_date|date:"j M Y" }}.
+      Approving records the decision, but the leave will not appear on the grid
+      as an entry and will not count towards their entitlement.</p>
+    {% endif %}
     {% if item.overwritten %}
     <p class="warn">Replaces:
       {% for e in item.overwritten %}
