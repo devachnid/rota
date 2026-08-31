@@ -110,9 +110,22 @@ class PatternSlotAdmin(admin.ModelAdmin):
                 date_error = (f"{raw_date!r} is not a date (use YYYY-MM-DD). "
                               f"Nothing was saved.")
         else:
+            # A harmless display default for rendering (a first visit, or a
+            # load with no date chosen yet). It must NOT be treated as an
+            # explicitly supplied date to save against -- see the save gate
+            # below, which requires raw_date itself, not this fallback.
             effective_from = date.today()
 
         action = request.POST.get("action")
+        if request.method == "POST" and action == "save" and clinician \
+                and not raw_date:
+            # An explicit save with no date supplied at all -- field cleared,
+            # or omitted entirely -- must be refused exactly like a malformed
+            # one. Falling through to the date.today() display default here
+            # would reproduce the exact disaster this task exists to remove,
+            # just through a narrower door.
+            date_error = "Effective date is required. Nothing was saved."
+
         if request.method == "POST" and action == "save" and clinician \
                 and not date_error:
             desired = {

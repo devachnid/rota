@@ -90,7 +90,32 @@ def test_an_unparseable_date_is_refused_not_silently_treated_as_today(
     assert PatternSlot.objects.filter(clinician=clinician).count() == 2, (
         "a malformed date still wrote rows"
     )
-    assert b"date" in r.content.lower()
+    # "date" alone would also match the page's own <input type="date">, on
+    # every render, error or not -- assert on text only the error path emits.
+    assert b"not a date" in r.content.lower()
+
+
+@pytest.mark.django_db
+def test_saving_with_a_blank_date_is_refused(staff_client, clinician):
+    """The narrower door: today is the value that overwrites the live
+    pattern, so falling back to it on an empty field is as destructive as
+    parsing a typo into it."""
+    r = staff_client.post(URL, {
+        "action": "save", "clinician_id": clinician.pk,
+        "effective_from": "", "d2_AM": "on",
+    })
+    assert PatternSlot.objects.filter(clinician=clinician).count() == 2
+    assert b"required" in r.content.lower()
+
+
+@pytest.mark.django_db
+def test_saving_with_the_date_field_absent_entirely_is_refused(
+    staff_client, clinician
+):
+    r = staff_client.post(URL, {
+        "action": "save", "clinician_id": clinician.pk, "d2_AM": "on",
+    })
+    assert PatternSlot.objects.filter(clinician=clinician).count() == 2
 
 
 @pytest.mark.django_db
@@ -102,5 +127,10 @@ def test_the_page_shows_the_pattern_history(staff_client, clinician):
                                works=True, effective_from=future)
     html = staff_client.get(
         URL, {"clinician_id": clinician.pk}).content.decode()
-    assert LONG_AGO.strftime("%Y") in html or LONG_AGO.strftime("%b") in html
-    assert future.strftime("%Y") in html or future.strftime("%b") in html
+    # Not the bare year: the visible effective_from input defaults to
+    # today's date, whose year matches `future`'s regardless of whether the
+    # history table rendered at all. Assert on the history rows' own
+    # content instead -- the grouped "weekday part" summary for each date,
+    # which only _pattern_history produces.
+    assert "Mon AM, Mon PM" in html  # LONG_AGO: weekday 0, AM and PM
+    assert "Wed AM" in html          # future: weekday 2, AM only

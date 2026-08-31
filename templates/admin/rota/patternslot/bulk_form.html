@@ -14,7 +14,18 @@
   {% csrf_token %}
   <p>
     <label>Clinician
-      <select name="clinician_id" onchange="this.form.action.value='load'; this.form.submit();">
+      {% comment %}
+        No auto-submit here on purpose. this.form.action was tried and
+        does not do what it looks like it does: with two <button
+        name="action"> controls in the form, the named-control lookup
+        shadows HTMLFormElement.action, so the assignment is a no-op; and
+        this.form.submit() sends no submitter, so the POST would carry no
+        action at all -- silently, since the save gate's exact-match on
+        action=="save" only hid it by luck. Selecting a clinician now
+        requires pressing Load, which is one fewer moving part and the
+        button is already right there.
+      {% endcomment %}
+      <select name="clinician_id">
         <option value="">— choose —</option>
         {% for c in clinicians %}
         <option value="{{ c.id }}" {% if clinician.id == c.id %}selected{% endif %}>
