@@ -119,6 +119,50 @@ def test_saving_with_the_date_field_absent_entirely_is_refused(
 
 
 @pytest.mark.django_db
+def test_a_stale_query_string_date_cannot_stand_in_for_a_blank_field(
+    staff_client, clinician
+):
+    """The view's own post-save redirect leaves the admin on a URL carrying
+    effective_from, and the form resubmits to it. A cleared date field must
+    not silently fall back to whatever is still in the URL."""
+    stale = (date.today() + timedelta(days=90)).isoformat()
+    r = staff_client.post(
+        f"{URL}?clinician_id={clinician.pk}&effective_from={stale}",
+        {"action": "save", "clinician_id": clinician.pk,
+         "effective_from": "", "d2_AM": "on"},
+    )
+    assert PatternSlot.objects.filter(clinician=clinician).count() == 2, (
+        "a stale query-string date was used to write a pattern"
+    )
+    assert b"required" in r.content.lower()
+
+
+@pytest.mark.django_db
+def test_the_same_holds_when_the_field_is_absent_rather_than_blank(
+    staff_client, clinician
+):
+    stale = (date.today() + timedelta(days=90)).isoformat()
+    staff_client.post(
+        f"{URL}?clinician_id={clinician.pk}&effective_from={stale}",
+        {"action": "save", "clinician_id": clinician.pk, "d2_AM": "on"},
+    )
+    assert PatternSlot.objects.filter(clinician=clinician).count() == 2
+
+
+@pytest.mark.django_db
+def test_a_query_string_date_still_restores_context_on_a_load(
+    staff_client, clinician
+):
+    """The GET fallback must survive for rendering — it is how the post-save
+    redirect puts the admin back where they were."""
+    when = (date.today() + timedelta(days=90)).isoformat()
+    html = staff_client.get(
+        URL, {"clinician_id": clinician.pk, "effective_from": when}
+    ).content.decode()
+    assert when in html
+
+
+@pytest.mark.django_db
 def test_the_page_shows_the_pattern_history(staff_client, clinician):
     """The editor showed one date's worth with no hint anything else existed,
     which is what made the damage invisible."""

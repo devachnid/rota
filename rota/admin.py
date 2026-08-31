@@ -97,8 +97,23 @@ class PatternSlotAdmin(admin.ModelAdmin):
         if clinician_id:
             clinician = get_object_or_404(Clinician, pk=clinician_id)
 
+        # Two names because raw_date answers two different questions and
+        # conflating them was the bug: raw_date (POST-or-GET) is what
+        # RENDERING should use -- it is how the post-save redirect restores
+        # the admin's context (?clinician_id=&effective_from=) on the next
+        # GET, and a first visit with no date at all should still default to
+        # today without erroring. posted_date (POST body only, no GET
+        # fallback) is the only thing a SAVE decision may look at: the form
+        # has no method="get" sibling any more, so anything the query string
+        # still carries is leftover context from a previous request, not
+        # something the admin just submitted. Without this split, clearing
+        # the date field and pressing Save on a URL the app's own redirect
+        # put you on (carrying a still-valid effective_from) silently wrote
+        # a row at that stale date -- raw_date fell back to the query string,
+        # so "not raw_date" never noticed the field was cleared.
         raw_date = (request.POST.get("effective_from")
                     or request.GET.get("effective_from") or "")
+        posted_date = request.POST.get("effective_from") or ""
         date_error = ""
         if raw_date:
             try:
@@ -111,19 +126,19 @@ class PatternSlotAdmin(admin.ModelAdmin):
                               f"Nothing was saved.")
         else:
             # A harmless display default for rendering (a first visit, or a
-            # load with no date chosen yet). It must NOT be treated as an
-            # explicitly supplied date to save against -- see the save gate
-            # below, which requires raw_date itself, not this fallback.
+            # load with no date chosen yet).
             effective_from = date.today()
 
         action = request.POST.get("action")
         if request.method == "POST" and action == "save" and clinician \
-                and not raw_date:
-            # An explicit save with no date supplied at all -- field cleared,
-            # or omitted entirely -- must be refused exactly like a malformed
-            # one. Falling through to the date.today() display default here
-            # would reproduce the exact disaster this task exists to remove,
-            # just through a narrower door.
+                and not posted_date:
+            # An explicit save with no date in the request body -- field
+            # cleared, or the key omitted entirely -- must be refused exactly
+            # like a malformed one, regardless of what effective_from the
+            # query string still holds from a previous redirect. Falling
+            # through to the date.today() display default here would
+            # reproduce the exact disaster this task exists to remove, just
+            # through a narrower door.
             date_error = "Effective date is required. Nothing was saved."
 
         if request.method == "POST" and action == "save" and clinician \
