@@ -82,7 +82,7 @@ WASHES = {name: _alphas(body)["wash"] for name, body in _BLOCKS.items()}
 PAIRS = [
     ("ink", "ground", "h1/h2/h3 and .grid-day over the page ground"),
     ("ink", "surface", ".table th, .field label, .grid-clin, .stat-value in a .card"),
-    ("ink", "sunken", ".table th over a .closed / .unavail cell"),
+    ("ink", "sunken", ".table th over a .closed / .empty-slot cell"),
     ("ink", "accent-soft", ".flash, and .mine's clinician cell"),
     ("ink-soft", "ground", "body text"),
     ("ink-soft", "surface", ".btn, .nav-link, .report-nav a, card body text"),

@@ -1229,6 +1229,11 @@ In `static/css/components.css`, replace the `.chip.is-empty` rule (if present) a
 
 Remove the now-unused `.unavail` rule from the legacy-compatibility block near the bottom of the file, and its mention in that block's comment.
 
+`tests/test_chrome_contrast.py:85` carries `.unavail` inside a descriptive
+`where` label (`".table th over a .closed / .unavail cell"`). It is a comment,
+not an assertion, so nothing breaks — but update it to `.empty-slot` so the
+label still describes something that exists.
+
 - [ ] **Step 6: Run the tests**
 
 Run: `.venv/bin/pytest tests/test_grid_rendering.py -q`
@@ -1451,9 +1456,17 @@ def clinician(db):
 @pytest.mark.django_db
 def test_the_page_has_one_form_so_the_date_cannot_go_stale(staff_client, clinician):
     html = staff_client.get(URL, {"clinician_id": clinician.pk}).content.decode()
-    assert html.count("<form") == 1, (
-        "two forms means the date input and the checkboxes can disagree — "
-        "which is the bug this replaced"
+    # Count the field, not the <form> tags: Django admin's own base template
+    # renders a logout form, so the page never has exactly one. effective_from
+    # appeared TWICE — the visible date input in the GET form and a hidden copy
+    # in the POST form — and their drifting apart was the entire bug.
+    assert html.count('name="effective_from"') == 1, (
+        "effective_from appears more than once, so a visible date input and a "
+        "hidden copy can disagree again"
+    )
+    assert 'method="get"' not in html, (
+        "the editor should be one POST form; a second GET form is what let the "
+        "date and the checkboxes drift apart"
     )
     assert 'name="action" value="load"' in html
     assert 'name="action" value="save"' in html

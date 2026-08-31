@@ -46,7 +46,8 @@ def test_post_creates_only_changed_rows_and_redirects(staff_client):
     c = make_clinician()
     make_pattern(c, weekdays=(0, 1, 2, 3, 4), parts=("AM", "PM"),
                  effective_from=MON - timedelta(days=365))
-    data = {"clinician_id": c.id, "effective_from": MON.isoformat()}
+    data = {"action": "save", "clinician_id": c.id,
+            "effective_from": MON.isoformat()}
     for w in (0, 1, 2, 3, 4):
         for p in ("AM", "PM"):
             if (w, p) == (1, "PM"):
@@ -65,10 +66,10 @@ def test_post_creates_only_changed_rows_and_redirects(staff_client):
 
 def test_post_resave_updates_in_place(staff_client):
     c = make_clinician()
-    data = {"clinician_id": c.id, "effective_from": MON.isoformat(),
-            "d0_AM": "on"}
+    data = {"action": "save", "clinician_id": c.id,
+            "effective_from": MON.isoformat(), "d0_AM": "on"}
     staff_client.post(URL, data)
-    staff_client.post(URL, {"clinician_id": c.id,
+    staff_client.post(URL, {"action": "save", "clinician_id": c.id,
                             "effective_from": MON.isoformat()})  # untick it
     rows = PatternSlot.objects.filter(clinician=c, weekday=0, part="AM")
     assert rows.count() == 1

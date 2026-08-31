@@ -1,6 +1,6 @@
 # Post-merge backlog
 
-**Last checked against live code: 2026-08-24.** Entries here have gone stale
+**Last checked against live code: 2026-08-31.** Entries here have gone stale
 before — two were already fixed when checked, and this file claimed the app was
 undeployed for a day after it went live. Verify before acting on anything
 recorded here.
@@ -51,6 +51,56 @@ autofill v2 review processes had accumulated:
   it should show — Tom, 2026-08-24. The system reports what it was asked to
   track; the placement's full contractual total is a deanery question, not a
   rota one. No change needed; `rota/views/reports.py:179` already does this.
+
+## Open — check before deploying the rota-fixes branch
+
+**Stored weekday and month lists are parsed more strictly than they were.** The
+branch gave four free-text fields a real parser (`rota/services/ranges.py`):
+`PracticeSettings.open_weekdays`, and `CoverageRule.months`, `weekdays`,
+`preferred_weekdays`. The old parser silently dropped empty segments, so a
+value like `"0,1,2,3,4,"` was savable and readable before and is neither now —
+it raises at read time.
+
+That matters because two views reach the parser without the decorator that
+turns a parse failure into a 400 explaining itself: `grid`
+(`rota/views/grid.py:15`) and `leave_approve` (`rota/views/requests.py:71`). A
+trailing comma stored under the old rules therefore 500s the main page rather
+than naming the offending value.
+
+**Nothing on this box's dev database trips it — checked 2026-08-31. The staging
+database on the LXC is a different database and was not checked.** Run this
+there:
+
+```bash
+python manage.py shell <<'EOF'
+from django.core.exceptions import ValidationError
+from rota.models import PracticeSettings, CoverageRule
+from rota.services.ranges import validate_int_list as v
+
+bad = []
+for s in PracticeSettings.objects.all():
+    try:
+        v(s.open_weekdays, 0, 6, "open_weekdays")
+    except ValidationError as e:
+        bad.append(("PracticeSettings", s.pk, e.messages))
+for r in CoverageRule.objects.all():
+    for field, lo, hi in (("months", 1, 12), ("weekdays", 0, 6), ("preferred_weekdays", 0, 6)):
+        try:
+            v(getattr(r, field), lo, hi, field)
+        except ValidationError as e:
+            bad.append((str(r), field, e.messages))
+print(bad or "all range fields parse cleanly")
+EOF
+```
+
+Anything it lists is fixed by editing the field in `/admin/` and saving — the
+form validator now rejects the bad value with a message naming it.
+
+The durable fix is a **deploy check** over all four fields, in the existing
+`rota/checks.py` `@register(deploy=True)` pattern — view-agnostic, so it closes
+both routes and any future one, where wrapping views one at a time closes one
+instance of the hazard and leaves the next open. Deliberately not done on the
+branch: it would have been unreviewed code landed after the final review gate.
 
 ## Open — minor
 

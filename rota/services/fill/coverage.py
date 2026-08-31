@@ -11,7 +11,7 @@ WINDOW_DAYS = 91
 
 def _eligible(ctx, cid, day, parts, st):
     return (
-        all(ctx.works_on(cid, day, p) for p in parts)
+        all(ctx.available(cid, day, p) for p in parts)
         and all(ctx.is_free(cid, day, p) for p in parts)
         and cid in ctx.eligible_ids(st)
         and not ctx.blocked(cid, day, st)

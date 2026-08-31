@@ -119,7 +119,7 @@ def run_vts(ctx, actor, result):
                     and profile.placement_start <= day <= profile.placement_end
                     and day in ctx.open_day_set):
                 return 0
-            if ctx.works_on(cid, day, part) and ctx.is_free(cid, day, part):
+            if ctx.available(cid, day, part) and ctx.is_free(cid, day, part):
                 entry = entries.assign(
                     actor, profile.clinician, day, part, vts,
                     site=site_for(vts), manually_set=False,
@@ -152,7 +152,7 @@ def run_sdl(ctx, actor, result):
                         and day in ctx.open_day_set):
                     continue
                 for part in ("AM", "PM"):
-                    if ctx.works_on(cid, day, part) and ctx.is_free(cid, day, part):
+                    if ctx.available(cid, day, part) and ctx.is_free(cid, day, part):
                         candidates.append((day, part))
             candidates.sort(key=lambda dp: (-impact_score(ctx, dp[0], dp[1]), dp[0], dp[1]))
             placed = min(need, len(candidates))

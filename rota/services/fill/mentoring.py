@@ -19,13 +19,13 @@ def _trainee_free_sessions(ctx, cid, wm, profile):
                 and day in ctx.open_day_set):
             continue
         for part in ("AM", "PM"):
-            if ctx.works_on(cid, day, part) and ctx.is_free(cid, day, part):
+            if ctx.available(cid, day, part) and ctx.is_free(cid, day, part):
                 out.append((day, part))
     return out
 
 
 def _trainer_free(ctx, trainer_id, day, part):
-    return ctx.works_on(trainer_id, day, part) and ctx.is_free(trainer_id, day, part)
+    return ctx.available(trainer_id, day, part) and ctx.is_free(trainer_id, day, part)
 
 
 def run(ctx, actor, result):

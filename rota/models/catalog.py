@@ -2,6 +2,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 
 from rota import palette
+from rota.services.ranges import parse_int_list, validate_int_list
 
 
 class Part(models.TextChoices):
@@ -115,7 +116,11 @@ class PracticeSettings(models.Model):
         return obj
 
     def open_weekday_list(self):
-        return [int(x) for x in self.open_weekdays.split(",") if x != ""]
+        return parse_int_list(self.open_weekdays)
+
+    def clean(self):
+        super().clean()
+        validate_int_list(self.open_weekdays, 0, 6, "open_weekdays")
 
 
 class CoverageRule(models.Model):
@@ -170,15 +175,18 @@ class CoverageRule(models.Model):
                 "never be satisfied and the rule would silently place "
                 "nothing forever."
             )
+        validate_int_list(self.months, 1, 12, "months")
+        validate_int_list(self.weekdays, 0, 6, "weekdays")
+        validate_int_list(self.preferred_weekdays, 0, 6, "preferred_weekdays")
 
     def applies_on(self, day):
         if self.months:
-            if day.month not in [int(x) for x in self.months.split(",") if x != ""]:
+            if day.month not in parse_int_list(self.months):
                 return False
-        return day.weekday() in [int(x) for x in self.weekdays.split(",") if x != ""]
+        return day.weekday() in parse_int_list(self.weekdays)
 
     def preferred_weekday_list(self):
-        return [int(x) for x in self.preferred_weekdays.split(",") if x != ""]
+        return parse_int_list(self.preferred_weekdays)
 
     def parts_for(self):
         return ["AM", "PM"] if self.parts == "BOTH" else [self.parts]

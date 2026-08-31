@@ -1,7 +1,8 @@
 from datetime import timedelta
 
-from rota.models import (Clinician, PatternSlot, PracticeSettings, RotaEntry,
-                         SessionType, TraineeStageRule)
+from rota.models import (Clinician, LeaveRequest, PatternSlot,
+                         PracticeSettings, RotaEntry, SessionType,
+                         TraineeStageRule)
 from rota.services import availability, calendar, fairness
 
 
@@ -21,10 +22,15 @@ class FillContext:
         self.by_id = {c.id: c for c in self.clinicians}
         self._active_ids = set(self.by_id)
 
-        pattern_rows = PatternSlot.objects.filter(
+        pattern_rows = list(PatternSlot.objects.filter(
             clinician__in=self.clinicians
-        ).order_by("effective_from")
-        self._pattern_resolver = availability.PatternResolver(pattern_rows)
+        ).order_by("effective_from"))
+        approved_leave = LeaveRequest.objects.filter(
+            status=LeaveRequest.Status.APPROVED,
+            start_date__lte=end, end_date__gte=start,
+        ).select_related("session_type")
+        self._availability = availability.AvailabilityResolver(
+            pattern_rows, self.clinicians, approved_leave)
 
         self._cells = {}
         self._type_count = {}
@@ -90,8 +96,10 @@ class FillContext:
         self._clinician_type_count[ct_key] = (
             self._clinician_type_count.get(ct_key, 0) + 1)
 
-    def works_on(self, cid, day, part):
-        return self._pattern_resolver.works_on(cid, day, part)
+    def available(self, cid, day, part):
+        """Active, inside the date window, works this session, and not on
+        approved leave. Every scheduling decision asks this one question."""
+        return self._availability.available(cid, day, part)
 
     def is_free(self, cid, day, part):
         return (cid, day, part) not in self._cells

@@ -2,6 +2,7 @@ from datetime import date, timedelta
 
 from django.shortcuts import render
 
+from rota.models import PracticeSettings
 from rota.services.fill import run_fill
 from rota.views.decorators import admin_required, parse_errors_as_400
 
@@ -54,6 +55,7 @@ def fill(request):
         "start": next_monday,
         "end": next_monday + timedelta(days=27),
         "result": None,
+        "default_type": PracticeSettings.load().default_fill_session_type,
     }
     if request.method == "POST":
         start = date.fromisoformat(request.POST["start"])

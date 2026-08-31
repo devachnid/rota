@@ -5,6 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Rota{% endblock %}</title>
+<script src="{% static 'js/theme.js' %}"></script>
 <link rel="preload" href="{% static 'fonts/plus-jakarta-sans-latin.woff2' %}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="{% static 'css/fonts.css' %}">
 <link rel="stylesheet" href="{% static 'css/tokens.css' %}">
@@ -23,6 +24,7 @@
     <a href="/rota/fill/" class="nav-link{% if request.path == '/rota/fill/' %} is-active{% endif %}">Assisted fill</a>
   {% endif %}
   <a href="/reports/fairness/" class="nav-link{% if '/reports/' in request.path %} is-active{% endif %}">Reports</a>
+  <button type="button" id="theme-toggle" class="btn btn-quiet">Theme</button>
   <span class="nav-spacer"></span>
   {% if user.is_authenticated %}
     <span class="nav-user">{{ user.email }}</span>

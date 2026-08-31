@@ -43,7 +43,7 @@
   <th class="grid-clin" scope="row" title="{{ row.clinician.name }}">{{ row.clinician.initials }}</th>
   {% for cell in row.cells %}
   <td {% if cell.merged %}colspan="2"{% endif %}
-      class="{% if cell.entry and not cell.entry.is_published %}draft{% endif %}{% if not cell.entry and cell.unavail %} unavail{% endif %}{% if cell.closed %} closed{% endif %}"
+      class="{% if cell.entry and not cell.entry.is_published %}draft{% endif %}{% if cell.closed %} closed{% endif %}"
       {% if is_admin %}hx-get="/rota/cell/{{ row.clinician.id }}/{{ cell.day_str }}/{{ cell.part }}/"
       hx-target="#modal"{% endif %}
       title="{{ cell.entry.fill_reason|default:'' }} {{ cell.entry.note|default:'' }}{% if cell.partner %} with {{ cell.partner }}{% endif %}">
@@ -52,7 +52,17 @@
             style="--chip-bg: var(--tint-{{ cell.entry.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ cell.entry.session_type.tint.key }}-fg);">
         {{ cell.entry.session_type.code }}{% if cell.entry.site %}<span class="site-marker">{{ cell.entry.site.name|slice:":1" }}</span>{% endif %}
       </span>
-    {% else %}<span class="chip is-empty">&nbsp;</span>{% endif %}
+    {% elif cell.ghost_leave %}
+      <span class="chip is-ghost"
+            title="Approved leave with no rota entry — check the clinician's pattern"
+            style="--chip-bg: transparent; --chip-fg: var(--tint-{{ cell.ghost_leave.tint.key }}-fg); --chip-edge: var(--tint-{{ cell.ghost_leave.tint.key }}-fg);">
+        {{ cell.ghost_leave.code }}
+      </span>
+    {% elif cell.off %}
+      <span class="chip is-off">&nbsp;</span>
+    {% else %}
+      <span class="chip empty-slot">&nbsp;</span>
+    {% endif %}
   </td>
   {% endfor %}
 </tr>

@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
 
@@ -40,9 +41,33 @@ class Clinician(models.Model):
     is_trainer = models.BooleanField(
         default=False, help_text="May supervise trainee mentoring sessions.")
     leave_entitlement_sessions = models.PositiveIntegerField(default=0)
+    start_date = models.DateField(
+        null=True, blank=True,
+        help_text="Do not schedule before this date. Blank means no start bound.")
+    end_date = models.DateField(
+        null=True, blank=True,
+        help_text="Do not schedule after this date. Blank means no end bound.")
 
     class Meta:
         ordering = ["name"]
 
     def __str__(self):
         return self.name
+
+    def clean(self):
+        super().clean()
+        if self.start_date and self.end_date and self.end_date < self.start_date:
+            raise ValidationError(
+                {"end_date": "End date is before the start date."})
+
+    def in_window(self, day):
+        """Whether `day` falls inside this clinician's contractual window.
+
+        Separate from `active`, which is the manual override. Both are read
+        together by AvailabilityResolver so they cannot drift apart.
+        """
+        if self.start_date and day < self.start_date:
+            return False
+        if self.end_date and day > self.end_date:
+            return False
+        return True
