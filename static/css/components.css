@@ -328,7 +328,24 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.chip.is-empty { background: transparent; }
+/* The two empty states, reversed from what shipped. Blank now means "not
+   working"; grey means "working, nothing allocated" — the state that wants
+   attention, so it is the one that carries weight. */
+.chip.is-off {
+  background: transparent;
+}
+.chip.empty-slot {
+  background: var(--sunken);
+}
+
+/* Approved leave with no rota entry behind it: outlined rather than filled,
+   so it cannot be mistaken for a real allocation. */
+.chip.is-ghost {
+  background: transparent;
+  border: 1px dashed var(--chip-edge, var(--muted));
+  color: var(--chip-fg, var(--muted));
+}
+
 /* Drafts stay hatched so they read as provisional at a glance. --wash rather
    than a literal white: laid over a dark-mode chip tint, a light wash
    composited to mid-grey and took the chip's light text down to 1.76:1.
@@ -434,15 +451,13 @@ body {
 }
 
 /* ------------------------------------------ legacy state compatibility --- */
-/* .mine / .closed / .draft / .unavail / .site-marker predate the chip/table-
-   grid system (Task 5 rewrites grid.html to use it) — kept working here so
-   current templates and tests still render sensibly in the meantime. */
+/* .mine / .closed / .draft / .site-marker predate the chip/table-
+   grid system — kept working here so current templates and tests still
+   render sensibly in the meantime. */
 
 .mine { background: var(--accent-soft); }
 
 .closed { background: var(--sunken); color: var(--muted); }
-
-.unavail { background: var(--sunken); }
 
 /* The hatched texture itself lives on .chip.is-draft (the inner span) —
    .draft used to also paint a second repeating-linear-gradient here on the

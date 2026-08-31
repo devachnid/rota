@@ -5,8 +5,8 @@ from django.db.models import Prefetch
 from django.shortcuts import render
 
 from rota.models import (Clinician, ClinicianGroup, ClosedDay, DayNote,
-                         LocumRequirement, PatternSlot, PracticeSettings,
-                         RotaEntry)
+                         LeaveRequest, LocumRequirement, PatternSlot,
+                         PracticeSettings, RotaEntry)
 from rota.services import availability
 from rota.services.warnings import day_warnings
 
@@ -44,16 +44,21 @@ def grid(request):
         companion_partner[(e2.clinician_id, e2.day, e2.part)] = e1.clinician.name
 
     active = list(Clinician.objects.filter(active=True))
-    pattern_rows = PatternSlot.objects.filter(
+    pattern_rows = list(PatternSlot.objects.filter(
         clinician__in=active
-    ).order_by("effective_from")
-    pattern_resolver = availability.PatternResolver(pattern_rows)
+    ).order_by("effective_from"))
+    approved_leave = LeaveRequest.objects.filter(
+        status=LeaveRequest.Status.APPROVED,
+        start_date__lte=days[-1], end_date__gte=days[0],
+    ).select_related("session_type")
+    resolver = availability.AvailabilityResolver(
+        pattern_rows, active, approved_leave)
 
     closed = set(ClosedDay.objects.filter(day__in=days).values_list("day", flat=True))
     notes = {n.day: n for n in DayNote.objects.filter(day__in=days)}
     day_headers = [
         {"day": d, "closed": d in closed, "note": notes.get(d),
-         "warnings": day_warnings(d, include_drafts=is_admin)}
+         "warnings": day_warnings(d, include_drafts=is_admin) if is_admin else []}
         for d in days
     ]
 
@@ -73,11 +78,21 @@ def grid(request):
                 for part, entry in (("AM", am), ("PM", pm)):
                     if merged and part == "PM":
                         continue
+                    works = resolver.works_on(clinician.id, d, part)
+                    leave_type = (resolver.leave_type(clinician.id, d)
+                                  if entry is None else None)
+                    # Ghost only where it means something: on a session the
+                    # clinician works (approval should have written an entry
+                    # and did not), or for a clinician with no pattern at all
+                    # (nothing would ever show for them otherwise). Ghosting
+                    # every session leave spans would put chips on every
+                    # part-timer's days off.
+                    ghostable = works or not resolver.has_pattern(clinician.id)
                     cells.append({
                         "day": d, "day_str": d.isoformat(), "part": part,
                         "entry": entry, "merged": merged and part == "AM",
-                        "unavail": entry is None and not pattern_resolver.works_on(
-                            clinician.id, d, part),
+                        "off": entry is None and not works,
+                        "ghost_leave": leave_type if ghostable else None,
                         "closed": d in closed,
                         "partner": companion_partner.get((clinician.id, d, part)),
                     })
