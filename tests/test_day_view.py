@@ -42,17 +42,15 @@ def _tbody(html, after=None):
 
 
 def _roster_tbody(html):
-    """Extract the roster table's tbody.
+    """Extract the roster table's tbody by identifying it via its <thead>.
 
-    The roster table always comes before the "On leave" section (which uses
-    the day-group class for its heading). By slicing to exclude the day-group
-    content if it exists, we ensure we always get the roster's tbody even if
-    the tables are reordered in the template.
+    The roster table (containing clinician schedule) is the only day-roster table
+    with a <thead> element. The on-leave table has no <thead>. This structural
+    difference allows reliable identification regardless of document order.
     """
-    # If there's an "On leave" section, exclude it to ensure we get the roster
-    if "day-group" in html:
-        html = html[:html.index("day-group")]
-    return _tbody(html)
+    # The first </thead> in the document marks the end of the roster table's header.
+    # The first tbody after that point is the roster table's tbody.
+    return _tbody(html, after='</thead>')
 
 
 def _on_leave_tbody(html):

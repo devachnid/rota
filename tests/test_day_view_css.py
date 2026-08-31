@@ -11,7 +11,11 @@ CSS = (Path(__file__).resolve().parents[1] / "static" / "css" / "screens.css").r
 
 
 def test_the_day_view_section_exists():
-    assert "day view" in CSS
+    start = CSS.index("day view")
+    end = CSS.index("reports", start)
+    section = CSS[start:end]
+    # Section must contain CSS rules (marked by opening braces), not just the marker
+    assert '{' in section, "day view section contains no CSS rules"
 
 
 def test_every_class_the_template_uses_is_styled():
@@ -24,5 +28,7 @@ def test_no_colour_literals_in_the_day_view_rules():
     start = CSS.index("day view")
     end = CSS.index("reports", start)
     section = CSS[start:end]
+    # Ensure the section has actual content beyond the marker
+    assert len(section.strip()) > len("day view"), "section appears empty"
     literals = re.findall(r"#[0-9A-Fa-f]{3,8}\b|\brgba?\(|\bhsla?\(", section)
     assert not literals, f"day view CSS hard-codes colours: {literals}"
