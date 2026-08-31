@@ -142,6 +142,94 @@
   overflow-x: auto;
 }
 
+/* ---------------------------------------------------------- day view --- */
+
+.day-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+
+.day-count {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  margin: var(--sp-1) 0 0;
+}
+
+.day-step { display: flex; gap: var(--sp-2); flex: none; }
+
+.day-note {
+  background: var(--sunken);
+  border-left: 3px solid var(--accent);
+  padding: var(--sp-3) var(--sp-4);
+  margin: 0 0 var(--sp-4);
+  border-radius: var(--r-sm);
+}
+
+.day-closed {
+  color: var(--muted);
+  background: var(--sunken);
+  padding: var(--sp-5);
+  border-radius: var(--r-md);
+  text-align: center;
+  margin: 0;
+}
+
+.day-pinned {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+  margin-bottom: var(--sp-5);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+}
+
+.day-pin-row { display: flex; align-items: center; gap: var(--sp-3); }
+.day-pin-who { flex: 1; font-weight: 600; }
+.day-pin-part { color: var(--muted); font-size: var(--fs-sm); }
+
+.day-roster { width: 100%; border-collapse: collapse; }
+
+.day-roster th,
+.day-roster td {
+  text-align: left;
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.day-roster thead th {
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--muted);
+}
+
+.day-roster tbody th { font-weight: 500; }
+.day-roster td { width: 38%; }
+
+.day-partner {
+  display: block;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+
+.day-dash { color: var(--muted); }
+
+.day-group {
+  font-size: var(--fs-lg);
+  margin: var(--sp-6) 0 var(--sp-2);
+}
+
+.day-not-in {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  margin: var(--sp-5) 0 0;
+}
+
 /* ----------------------------------------------------------- reports --- */
 
 /* Cross-links between the four report pages. Sits inside .page-head next to

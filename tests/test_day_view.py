@@ -42,6 +42,16 @@ def _tbody(html, after=None):
 
 
 def _roster_tbody(html):
+    """Extract the roster table's tbody.
+
+    The roster table always comes before the "On leave" section (which uses
+    the day-group class for its heading). By slicing to exclude the day-group
+    content if it exists, we ensure we always get the roster's tbody even if
+    the tables are reordered in the template.
+    """
+    # If there's an "On leave" section, exclude it to ensure we get the roster
+    if "day-group" in html:
+        html = html[:html.index("day-group")]
     return _tbody(html)
 
 
