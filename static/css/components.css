@@ -435,7 +435,12 @@ body {
   top: 10%;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 10;
+  /* Both #modal and .tabbar (screens.css, inside the 640px block) are
+     position: fixed, so they compete on z-index alone regardless of DOM
+     order. .tabbar sits at 20; below it the bar would paint over the
+     modal's pinned actions on a short landscape-phone viewport, so the
+     modal has to out-rank it here. */
+  z-index: 30;
   background: var(--surface);
   border-radius: var(--r-lg);
   box-shadow: 0 var(--sp-2) var(--sp-6) var(--shadow);

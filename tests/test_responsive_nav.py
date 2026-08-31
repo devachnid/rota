@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.test_css_cascade import RULES
+from tests.test_css_cascade import RULES, rule
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE = (ROOT / "templates" / "base.html").read_text()
@@ -84,6 +84,26 @@ def test_touch_targets_are_large_enough():
         v and v.endswith("px") and int(re.sub(r"\D", "", v)) >= 44
         for v in values
     ), f"no tab bar rule reaches a 44px touch target: {values}"
+
+
+def test_the_modal_stacks_above_the_tab_bar():
+    """#modal and .tabbar are both position: fixed, so on a short landscape
+    phone below the breakpoint they compete on z-index alone, regardless of
+    where either sits in the DOM. .tabbar was z-index: 20 and #modal
+    z-index: 10 — the bar painted over the modal's pinned Save/Cancel
+    actions. The modal has to out-rank every z-index the bar ever declares,
+    inside the media query or out."""
+    modal_z = int(rule("#modal").declarations["z-index"])
+    tabbar_z_values = [
+        int(r.declarations["z-index"])
+        for r in _rules_for(".tabbar")
+        if "z-index" in r.declarations
+    ]
+    assert tabbar_z_values, ".tabbar declares no z-index; nothing to compare"
+    assert modal_z > max(tabbar_z_values), (
+        f"#modal z-index {modal_z} does not out-rank .tabbar's "
+        f"{tabbar_z_values} — the bar can cover the modal"
+    )
 
 
 def test_there_is_exactly_one_width_breakpoint_in_the_project():
