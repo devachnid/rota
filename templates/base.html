@@ -18,6 +18,7 @@
 <nav class="nav">
   <span class="nav-brand">Rota</span>
   <a href="/rota/" class="nav-link{% if request.path == '/rota/' %} is-active{% endif %}">Week</a>
+  <a href="/rota/day/" class="nav-link{% if '/rota/day/' in request.path %} is-active{% endif %}">Day</a>
   <a href="/me/" class="nav-link{% if request.path == '/me/' %} is-active{% endif %}">My schedule</a>
   {% if user.is_rota_admin %}
     <a href="/requests/" class="nav-link{% if request.path == '/requests/' %} is-active{% endif %}">Requests</a>
@@ -37,5 +38,25 @@
 </div>
 {% endif %}
 <main class="main">{% block content %}{% endblock %}</main>
+<nav class="tabbar" aria-label="Sections">
+  <a href="/rota/" class="tabbar-item{% if request.path == '/rota/' %} is-active{% endif %}">Week</a>
+  <a href="/rota/day/" class="tabbar-item{% if '/rota/day/' in request.path %} is-active{% endif %}">Day</a>
+  <a href="/me/" class="tabbar-item{% if request.path == '/me/' %} is-active{% endif %}">Me</a>
+  <details class="tabbar-more">
+    <summary class="tabbar-item">More</summary>
+    <div class="tabbar-sheet">
+      {% if user.is_rota_admin %}
+        <a href="/requests/" class="tabbar-link">Requests</a>
+        <a href="/rota/fill/" class="tabbar-link">Assisted fill</a>
+      {% endif %}
+      <a href="/reports/fairness/" class="tabbar-link">Reports</a>
+      <button type="button" id="theme-toggle-mobile" class="tabbar-link">Theme</button>
+      {% if user.is_authenticated %}
+        <span class="tabbar-user">{{ user.email }}</span>
+        <form method="post" action="/accounts/logout/">{% csrf_token %}<button class="tabbar-link">Log out</button></form>
+      {% endif %}
+    </div>
+  </details>
+</nav>
 </body>
 </html>

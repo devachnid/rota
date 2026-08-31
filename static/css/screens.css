@@ -476,3 +476,45 @@
   align-items: center;
   gap: var(--sp-3);
 }
+
+/* ---------------------------------------------------------- narrow --- */
+/* The project's only width breakpoint. Below it the top nav is replaced by
+   a fixed bottom bar; above it nothing on any screen changes. */
+
+@media (max-width: 640px) {
+  .nav { display: none; }
+
+  .tabbar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 20;
+    background: var(--surface);
+    border-top: 1px solid var(--hairline);
+  }
+
+  .tabbar-more { position: relative; }
+
+  .tabbar-more[open] .tabbar-sheet {
+    position: absolute;
+    inset: auto 0 100% auto;
+    min-width: 12rem;
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md) var(--r-md) 0 0;
+    box-shadow: 0 -2px 12px var(--shadow);
+  }
+
+  body { padding-bottom: 64px; }
+
+  /* `body .main`, not the bare `.main` written elsewhere in this project:
+     the cascade-parser tests (tests/test_css_cascade.py) index rules by
+     exact selector text and require exactly one `.main` in the whole
+     project, so a second literal `.main` here would collide with that
+     invariant even though it only ever applies below the breakpoint. The
+     descendant form matches the same <main class="main"> element and
+     out-ranks the base rule's shorthand padding on specificity alone. */
+  body .main { padding-left: var(--sp-4); padding-right: var(--sp-4); }
+
+  .day-roster td { width: auto; }
+}
