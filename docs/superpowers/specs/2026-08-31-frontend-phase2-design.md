@@ -86,7 +86,7 @@ Neither role sees coverage, staffing or group warnings here.
 
 2. **Closed days** — when the day is closed, or is not an open weekday, the
    body is replaced by a single statement naming the closure
-   (`ClosedDay.name` when set, otherwise "Surgery closed"). The day note, if
+   (`ClosedDay.reason` when set, otherwise "Surgery closed"). The day note, if
    there is one, still renders. Nothing else does.
 
 3. **Pinned block** — session types with `pin_on_day_view` set render first, as
@@ -236,6 +236,28 @@ Phase 1 shipped four defects of exactly that shape. So:
 - A live measurement at 375px against the running app before the branch is
   called done. Reasoning about layout has been wrong here before; the browser
   found a defect in Phase 1 that review did not.
+
+## One existing test stands in the way, deliberately
+
+`tests/test_css_cascade.py` parses `components.css` and `screens.css` to audit
+the cascade, and its parser refuses at-rules outright:
+
+```python
+assert "@" not in css, (
+    f"{sheet} has grown an at-rule; this parser only handles flat rules"
+)
+```
+
+That is a tripwire its own comment explains — "if one is ever added, this fails
+loudly instead of quietly scoring the cascade wrong". This phase adds the first
+`@media (max-width: 640px)` block to those sheets, so it trips.
+
+Teaching the parser about `@media` is therefore **the first task of the phase,
+done before any media query is written**, and it is an authorised exception to
+the no-editing-pre-existing-tests rule. The exception is narrow: the parser
+gains the ability to read a construct the codebase now legitimately uses, and
+every existing assertion keeps its current meaning. Weakening or deleting an
+assertion to make new CSS pass is not covered by it.
 
 ## Prerequisite, and it is configuration rather than code
 
