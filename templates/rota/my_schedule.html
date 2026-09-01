@@ -12,32 +12,9 @@
   </div>
 </div>
 
-<div class="schedule-list">
-
-  <h2>Leave</h2>
-  <div class="card">
-    <div class="stat-row">
-      <div class="stat">
-        <span class="stat-value">{{ leave.entitlement }}</span>
-        <span class="stat-label">Entitlement</span>
-      </div>
-      <div class="stat">
-        <span class="stat-value">{{ leave.taken }}</span>
-        <span class="stat-label">Taken</span>
-      </div>
-      <div class="stat">
-        <span class="stat-value">{{ leave.booked }}</span>
-        <span class="stat-label">Booked</span>
-      </div>
-      <div class="stat">
-        <span class="stat-value">{{ leave.remaining }}</span>
-        <span class="stat-label">Remaining</span>
-      </div>
-    </div>
-  </div>
-
-  {% if to_accept %}
-  <h2>Swaps awaiting your response</h2>
+{% if to_accept %}
+<section class="ms-awaiting">
+  <h2>Waiting for you</h2>
   {% for s in to_accept %}
   <div class="card">
     <p>{{ s.proposer.name }} proposes swapping their
@@ -53,44 +30,97 @@
     </div>
   </div>
   {% endfor %}
-  {% endif %}
+</section>
+{% endif %}
 
-  <h2>Next four weeks</h2>
-  {% if entries %}
-  <div class="table-scroll">
-    <table class="table">
-      <thead>
-        <tr><th>Day</th><th>Part</th><th>Type</th><th>Site</th><th>Note</th></tr>
-      </thead>
-      <tbody>
-      {% for e in entries %}
-      <tr><td>{{ e.day|date:"D j M" }}</td><td>{{ e.part }}</td>
-          <td>{{ e.session_type.code }}</td><td>{{ e.site|default:"" }}</td>
-          <td>{{ e.note }}</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
+<section class="ms-today">
+  <h2 class="ms-today-label">Today &middot; {{ today|date:"D j M" }}</h2>
+  {% if today_state == "closed" %}
+    <p class="ms-today-note">{% if today_closed_reason %}{{ today_closed_reason }}{% else %}Surgery closed{% endif %}</p>
+  {% elif today_state == "not_in" %}
+    <p class="ms-today-note">Not in today.</p>
   {% else %}
-  <p class="empty">No published sessions in the next four weeks.</p>
+    <div class="ms-today-cells">
+      {% for e in today_cells %}
+        {% if e %}
+        <span class="chip{% if not e.is_published %} is-draft{% endif %}"
+              style="--chip-bg: var(--tint-{{ e.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ e.session_type.tint.key }}-fg);">
+          {{ e.session_type.code }}{% if e.site %}<span class="site-marker">{{ e.site.name|slice:":1" }}</span>{% endif %}
+        </span>
+        {% else %}
+        <span class="ms-dash">&mdash;</span>
+        {% endif %}
+      {% endfor %}
+    </div>
   {% endif %}
+</section>
 
-  {% if my_leave_requests or my_swaps %}
-  <h2>My requests</h2>
-  <ul>
-    {% for r in my_leave_requests %}
-    <li>Leave {{ r.start_date|date:"j M" }}–{{ r.end_date|date:"j M" }}
-        ({{ r.session_type.name }}) — {{ r.get_status_display }}</li>
+<section class="ms-weeks">
+  <h2>Next four weeks</h2>
+  {% for week in weeks %}
+  <div class="ms-week">
+    <div class="ms-week-head">
+      <span>{{ week.heading }}</span>
+      {% if week.count_label %}<span class="ms-week-count">{{ week.count_label }}</span>{% endif %}
+    </div>
+    {% for row in week.days %}
+    <div class="ms-day{% if row.is_leave %} is-leave{% endif %}">
+      <span class="ms-date"><b>{{ row.day|date:"D j" }}</b> {{ row.day|date:"M" }}</span>
+      <span class="ms-cells">
+        {% if row.am %}
+        <span class="chip{% if not row.am.is_published %} is-draft{% endif %}"
+              style="--chip-bg: var(--tint-{{ row.am.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ row.am.session_type.tint.key }}-fg);">
+          {{ row.am.session_type.code }}{% if row.am.site %}<span class="site-marker">{{ row.am.site.name|slice:":1" }}</span>{% endif %}
+        </span>
+        {% else %}
+        <span class="ms-dash">&mdash;</span>
+        {% endif %}
+        {% if row.pm %}
+        <span class="chip{% if not row.pm.is_published %} is-draft{% endif %}"
+              style="--chip-bg: var(--tint-{{ row.pm.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ row.pm.session_type.tint.key }}-fg);">
+          {{ row.pm.session_type.code }}{% if row.pm.site %}<span class="site-marker">{{ row.pm.site.name|slice:":1" }}</span>{% endif %}
+        </span>
+        {% else %}
+        <span class="ms-dash">&mdash;</span>
+        {% endif %}
+      </span>
+    </div>
+    {% empty %}
+    <p class="empty">Surgery closed all week.</p>
     {% endfor %}
-    {% for s in my_swaps %}
-    <li>Swap with {{ s.colleague.name }}
-        ({{ s.proposer_day|date:"j M" }} {{ s.proposer_part }} &harr;
-         {{ s.colleague_day|date:"j M" }} {{ s.colleague_part }})
-        — {{ s.get_status_display }}</li>
-    {% endfor %}
-  </ul>
-  {% endif %}
+  </div>
+  {% endfor %}
+</section>
 
-</div>
+<section class="ms-leave">
+  <h2>Leave</h2>
+  <div class="ms-balance">
+    <div><span class="ms-v">{{ leave.entitlement }}</span><span class="ms-k">Entitled</span></div>
+    <div><span class="ms-v">{{ leave.taken }}</span><span class="ms-k">Taken</span></div>
+    <div><span class="ms-v">{{ leave.booked }}</span><span class="ms-k">Booked</span></div>
+    <div><span class="ms-v">{{ leave.remaining }}</span><span class="ms-k">Left</span></div>
+  </div>
+</section>
+
+{% if my_requests or my_swaps %}
+<section class="ms-requests">
+  <h2>Your requests</h2>
+  {% for r in my_requests %}
+  <div class="ms-day">
+    <span class="ms-date"><b>{{ r.start_date|date:"j M" }}</b>&ndash;{{ r.end_date|date:"j M" }}</span>
+    <span class="ms-cells"><span class="chip"
+          style="--chip-bg: var(--tint-{{ r.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ r.session_type.tint.key }}-fg);">{{ r.session_type.code }}</span>
+      <span class="ms-status">{{ r.get_status_display }}</span></span>
+  </div>
+  {% endfor %}
+  {% for s in my_swaps %}
+  <div class="ms-day">
+    <span class="ms-date"><b>{{ s.proposer_day|date:"j M" }}</b></span>
+    <span class="ms-cells">Swap with {{ s.colleague.name }}
+      <span class="ms-status">{{ s.get_status_display }}</span></span>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
 {% endif %}
 {% endblock %}

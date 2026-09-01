@@ -34,20 +34,22 @@
   apply(read());   // before paint
 
   document.addEventListener("DOMContentLoaded", function () {
-    var button = document.getElementById("theme-toggle");
-    if (!button) { return; }
+    var buttons = document.querySelectorAll('[id^="theme-toggle"]');
+    if (!buttons.length) { return; }
 
-    function show(state) {
+    function show(button, state) {
       button.textContent = LABEL[state];
       button.setAttribute("aria-label", LABEL[state] + " (click to change)");
     }
 
-    show(read());
-    button.addEventListener("click", function () {
-      var next = ORDER[(ORDER.indexOf(read()) + 1) % ORDER.length];
-      try { localStorage.setItem(KEY, next); } catch (e) { /* not persisted */ }
-      apply(next);
-      show(next);
+    buttons.forEach(function (button) {
+      show(button, read());
+      button.addEventListener("click", function () {
+        var next = ORDER[(ORDER.indexOf(read()) + 1) % ORDER.length];
+        try { localStorage.setItem(KEY, next); } catch (e) { /* not persisted */ }
+        apply(next);
+        buttons.forEach(function (b) { show(b, next); });
+      });
     });
   });
 })();

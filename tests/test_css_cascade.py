@@ -23,7 +23,10 @@ these six actually failed. It is *not* enough to prove a browser paints the
 result: nothing here renders, measures, or checks that a property has any
 visual effect on the box it lands on. `table-layout: fixed` is asserted to be
 present and to win; whether the grid then looks right on a 1080p monitor is a
-visual check, and it is still outstanding.
+visual check, and it is still outstanding. The parser reads `@media` and
+`@supports` bodies and tags each rule inside one with the query text it sits
+under, but it does not evaluate that query: whether a rule actually applies
+at a given viewport is still not proven by anything here.
 """
 
 import re
@@ -47,11 +50,12 @@ SHEETS = ["components.css", "screens.css"]
 class Rule:
     """One selector out of one rule, with its declarations and cascade order."""
 
-    def __init__(self, sheet, order, selector, declarations):
+    def __init__(self, sheet, order, selector, declarations, *, media=None):
         self.sheet = sheet
         self.order = order          # global, across SHEETS in link order
         self.selector = selector
         self.declarations = declarations
+        self.media = media          # None at top level, else the @media/@supports query
 
     def __repr__(self):
         return f"<{self.sheet} #{self.order} {self.selector!r}>"
@@ -62,29 +66,57 @@ def _strip_comments(css: str) -> str:
 
 
 def _parse(css: str, sheet: str, first_order: int) -> tuple[list[Rule], int]:
-    """Flat `selector-list { prop: value; ... }` rules only.
+    """`selector-list { prop: value; ... }` rules, flat or nested one level
+    deep inside an `@media`/`@supports` block.
 
-    Neither sheet contains an at-rule today, and the flat parse depends on
-    that: an @media block would nest braces and be mis-read as a selector.
-    Rather than grow a real parser for a case that does not exist, refuse it —
-    if one is ever added, this fails loudly instead of quietly scoring the
-    cascade wrong.
+    `order` IS the cascade (CSS 2.2 §6.4.3), so it has to track document
+    position exactly — a block near the end of the sheet must out-rank every
+    rule before it, at-rule or not. The sheet is therefore walked once, left
+    to right: whatever sits before an at-rule block is parsed (and numbered)
+    first, then the block's own body, then whatever follows. Any other
+    at-rule — one with no block, like `@import` or `@charset` — is refused
+    the same way an unsupported one always was: loudly, rather than quietly
+    scoring the cascade wrong.
     """
-    assert "@" not in css, (
-        f"{sheet} has grown an at-rule; this parser only handles flat rules"
-    )
     rules, order = [], first_order
-    for match in re.finditer(r"([^{}]+)\{([^{}]*)\}", css):
-        declarations = {}
-        for declaration in match.group(2).split(";"):
-            if ":" not in declaration:
-                continue
-            prop, _, value = declaration.partition(":")
-            declarations[prop.strip()] = value.strip()
-        for selector in (s.strip() for s in match.group(1).split(",")):
-            if selector:
-                rules.append(Rule(sheet, order, selector, declarations))
-        order += 1
+
+    def _rulesets(body, media):
+        nonlocal order
+        assert "@" not in body, (
+            f"{sheet} has an at-rule this parser cannot place in the "
+            f"cascade; it only handles @media and @supports blocks"
+        )
+        for match in re.finditer(r"([^{}]+)\{([^{}]*)\}", body):
+            declarations = {}
+            for declaration in match.group(2).split(";"):
+                if ":" not in declaration:
+                    continue
+                prop, _, value = declaration.partition(":")
+                declarations[prop.strip()] = value.strip()
+            for selector in (s.strip() for s in match.group(1).split(",")):
+                if selector:
+                    rules.append(Rule(sheet, order, selector, declarations,
+                                      media=media))
+            order += 1
+
+    cursor = 0
+    for match in re.finditer(r"@(\w+)([^{]*)\{", css):
+        assert match.group(1) in ("media", "supports"), (
+            f"{sheet} has an @{match.group(1)} rule; this parser only "
+            f"handles @media and @supports"
+        )
+        _rulesets(css[cursor:match.start()], None)  # top-level, before the block
+        depth, i = 1, match.end()
+        while depth and i < len(css):
+            if css[i] == "{":
+                depth += 1
+            elif css[i] == "}":
+                depth -= 1
+            i += 1
+        _rulesets(css[match.end():i - 1], match.group(2).strip())
+        cursor = i
+    _rulesets(css[cursor:], None)  # top-level, after the last block (or all of it)
+
     return rules, order
 
 
@@ -144,7 +176,19 @@ def specificity(selector: str) -> tuple[int, int, int]:
 
 
 def rule(selector: str) -> Rule:
-    """The one rule written with exactly this selector text."""
+    """The one rule written with exactly this selector text.
+
+    Phase 2's `@media (max-width: 640px)` block legitimately repeats a few
+    selectors that already had a top-level rule — `body`, `.nav`, and
+    `.day-roster td` all now have one rule outside the block and a second,
+    narrower-purpose one inside it (padding for the fixed tab bar, hiding
+    the desktop nav, an auto width for the day view's cells below the
+    breakpoint). `rule()` and `declares()` still assume one match per
+    selector, so calling either on any of those three raises "expected
+    exactly one rule" — not a bug, just this helper not knowing which of
+    the two you mean. Use `_rules_for()` (test_responsive_nav.py) or filter
+    RULES directly by `.media` when a test needs one of them.
+    """
     found = [r for r in RULES if r.selector == selector]
     assert len(found) == 1, (
         f"expected exactly one rule for {selector!r}, found {found}"
@@ -370,3 +414,35 @@ def test_the_header_background_token_is_opaque_in_every_theme():
     assert len(values) == 3, values  # :root, prefers-color-scheme, [data-theme]
     for value in values:
         assert re.fullmatch(r"#[0-9A-Fa-f]{6}", value.strip()), value
+
+
+# --------------------------------------------------------------------------
+# the parser itself
+# --------------------------------------------------------------------------
+
+def test_parser_reads_rules_inside_a_media_block():
+    """Phase 2 adds the first @media block to these sheets.
+
+    The parser used to refuse at-rules outright, on the grounds that a naive
+    brace-matcher would read `@media (max-width: 640px) {` as a selector and
+    score the cascade wrong. It now reads them properly: rules inside the
+    block are real rules, tagged with the query they sit under.
+    """
+    css = ".a { color: red; }\n@media (max-width: 640px) {\n  .b { color: blue; }\n}\n.c { color: green; }"
+    rules, _ = _parse(css, "fake.css", 0)
+    by_selector = {r.selector: r for r in rules}
+
+    assert set(by_selector) == {".a", ".b", ".c"}
+    assert by_selector[".a"].media is None
+    assert by_selector[".b"].media == "(max-width: 640px)"
+    assert by_selector[".c"].media is None, "a rule after the block is top-level again"
+    assert by_selector[".b"].declarations == {"color": "blue"}
+
+
+def test_rules_are_numbered_in_document_order_across_a_media_block():
+    """order IS the cascade. A rule after the block must out-rank one inside
+    it, and one before the block must be out-ranked by both."""
+    css = ".a{color:red}\n@media (max-width: 640px){.b{color:blue}}\n.c{color:green}"
+    rules, _ = _parse(css, "fake.css", 0)
+    order = {r.selector: r.order for r in rules}
+    assert order[".a"] < order[".b"] < order[".c"]

@@ -8,6 +8,7 @@ from rota.models import (Clinician, ClinicianGroup, ClosedDay, DayNote,
                          LeaveRequest, LocumRequirement, PatternSlot,
                          PracticeSettings, RotaEntry)
 from rota.services import availability
+from rota.services.cells import cell_state
 from rota.services.warnings import day_warnings
 
 
@@ -85,37 +86,14 @@ def grid(request):
                 for part, entry in (("AM", am), ("PM", pm)):
                     if merged and part == "PM":
                         continue
-                    works = resolver.works_on(clinician.id, d, part)
-                    leave_type = (resolver.leave_type(clinician.id, d)
-                                  if entry is None else None)
-                    # Ghost only where it means something: on a session the
-                    # clinician works (approval should have written an entry
-                    # and did not), or for a clinician with no pattern at all
-                    # (nothing would ever show for them otherwise). Ghosting
-                    # every session leave spans would put chips on every
-                    # part-timer's days off.
-                    #
-                    # Two things the "no pattern" clause must not skip:
-                    #  - the contractual window. leave.sessions_affected()
-                    #    and works_on() both refuse to write outside it, so a
-                    #    chip there accuses approval of missing an entry it
-                    #    was right not to write. `works` already carries the
-                    #    window; the no-pattern branch has to ask separately.
-                    #  - a closed day. sessions_affected() skips days where
-                    #    calendar.is_open() is false, so a bank holiday
-                    #    inside a leave range correctly has no entry, and a
-                    #    ghost there is noise on every Christmas closure.
-                    no_pattern_here = (not resolver.has_pattern(clinician.id)
-                                       and resolver.in_service(clinician.id, d))
-                    ghostable = ((works or no_pattern_here)
-                                 and d not in closed)
                     cells.append({
-                        "day": d, "day_str": d.isoformat(), "part": part,
-                        "entry": entry, "merged": merged and part == "AM",
-                        "off": entry is None and not works,
-                        "ghost_leave": leave_type if ghostable else None,
-                        "closed": d in closed,
-                        "partner": companion_partner.get((clinician.id, d, part)),
+                        **cell_state(
+                            clinician.id, d, part, entry=entry,
+                            resolver=resolver, closed=d in closed,
+                            partner=companion_partner.get(
+                                (clinician.id, d, part)),
+                        ),
+                        "merged": merged and part == "AM",
                     })
             rows.append({
                 "clinician": clinician,
