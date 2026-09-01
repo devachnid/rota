@@ -502,6 +502,13 @@
     z-index: 20;
     background: var(--surface);
     border-top: 1px solid var(--hairline);
+    /* Installed to a home screen the app runs without browser chrome, so the
+       bar sits directly on the iPhone home indicator. The inset pads the bar
+       itself rather than the page, so its background still reaches the bottom
+       edge of the screen instead of leaving a strip of --ground below it.
+       Requires viewport-fit=cover on the viewport meta (base.html); the
+       fallback keeps this a no-op everywhere else. */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   .tabbar-more { position: relative; }
@@ -515,7 +522,13 @@
     box-shadow: 0 -2px 12px var(--shadow);
   }
 
-  body { padding-bottom: 64px; }
+  body {
+    /* Clears the fixed bar. The first declaration is the fallback for engines
+       without env(); the second wins wherever the inset is real, so the bar
+       never covers the end of the page on a notched phone. */
+    padding-bottom: 64px;
+    padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+  }
 
   /* `body .main`, not the bare `.main` written elsewhere in this project:
      the cascade-parser tests (tests/test_css_cascade.py) index rules by
