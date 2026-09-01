@@ -14,6 +14,18 @@
   padding: var(--sp-3) var(--sp-5);
   background: var(--surface);
   border-bottom: 1px solid var(--hairline);
+  /* Wrap, because this row does not fit every window it is shown in. Its
+     min-content width is around 880px — brand, six links, the theme button,
+     an email address and Log out — so between the 640px breakpoint below
+     which the tab bar replaces it and roughly 890px, it used to overflow the
+     viewport horizontally and push the page sideways. That band is portrait
+     tablets and half-screen desktop windows. Measured, not guessed: at 700px
+     the document scrolled to 888px against a 685px viewport.
+
+     Wrapping rather than a second breakpoint is deliberate — the project has
+     exactly one width media query and tests/test_responsive_nav.py asserts
+     it. .toolbar solves the same problem the same way. */
+  flex-wrap: wrap;
 }
 .nav-brand {
   font-weight: 800;

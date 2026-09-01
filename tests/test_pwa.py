@@ -139,7 +139,7 @@ def test_the_tab_bar_pads_itself_for_the_home_indicator():
     bar does not exist and the rule would be meaningless."""
     padded = [r for r in RULES
               if r.selector == ".tabbar" and r.media == BREAKPOINT
-              and "safe-area-inset-bottom" in r.declarations.get("padding-bottom", "")]
+              and "var(--safe-bottom)" in r.declarations.get("padding-bottom", "")]
     assert padded, (
         ".tabbar never takes the bottom safe-area inset inside the 640px "
         "block, so on a notched phone it renders under the home indicator"
@@ -151,20 +151,38 @@ def test_the_body_clearance_grows_by_the_same_inset():
     every screen hides behind it."""
     cleared = [r for r in RULES
                if r.selector == "body" and r.media == BREAKPOINT
-               and "safe-area-inset-bottom" in r.declarations.get("padding-bottom", "")]
+               and "var(--safe-bottom)" in r.declarations.get("padding-bottom", "")]
     assert cleared, "body's clearance ignores the safe-area inset the bar takes"
 
 
-def test_the_safe_area_rules_keep_a_plain_fallback():
-    """An engine without env() drops the whole declaration, so the page needs
-    a value that does not mention it."""
-    css = (ROOT / "static" / "css" / "screens.css").read_text()
-    block = css[css.index("@media (max-width: 640px)"):]
-    body_rule = block[block.index("body {"):]
-    body_rule = body_rule[:body_rule.index("}")]
-    plain = [line for line in body_rule.splitlines()
-             if "padding-bottom" in line and "env(" not in line]
-    assert plain, "body's clearance has no env()-free fallback declaration"
+def test_the_inset_is_a_token_so_it_can_be_simulated():
+    """env() cannot be set from outside the page, which is what made the bar's
+    home-indicator clearance impossible to verify without an iPhone. Holding
+    it in a custom property is what lets any browser stand in for one."""
+    assert "--safe-bottom:" in TOKENS, (
+        "the safe-area inset is not a token, so no browser without a notch "
+        "can be made to exercise the layout that depends on it"
+    )
+
+
+def test_the_inset_token_defaults_to_zero_outside_supports():
+    """The ordering that matters. A browser with custom properties but no
+    env() (Chrome 49-68, Safari 9.1-11) would substitute an unknown function
+    into calc(), making the declaration invalid at computed-value time and
+    collapsing the padding to zero — worse than not trying. So the bare
+    :root value must be a plain length, and env() may only raise it inside
+    an @supports guard."""
+    light = TOKENS[TOKENS.index(":root {"):TOKENS.index("@supports")]
+    declared = re.search(r"--safe-bottom:\s*([^;]+);", light).group(1).strip()
+    assert declared == "0px", (
+        f"--safe-bottom defaults to {declared!r} in the bare :root block; it "
+        f"must be a plain length there, with env() applied only under @supports"
+    )
+    guard = TOKENS[TOKENS.index("@supports"):]
+    assert "env(safe-area-inset-bottom" in guard[:guard.index("}")+200], (
+        "no @supports block raises --safe-bottom to the live inset, so the "
+        "token is permanently 0px and the safe area is never respected"
+    )
 
 
 # --------------------------------------------------------------------------
