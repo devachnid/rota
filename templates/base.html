@@ -3,8 +3,16 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>{% block title %}Rota{% endblock %}</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="{% static 'icons/favicon-32.png' %}" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="{% static 'icons/apple-touch-icon.png' %}">
+<!-- A manifest carries one theme_color; this app has three theme states, and
+     these two override it per colour scheme. --accent light / dark. -->
+<meta name="theme-color" content="#2F5D50" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#6FAE99" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-title" content="Rota">
 <script src="{% static 'js/theme.js' %}"></script>
 <link rel="preload" href="{% static 'fonts/plus-jakarta-sans-latin.woff2' %}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="{% static 'css/fonts.css' %}">

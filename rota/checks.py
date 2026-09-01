@@ -28,6 +28,18 @@ def _uses_manifest_storage() -> bool:
 
 
 def _template_static_refs() -> dict[str, set[str]]:
+    """Every static path that must resolve, mapped to who asks for it.
+
+    Mostly `{% static %}` tags in templates, which is what the name says and
+    what it started as. It also carries the web app manifest's icons: those
+    are resolved by `static()` in Python (config/views.py), so they have no
+    tag for the scan to find, and a missing one would 500 the manifest on
+    every cold start of an installed app — exactly the failure this module
+    exists to move to deploy time.
+
+    The name is kept because tests/test_deploy_checks.py builds its fixture
+    manifest from this function, and that file is not ours to rename against.
+    """
     refs: dict[str, set[str]] = {}
     for root in settings.TEMPLATES[0]["DIRS"]:
         for path in Path(root).rglob("*.html"):
@@ -35,6 +47,11 @@ def _template_static_refs() -> dict[str, set[str]]:
                 refs.setdefault(m.group(1), set()).add(
                     str(path.relative_to(settings.BASE_DIR))
                 )
+
+
+    from config.views import ICON_SOURCES
+    for path in ICON_SOURCES:
+        refs.setdefault(path, set()).add("config/views.py (web app manifest)")
     return refs
 
 
