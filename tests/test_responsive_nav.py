@@ -121,3 +121,19 @@ def test_the_more_menu_needs_no_javascript(admin_client):
     PracticeSettings.load()
     html = admin_client.get("/rota/day/").content.decode()
     assert "<details" in html and "<summary" in html
+
+
+def test_the_top_nav_wraps_rather_than_overflowing():
+    """Between the 640px breakpoint and roughly 890px the desktop nav is the
+    only navigation on screen, and its min-content width exceeds the viewport
+    — brand, six links, the theme button, an email address and Log out. Left
+    nowrap it pushed the whole page sideways on portrait tablets and
+    half-screen windows. Measured at 700px before the fix: the document
+    scrolled to 888px against a 685px viewport.
+    """
+    base = [r for r in _rules_for(".nav") if r.media is None]
+    assert base, ".nav has no top-level rule"
+    assert any(r.declarations.get("flex-wrap") == "wrap" for r in base), (
+        ".nav does not wrap, so it overflows the viewport horizontally "
+        "between the breakpoint and roughly 890px"
+    )
