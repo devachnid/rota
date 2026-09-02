@@ -76,6 +76,20 @@ def test_fetch_all_follows_the_link_header_to_the_last_page():
     assert rows[0]["id"] == json.loads(p1)["employees"][0]["id"]
 
 
+def test_fetch_all_refuses_a_link_header_naming_a_foreign_host():
+    """A Link header is attacker-reachable — from Breathe, or from anything on
+    the network path. Following one to another host would attach the real
+    X-API-KEY header to a request to that host."""
+    seen = []
+    p1 = (FIX / "employees_page1.json").read_bytes()
+    evil_headers = {"link": '<https://evil.example.com/steal?page=2>; rel="next"'}
+    routes = {f"{BASE}/employees?per_page=100": (p1, evil_headers)}
+    with pytest.raises(BreatheError) as exc:
+        BreatheClient("SUPERSECRETKEY", BASE, opener=fake_opener(routes, seen)).fetch_all("employees")
+    assert len(seen) == 1, "the foreign host must never be requested"
+    assert "SUPERSECRETKEY" not in str(exc.value)
+
+
 def test_fetch_all_returns_the_list_under_the_resource_key():
     routes = {f"{BASE}/absences?per_page=100": ((FIX / "absences.json").read_bytes(), {})}
     rows = BreatheClient("k", BASE, opener=fake_opener(routes)).fetch_all("absences")
@@ -120,6 +134,16 @@ def test_errors_never_carry_the_key_or_the_body(caplog):
     everything = str(exc.value) + caplog.text
     assert "SUPERSECRETKEY" not in everything
     assert "BODYTEXT" not in everything
+
+
+def test_a_successful_fetch_logs_no_body(caplog):
+    """test_errors_never_carry_the_key_or_the_body only drives the error path.
+    The spec says a response body is never logged, not just an error one —
+    absences.json's first record carries "Maternity" as a marker."""
+    routes = {f"{BASE}/absences?per_page=100": ((FIX / "absences.json").read_bytes(), {})}
+    with caplog.at_level(logging.DEBUG):
+        BreatheClient("k", BASE, opener=fake_opener(routes)).fetch_all("absences")
+    assert "Maternity" not in caplog.text
 
 
 def test_a_non_json_body_is_a_breathe_error_not_a_crash():

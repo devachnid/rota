@@ -20,7 +20,7 @@ import logging
 import re
 import urllib.error
 import urllib.request
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 from django.conf import settings
 
@@ -91,7 +91,18 @@ class BreatheClient:
             page = data.get(resource, [])
             rows.extend(page)
             m = _NEXT.search(headers.get("link", ""))
-            url = m.group(1) if (m and page) else None
+            next_url = m.group(1) if (m and page) else None
+            if next_url and not next_url.startswith(self.base_url):
+                # A Link header is attacker-reachable — from Breathe, or from
+                # anything on the path to it. Following it would attach the
+                # real X-API-KEY header to a request to whatever host it
+                # names, so this is checked before that request is ever made.
+                bad_path = urlparse(next_url).path
+                log.warning("breathe %s -> Link named another host; refused", bad_path)
+                raise BreatheError(
+                    "Breathe returned a Link to another host; refusing to follow it",
+                    path=bad_path)
+            url = next_url
         return rows
 
     def employees(self):
