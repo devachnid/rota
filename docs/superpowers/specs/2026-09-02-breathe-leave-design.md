@@ -1,6 +1,6 @@
 # Leave from BreatheHR
 
-**Date:** 2026-09-01
+**Date:** 2026-09-02
 **Status:** Approved design, pre-implementation
 **Builds on:** the availability consolidation in `2026-08-30-rota-fixes-design.md`
 and the `cell_state` extraction in `2026-08-31-frontend-phase2-design.md`, both
