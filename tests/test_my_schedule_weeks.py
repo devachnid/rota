@@ -202,14 +202,6 @@ def test_the_five_column_table_is_gone(gp_client, gp_user):
     assert "table-scroll" not in _html(gp_client)
 
 
-def test_the_agenda_comes_before_the_leave_balance(gp_client, gp_user):
-    """The old order made a GP scroll past their leave balance to find out
-    where they are working tomorrow."""
-    make_clinician(user=gp_user)
-    html = _html(gp_client)
-    assert html.index("ms-weeks") < html.index("ms-balance")
-
-
 def test_a_swap_awaiting_you_comes_before_everything(gp_client, gp_user):
     from rota.models import SwapRequest
     from tests.factories import MON
@@ -340,3 +332,54 @@ def test_today_is_working_even_when_the_surgery_is_closed(gp_client, gp_user):
     html = _html(gp_client)
     assert "ROUT" in html
     assert "Surgery closed" not in html
+
+
+# ------------------------------------------------------ Breathe overlay ---
+
+def test_a_gps_own_breathe_leave_shows_on_their_schedule(gp_client, gp_user):
+    """The old agenda bypassed cell_state and so could never show leave. With
+    Breathe as the source that would hide a GP's own leave from them."""
+    from tests.factories import make_absence
+    c = make_clinician(user=gp_user)
+    make_pattern(c)
+    today = date.today()
+    monday = today - timedelta(days=today.weekday())
+    tuesday = monday + timedelta(days=1)
+    make_absence(c, tuesday)
+    html = gp_client.get("/me/").content.decode()
+    assert 'title="From Breathe"' in html
+    assert "AL" in html
+
+
+def test_a_week_of_breathe_leave_reads_on_leave_all_week(gp_client, gp_user):
+    from tests.factories import make_absence
+    c = make_clinician(user=gp_user)
+    make_pattern(c)
+    today = date.today()
+    monday = today - timedelta(days=today.weekday())
+    make_absence(c, monday, monday + timedelta(days=4))
+    PracticeSettings.load()
+    weeks = gp_client.get("/me/").context["weeks"]
+    assert weeks[0]["count_label"] == "On leave all week"
+
+
+def test_today_reads_working_when_only_half_the_day_is_leave(gp_client, gp_user):
+    from tests.factories import make_absence
+    c = make_clinician(user=gp_user)
+    make_pattern(c)
+    today = date.today()
+    if today.weekday() > 4:
+        pytest.skip("weekend")
+    make_absence(c, today, half_start=True, half_start_am_pm="AM")
+    ctx = gp_client.get("/me/").context
+    assert ctx["today_state"] == "working"
+    assert ctx["today_cells"][0]["absence"] is not None
+    assert ctx["today_cells"][1]["absence"] is None
+
+
+def test_the_leave_balance_and_leave_requests_are_gone(gp_client, gp_user):
+    make_clinician(user=gp_user)
+    html = gp_client.get("/me/").content.decode()
+    assert "ms-balance" not in html
+    assert "Request leave" not in html
+    assert "Propose a swap" in html, "swaps stay"

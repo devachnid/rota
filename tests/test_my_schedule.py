@@ -8,7 +8,7 @@ from tests.factories import MON, make_clinician, make_entry, make_session_type
 pytestmark = pytest.mark.django_db
 
 
-def test_shows_upcoming_sessions_and_balance(gp_client, gp_user):
+def test_shows_upcoming_sessions(gp_client, gp_user):
     PracticeSettings.load()
     c = make_clinician(user=gp_user, leave_entitlement_sessions=60)
     from datetime import date
@@ -16,7 +16,7 @@ def test_shows_upcoming_sessions_and_balance(gp_client, gp_user):
     make_entry(c, day=today + timedelta(days=1), part="AM",
                session_type=make_session_type("Routine", code="ROUT"))
     html = gp_client.get("/me/").content.decode()
-    assert "ROUT" in html and "60" in html
+    assert "ROUT" in html
 
 
 def test_swap_awaiting_my_acceptance_listed(gp_client, gp_user):
