@@ -14,11 +14,14 @@ from urllib.error import HTTPError
 
 import pytest
 
-from rota.services.breathe.client import (EMPLOYEE_FIELDS, BreatheClient,
-                                          BreatheError)
+from rota.services.breathe.client import (EMPLOYEE_FIELDS, MAX_PAGES,
+                                          BreatheClient, BreatheError)
 
 FIX = Path(__file__).resolve().parent / "fixtures" / "breathe"
 BASE = "https://api.breathehr.com/v1"
+# The pathless form BREATHE_API_URL invites, and what rstrip("/") makes of
+# "https://api.breathehr.com/". A prefix test cannot defend it.
+BARE = "https://api.breathehr.com"
 
 
 class _Resp(io.BytesIO):
@@ -87,6 +90,57 @@ def test_fetch_all_refuses_a_link_header_naming_a_foreign_host():
     with pytest.raises(BreatheError) as exc:
         BreatheClient("SUPERSECRETKEY", BASE, opener=fake_opener(routes, seen)).fetch_all("employees")
     assert len(seen) == 1, "the foreign host must never be requested"
+    assert "SUPERSECRETKEY" not in str(exc.value)
+
+
+@pytest.mark.parametrize("evil", [
+    # A host that merely *starts with* the base: a registrable domain the
+    # attacker owns, with the real one as a label prefix.
+    "https://api.breathehr.com.evil.example/employees?page=2",
+    # userinfo: everything before the "@" is a username, and the request
+    # goes to evil.example.
+    "https://api.breathehr.com@evil.example/employees?page=2",
+], ids=["suffix-host", "userinfo-host"])
+def test_fetch_all_refuses_a_link_that_only_string_prefixes_a_pathless_base(evil):
+    """Against a pathless base, `startswith` passes both of these and the key
+    goes to the attacker's host. The guard compares scheme and netloc."""
+    seen = []
+    p1 = (FIX / "employees_page1.json").read_bytes()
+    routes = {f"{BARE}/employees?per_page=100": (p1, {"link": f'<{evil}>; rel="next"'})}
+    with pytest.raises(BreatheError) as exc:
+        BreatheClient("SUPERSECRETKEY", BARE,
+                      opener=fake_opener(routes, seen)).fetch_all("employees")
+    assert len(seen) == 1, "the foreign host must never be requested"
+    assert "SUPERSECRETKEY" not in str(exc.value)
+
+
+def test_fetch_all_follows_a_link_to_a_different_path_on_the_same_host():
+    """The guard is scheme+host, not a path prefix: Breathe's own next links
+    are still followed when the base carries a path."""
+    p1 = (FIX / "employees_page1.json").read_bytes()
+    routes = {
+        f"{BASE}/employees?per_page=100":
+            (p1, {"link": f'<{BASE}/employees?page=2&per_page=3>; rel="next"'}),
+        f"{BASE}/employees?page=2&per_page=3": (b'{"employees": []}', {}),
+    }
+    rows = BreatheClient("k", BASE, opener=fake_opener(routes)).fetch_all("employees")
+    assert len(rows) == 3
+
+
+def test_fetch_all_stops_at_the_page_cap():
+    """A Link header naming its own page is a loop that would spend the rate
+    limit and never return."""
+    seen = []
+    body = b'{"employees": [{"id": 1}]}'
+    headers = {"link": f'<{BASE}/employees?per_page=100>; rel="next"'}
+
+    def opener(req):
+        seen.append(req)
+        return _Resp(body, headers)
+
+    with pytest.raises(BreatheError) as exc:
+        BreatheClient("SUPERSECRETKEY", BASE, opener=opener).fetch_all("employees")
+    assert len(seen) == MAX_PAGES, "the cap bounds the requests, not just the loop"
     assert "SUPERSECRETKEY" not in str(exc.value)
 
 

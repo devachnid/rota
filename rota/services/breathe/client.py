@@ -30,6 +30,10 @@ EMPLOYEE_FIELDS = ("id", "first_name", "last_name", "email", "employee_ref",
                    "status", "leaving_date")
 
 PER_PAGE = 100
+# A practice-scale account is a handful of pages at per_page=100. A Link
+# header that points at its own page — or round a cycle — would otherwise
+# spend the rate limit and hang the request that started it.
+MAX_PAGES = 200
 _NEXT = re.compile(r'<([^>]+)>;\s*rel="next"')
 
 
@@ -75,6 +79,20 @@ class BreatheClient:
             raise BreatheError(f"Breathe returned a non-JSON body for {path}",
                                path=path, request_id=headers.get("x-request-id")) from None
 
+    def _same_origin(self, url):
+        """Whether `url` is on exactly the scheme and host the client was
+        configured for.
+
+        A string prefix is not a host test. With a pathless base — which
+        BREATHE_API_URL invites and rstrip("/") produces — both
+        `https://api.breathehr.com.evil.example/v1/x` and
+        `https://api.breathehr.com@evil.example/v1/x` start with
+        "https://api.breathehr.com". netloc is the whole authority, so the
+        userinfo trick fails on it too.
+        """
+        base, other = urlparse(self.base_url), urlparse(url)
+        return (base.scheme, base.netloc) == (other.scheme, other.netloc)
+
     # -- every page --------------------------------------------------------
 
     def fetch_all(self, resource):
@@ -86,13 +104,21 @@ class BreatheClient:
         """
         url = f"{self.base_url}/{resource}?{urlencode({'per_page': PER_PAGE})}"
         rows = []
+        pages = 0
         while url:
+            pages += 1
+            if pages > MAX_PAGES:
+                log.warning("breathe /%s: more than %s pages; stopped",
+                            resource, MAX_PAGES)
+                raise BreatheError(
+                    f"Breathe returned more than {MAX_PAGES} pages for /{resource}",
+                    path=f"/{resource}")
             data, headers = self._get(url)
             page = data.get(resource, [])
             rows.extend(page)
             m = _NEXT.search(headers.get("link", ""))
             next_url = m.group(1) if (m and page) else None
-            if next_url and not next_url.startswith(self.base_url):
+            if next_url and not self._same_origin(next_url):
                 # A Link header is attacker-reachable — from Breathe, or from
                 # anything on the path to it. Following it would attach the
                 # real X-API-KEY header to a request to whatever host it
