@@ -50,8 +50,14 @@ def test_refresh_now_refuses_within_sixty_seconds_of_a_run(staff_client):
 
 
 def test_refresh_now_is_post_only_and_admin_only(client, gp_client):
-    assert gp_client.post("/admin/rota/breathesyncrun/refresh/").status_code in (302, 403)
-    assert client.post("/admin/rota/breathesyncrun/refresh/").status_code in (302, 403)
+    """302 is what a *successful* refresh returns too, so the status code
+    alone cannot tell "blocked" from "ran and redirected". The sync itself is
+    what must not happen."""
+    with mock.patch("rota.admin.breathe_sync.run") as run:
+        assert gp_client.post("/admin/rota/breathesyncrun/refresh/").status_code in (302, 403)
+        run.assert_not_called()
+        assert client.post("/admin/rota/breathesyncrun/refresh/").status_code in (302, 403)
+        run.assert_not_called()
 
 
 def test_refresh_now_says_so_when_unconfigured(staff_client):

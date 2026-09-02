@@ -53,7 +53,7 @@ def test_the_two_endpoint_overlap_becomes_one_row_with_both_ids():
         (date(2026, 9, 14), date(2026, 9, 22)), (date(2026, 9, 28), date(2026, 9, 30))]
     mat = rows[0]
     assert mat.kind == "other" and mat.reason == "Maternity"
-    assert set(mat.source_ids.split(",")) == {"44235958", "37454316"}, "request id first, absence id second"
+    assert mat.source_ids.split(",") == ["44235958", "37454316"], "request id first, absence id second"
 
 
 def test_pending_requests_are_not_leave():
@@ -70,6 +70,55 @@ def test_cancelled_rows_are_dropped():
     sync.run(client)
     kathleen = by_id[2340352]
     assert BreatheAbsence.objects.filter(clinician=kathleen).count() == 2
+
+
+def test_a_cancelled_absence_row_is_dropped():
+    """`cancelled` is on /absences rows too, not only leave requests. The
+    Maternity absence (37454316) is the twin of request 44235958: cancelling
+    it must leave the request's row standing, without its id."""
+    by_id = _link_everyone()
+    client = FakeClient()
+    client.data["absences"][0]["cancelled"] = True
+    run = sync.run(client)
+    assert run.ok and run.n_deduped == 12
+    mat = BreatheAbsence.objects.get(clinician=by_id[2340351], reason="Maternity")
+    assert mat.source_ids.split(",") == ["44235958"]
+
+
+def test_a_null_and_an_empty_am_pm_are_the_same_record():
+    """Breathe mixes the two conventions between endpoints. The stored row
+    coerces null to "", so the dedup key must too — otherwise the pair
+    survives dedup as two records and collides on the content key at insert."""
+    make_clinician("Half Day", breathe_employee_id=2340351)
+    row = {"id": 1, "employee": {"id": 2340351}, "status": "approved",
+           "type": "Holiday", "start_date": "2026-10-05", "end_date": "2026-10-06",
+           "half_start": False, "half_start_am_pm": None,
+           "half_end": False, "half_end_am_pm": None}
+    twin = dict(row, id=2, half_start_am_pm="", half_end_am_pm="")
+    run = sync.run(FakeClient(leave_requests=[row, twin], absences=[], sicknesses=[]))
+    assert run.ok, run.error
+    assert run.n_deduped == 1
+    stored = BreatheAbsence.objects.get()
+    assert stored.source_ids.split(",") == ["1", "2"]
+
+
+def test_a_broken_record_records_a_failed_run_and_keeps_the_overlay():
+    """Only BreatheError used to be caught, so a TypeError from a null date
+    killed the run with no row written — and the status page went on showing
+    an old "last successful sync"."""
+    _link_everyone()
+    sync.run(FakeClient())
+    before = list(BreatheAbsence.objects.values_list("id", "start_date", "clinician_id"))
+    client = FakeClient()
+    client.data["leave_requests"][0]["start_date"] = None
+
+    run = sync.run(client)
+
+    assert run.ok is False
+    assert "TypeError" in run.error
+    assert run.finished is not None
+    assert BreatheSyncRun.objects.filter(ok=False).count() == 1, "the failure is on record"
+    assert list(BreatheAbsence.objects.values_list("id", "start_date", "clinician_id")) == before
 
 
 def test_sickness_type_never_reaches_the_row():

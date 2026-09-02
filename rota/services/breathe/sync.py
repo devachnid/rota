@@ -12,7 +12,7 @@ its kind and reason; later collisions contribute only their id.
 """
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from django.db import transaction
 from django.utils import timezone
@@ -58,7 +58,16 @@ def normalise(source, row):
         kind, reason = BreatheAbsence.Kind.SICKNESS, ""  # the type is dropped here
     else:
         kind, reason = _kind_and_reason(row)
-    return Norm(employee_id=row["employee"]["id"], span=Span.from_api(row),
+    span = Span.from_api(row)
+    # Breathe sends null for the half-day am_pm fields on some endpoints and
+    # "" on others, for the same shape of record. The stored row coerces to
+    # "", so the dedup key has to as well: otherwise two records identical
+    # but for null-vs-"" survive dedup as distinct and then collide at
+    # insert. Span.from_api itself stays a raw read of what the API sent.
+    span = replace(span,
+                   half_start_am_pm=span.half_start_am_pm or "",
+                   half_end_am_pm=span.half_end_am_pm or "")
+    return Norm(employee_id=row["employee"]["id"], span=span,
                 kind=kind, reason=reason, source_id=str(row["id"]))
 
 
@@ -71,9 +80,33 @@ def _warn_on_contradictions(norm):
 
 
 def run(client, *, dry_run=False, now=None):
+    """One sync. Always answers with a BreatheSyncRun — never an exception.
+
+    The status page and the timer both read the last run row, so a run that
+    died without writing one would leave "last successful sync" pointing at
+    an old success while nothing had synced for days. A BreatheError is
+    reported with the resource that failed; anything else — a TypeError from
+    a null date, an IntegrityError from a collision — is reported by type and
+    message. The overlay is never half-written: the replace-all is inside
+    transaction.atomic(), which rolls back on the way out.
+    """
     started = now or timezone.now()
     result = BreatheSyncRun(started=started)
+    try:
+        return _run(client, result, dry_run=dry_run)
+    except Exception as e:
+        # The message can only ever be about Breathe's data or the database;
+        # the key is not in scope here and never reaches this string.
+        log.warning("breathe sync failed with %s", type(e).__name__)
+        result.ok = False
+        result.error = f"{type(e).__name__}: {e}"
+        result.finished = timezone.now()
+        if not dry_run:
+            result.save()
+        return result
 
+
+def _run(client, result, *, dry_run):
     fetched = {}
     try:
         for source in SOURCES:
