@@ -15,6 +15,7 @@ This is the *reference* for what each setting means once you are in there.
 | [Session types](session-types.md) | Every flag on a session type, and what each one drives |
 | [Coverage rules](coverage-rules.md) | The rules that tell the fill engine what must be staffed, plus trainee stage rules |
 | [Day to day](day-to-day.md) | Assisted fill, rota entries, day notes, locums, leave, swaps, the audit log |
+| [Leave from Breathe](breathe.md) | Linking clinicians, the sync, what counts as off |
 
 ## The mental model
 
@@ -62,3 +63,4 @@ their history stays intact and they drop out of every eligibility pool.
 | Leave balances look wrong or negative | [Counts toward entitlement](session-types.md#counts-toward-entitlement) and each clinician's entitlement figure |
 | A trainee shows a huge backlog | [`requirements_tracked_from`](people.md#trainee-profile) |
 | A warning you do not want | [Warnings](day-to-day.md#warnings-on-the-grid) — they come from three separate sources |
+| Someone's leave is not on the grid | Are they [linked to Breathe](breathe.md#setting-it-up-in-this-order)? Has a sync run since it was approved? |

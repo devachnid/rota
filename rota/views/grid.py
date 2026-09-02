@@ -23,6 +23,8 @@ def grid(request):
     days = [monday + timedelta(days=i) for i in settings.open_weekday_list()]
     is_admin = request.user.is_rota_admin
     has_clinician = getattr(request.user, "clinician", None) is not None
+    unlinked_count = (Clinician.objects.filter(active=True, breathe_employee_id=None).count()
+                      if is_admin else 0)
 
     entries = RotaEntry.objects.filter(day__in=days).select_related(
         "session_type", "clinician", "site"
@@ -122,6 +124,7 @@ def grid(request):
         "locum_cells": locum_cells,
         "is_admin": is_admin,
         "has_clinician": has_clinician,
+        "unlinked_count": unlinked_count,
         "colspan": len(days) * 2 + 1,
         # max(), for the same reason as the leave filter above: this is one
         # end of a date range (the Publish button posts monday..week_end into
