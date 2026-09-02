@@ -1,8 +1,10 @@
 from dataclasses import dataclass
 
-from rota.models import (ClinicianGroup, CoverageRule, LocumRequirement,
+from rota.models import (BreatheAbsence, BreatheLeaveMapping, ClinicianGroup,
+                         CoverageRule, LocumRequirement, PatternSlot,
                          PracticeSettings, RotaEntry, SessionType)
 from rota.services import calendar
+from rota.services.availability import AvailabilityResolver
 
 
 @dataclass
@@ -17,6 +19,41 @@ def _locum_suffix(day, part, session_type):
         day=day, part=part, session_type=session_type
     ).first()
     return f" — locum {req.get_status_display().lower()}" if req else ""
+
+
+def _breathe_conflicts(day, entries):
+    """Rostered sessions standing on a clinician Breathe says is off.
+
+    Leave used to be approved in the rota, and approving it overwrote the
+    entries. Breathe owns leave now and nothing overwrites anything, so the
+    ordinary sequence — publish the week, then leave is approved in Breathe —
+    leaves a published session against someone who is not coming in. The cell
+    still renders the session (an entry beats leave in cell_state, by design)
+    and fill will not clear it (it never touches published or manual
+    entries), so this warning is the only place the conflict surfaces. The
+    admin clears the session by hand.
+
+    Decided by the resolver, never by the mapping: an absence whose
+    (kind, reason) has no mapping row renders no chip but is still leave.
+    """
+    if not entries:
+        return []
+    clinicians = {e.clinician_id: e.clinician for e in entries}
+    resolver = AvailabilityResolver(
+        PatternSlot.objects.filter(clinician_id__in=clinicians),
+        clinicians.values(),
+        BreatheAbsence.objects.filter(clinician_id__in=clinicians,
+                                      start_date__lte=day, end_date__gte=day),
+        BreatheLeaveMapping.as_dict(),
+    )
+    warnings = []
+    for part in ["AM", "PM"]:
+        n = len({e.clinician_id for e in entries if e.part == part
+                 and resolver.on_leave(e.clinician_id, day, part)})
+        if n:
+            warnings.append(Warning(
+                "breathe", part, f"{n} rostered on Breathe leave ({part})"))
+    return warnings
 
 
 def day_warnings(day, include_drafts=True):
@@ -74,4 +111,6 @@ def day_warnings(day, include_drafts=True):
                     "group", part,
                     f"{group.name}: {present}/{group.min_per_session} in ({part})",
                 ))
+
+    warnings.extend(_breathe_conflicts(day, entries))
     return warnings

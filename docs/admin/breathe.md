@@ -18,7 +18,8 @@ is off and assisted fill never assigns them.
    right one and save. Where a clinician's login email matches a Breathe
    employee's email, that person is pre-selected; you still have to save.
 4. **Run the first sync.** `/admin/rota/breathesyncrun/` → **Refresh now**, or
-   `python manage.py breathe_sync`.
+   `python manage.py breathe_sync`. Add `--dry-run` to fetch and count without
+   writing, to check a real account's shape first.
 5. **Enable the timer.** `systemctl enable --now rota-breathe.timer`.
 
 Step 3 before step 4 matters: a sync before anyone is linked reads everything
@@ -35,6 +36,11 @@ Three Breathe sources, combined and de-duplicated:
 
 **Pending requests are not shown.** Leave appears on the rota when Breathe says
 it is approved, within fifteen minutes.
+
+**A week already published keeps its sessions.** Nothing in the rota overwrites
+a session when leave is approved in Breathe afterwards, so the week grid warns
+admins — "1 rostered on Breathe leave (AM)" on that day's header — and you clear
+the session by hand.
 
 ## Breathe leave mapping
 
@@ -60,7 +66,7 @@ available; the week grid warns admins about them too.
 
 **Refresh now** runs a sync immediately — useful the moment leave has just been
 approved in Breathe and you want to fill the gap. It refuses if a sync ran in
-the last minute.
+the last minute, and is disabled altogether until `BREATHE_API_KEY` is set.
 
 ## If Breathe is down
 
