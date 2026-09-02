@@ -13,7 +13,8 @@ from .models import (Clinician, ClinicianGroup, ClosedDay, CoverageRule,
                      PatternSlot, PracticeSettings, RecurringCommitment, RotaEntry, RotaEntryLog,
                      SessionType, Site, SwapRequest, TraineeProfile, TraineeStageRule)
 from .services.patterns import bulk_set_pattern, current_pattern
-from .admin_widgets import TintSwatchSelect
+from .admin_widgets import (BreatheEmployeeSelect, TintSwatchSelect,
+                            breathe_employees, employee_label)
 
 WEEKDAY_LABELS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday",
                   "Saturday", "Sunday"]
@@ -30,14 +31,89 @@ class TraineeProfileInline(admin.StackedInline):
     extra = 0
 
 
+class BreatheLinkedFilter(admin.SimpleListFilter):
+    title = "Breathe"
+    parameter_name = "breathe"
+
+    def lookups(self, request, model_admin):
+        # Labels avoid the bare word "Linked": a clinician can genuinely be
+        # named that, and the sidebar renders every option on every page —
+        # including the "not linked" filtered view — so a literal "Linked"
+        # label would show up there regardless of which clinicians matched.
+        return [("linked", "Has a link"), ("unlinked", "No link")]
+
+    def queryset(self, request, qs):
+        if self.value() == "linked":
+            return qs.exclude(breathe_employee_id=None)
+        if self.value() == "unlinked":
+            return qs.filter(breathe_employee_id=None)
+        return qs
+
+
 @admin.register(Clinician)
 class ClinicianAdmin(admin.ModelAdmin):
     list_display = ("name", "initials", "group", "active", "is_trainer",
                     "start_date", "end_date",
-                    "pattern_link")
-    list_filter = ("group", "active")
+                    "pattern_link", "breathe_link")
+    list_filter = ("group", "active", BreatheLinkedFilter)
     inlines = [TraineeProfileInline]
     actions = ["deactivate_clinicians"]
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        if db_field.name == "breathe_employee_id":
+            employees = breathe_employees()
+            if employees is None:
+                field = super().formfield_for_dbfield(db_field, request, **kwargs)
+                field.help_text = ("Could not reach Breathe, so this is the raw employee id. "
+                                   "The dropdown returns when Breathe is reachable.")
+                return field
+            kwargs["widget"] = BreatheEmployeeSelect(employees)
+            kwargs["help_text"] = "The Breathe employee whose leave this clinician's is."
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
+
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        # Suggest by exact email match — only for a clinician with no link, and
+        # only as an initial value the admin must still submit.
+        #
+        # Setting `field.initial` (form.base_fields[...].initial) has no
+        # effect here: for a change view Django builds the form as
+        # ModelForm(instance=obj), and BaseModelForm.__init__ seeds
+        # self.initial from model_to_dict(instance) *before* anything looks
+        # at the field's own .initial — so self.initial already holds
+        # breathe_employee_id: None, and dict.get(key, default) returns that
+        # stored None rather than falling through to field.initial. The
+        # suggestion has to land in self.initial on the bound form instance
+        # instead, which is why this subclasses rather than touching
+        # base_fields.
+        if obj is not None and obj.breathe_employee_id is None and obj.user_id:
+            employees = breathe_employees() or []
+            email = (obj.user.email or "").lower()
+            match = next((e for e in employees if (e.get("email") or "").lower() == email), None)
+            if match and "breathe_employee_id" in form.base_fields:
+                suggested_id = match["id"]
+
+                class SuggestingForm(form):
+                    def __init__(self, *args, **kw):
+                        super().__init__(*args, **kw)
+                        # Only the empty GET render, never a submitted POST —
+                        # a bound form's initial is irrelevant to what gets
+                        # saved, but leaving this unconditional would still
+                        # be harmless; the guard just documents the intent.
+                        if not self.is_bound:
+                            self.initial["breathe_employee_id"] = suggested_id
+
+                return SuggestingForm
+        return form
+
+    @admin.display(description="Breathe")
+    def breathe_link(self, obj):
+        if obj.breathe_employee_id is None:
+            return format_html(
+                '<span style="color: var(--muted, #6b7280)">{}</span>', "not linked")
+        employees = breathe_employees() or []
+        e = next((x for x in employees if x["id"] == obj.breathe_employee_id), None)
+        return employee_label(e) if e else f"#{obj.breathe_employee_id}"
 
     @admin.action(description="Deactivate selected clinicians")
     def deactivate_clinicians(self, request, queryset):

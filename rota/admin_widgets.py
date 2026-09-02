@@ -8,11 +8,14 @@ from 42 than a long dropdown.
 Every colour comes from `rota.palette`; nothing here hardcodes one.
 """
 
+from django import forms
+from django.core.cache import cache
 from django.forms.widgets import RadioSelect
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
 
 from rota import palette
+from rota.services.breathe.client import BreatheError, from_settings
 
 
 class TintSwatchSelect(RadioSelect):
@@ -40,3 +43,45 @@ class TintSwatchSelect(RadioSelect):
         )
         return format_html(
             '<div style="max-width:52em; line-height:2">{}</div>', rows)
+
+
+_EMPLOYEES_KEY = "breathe:employees"
+_EMPLOYEES_TTL = 300
+
+
+def breathe_employees():
+    """The projected employee list, or None when Breathe is off or down.
+    Cached so opening ten clinician forms costs one request."""
+    cached = cache.get(_EMPLOYEES_KEY)
+    if cached is not None:
+        return cached
+    client = from_settings()
+    if client is None:
+        return None
+    try:
+        employees = client.employees()
+    except BreatheError:
+        return None
+    cache.set(_EMPLOYEES_KEY, employees, _EMPLOYEES_TTL)
+    return employees
+
+
+def employee_label(e):
+    name = f"{e.get('first_name') or ''} {e.get('last_name') or ''}".strip()
+    bits = [name, e.get("email") or "", e.get("employee_ref") or ""]
+    label = " · ".join(b for b in bits if b)
+    if (e.get("status") or "").lower().startswith("ex"):
+        label += " (ex-employee)"
+    return label
+
+
+class BreatheEmployeeSelect(forms.Select):
+    """A dropdown of Breathe employees; built per form so the cache decides
+    how often Breathe is actually asked."""
+
+    def __init__(self, employees, attrs=None):
+        choices = [("", "— not linked —")] + [
+            (e["id"], employee_label(e))
+            for e in sorted(employees, key=lambda e: (e.get("last_name") or "", e.get("first_name") or ""))
+        ]
+        super().__init__(attrs, choices)
