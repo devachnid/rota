@@ -16,9 +16,14 @@ def _is_leave_cell(cell):
     """Whether one cell counts toward "on leave": a Breathe absence, or (for
     history predating the overlay) an absence-category entry. Off cells
     (nothing expected there at all) never count — they are dashes, not
-    leave."""
+    leave.
+
+    `on_leave`, not `absence`: `absence` is the mapped chip and is None for a
+    kind whose mapping row is missing, which would turn "On leave all week"
+    back into a session count for someone Breathe says is off. The chips the
+    row renders still come from `absence`."""
     absence = SessionType.Category.ABSENCE
-    return cell["absence"] is not None or (
+    return cell["on_leave"] or (
         cell["entry"] is not None
         and cell["entry"].session_type.category == absence)
 
@@ -134,8 +139,16 @@ def my_schedule(request):
     today_pm_cell = cell_state(clinician.id, today, "PM",
                                entry=entries_by.get((today, "PM")),
                                resolver=resolver, closed=today_closed)
-    if (today_am_cell["entry"] or today_pm_cell["entry"]
-            or today_am_cell["absence"] or today_pm_cell["absence"]):
+    # `on_leave` rather than `absence`, so a leave kind with no mapping row
+    # still counts — but explicitly not on a closed day, which `absence`
+    # used to carry implicitly (cell_state suppresses the chip there). Left
+    # unqualified, a bank holiday inside a leave span would take the
+    # "working" branch and render two bare dashes in place of "Surgery
+    # closed" — the closure is the more useful sentence, and it is the same
+    # decision _blocks() makes when it omits the row entirely.
+    on_leave_today = (not today_closed
+                      and (today_am_cell["on_leave"] or today_pm_cell["on_leave"]))
+    if today_am_cell["entry"] or today_pm_cell["entry"] or on_leave_today:
         today_state = "working"
     elif today_closed:
         today_state = "closed"

@@ -111,10 +111,16 @@ def day_view(request, day=None):
         # one of those two to count as covered. A clinician with no worked
         # parts at all (nothing to cover) is never "on leave" — that's
         # not_in below.
+        #
+        # `on_leave`, not `absence`: `absence` is the mapped chip, so with a
+        # kind's default mapping row missing, a sick clinician read "1 in ·
+        # 0 on leave" — the count and the scheduler disagreeing about the
+        # same person. What renders is still `absence`; what is counted is
+        # what Breathe said.
         absence = SessionType.Category.ABSENCE
         worked_cells = [cell for cell in cells if not cell["off"]]
         is_on_leave = bool(worked_cells) and all(
-            cell["absence"] is not None
+            cell["on_leave"]
             or (cell["entry"] and cell["entry"].session_type.category == absence)
             for cell in worked_cells
         )

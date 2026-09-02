@@ -1,7 +1,8 @@
 """What a rota cell shows, decided once.
 
     entry exists                -> the entry
-    on leave and showable       -> the Breathe absence
+    on leave and showable       -> the Breathe absence (`absence`, mapped)
+    on leave, mapped or not     -> `on_leave`, which nothing renders
     works_on                    -> not off: here, nothing allocated
     otherwise                   -> off: not here
 
@@ -16,6 +17,14 @@ def cell_state(clinician_id, day, part, *, entry, resolver, closed,
     """One cell's state. Performs no queries — the caller prefetches."""
     works = resolver.works_on(clinician_id, day, part)
     leave_type = resolver.leave_type(clinician_id, day, part) if entry is None else None
+    # Two different questions, and they must not be answered by one value:
+    # `absence` is what to *render* and goes through the mapping, so a kind
+    # with no mapping row is None; `on_leave` is whether Breathe says the
+    # clinician is off, and never touches the mapping. Every consumer that
+    # counts or files people — the day view's partition, My Schedule's week
+    # label — asks this one, or deleting a mapping row would turn a sick
+    # clinician back into "in".
+    on_leave = resolver.on_leave(clinician_id, day, part) if entry is None else False
 
     # Show the absence only where it means something: on a session the
     # clinician works, or for a clinician with no pattern at all (nothing
@@ -40,6 +49,7 @@ def cell_state(clinician_id, day, part, *, entry, resolver, closed,
         "entry": entry,
         "off": entry is None and not works,
         "absence": leave_type if showable else None,
+        "on_leave": on_leave,
         "closed": closed,
         "partner": partner,
     }
