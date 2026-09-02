@@ -45,7 +45,32 @@ def validate(req):
                 paired.append(
                     f"{clinician.name}'s {day} {part} is a paired session "
                     "(mentoring) and cannot be swapped.")
-    return no_session + paired
+
+    # A swap gives each clinician the other's session. Neither may be on
+    # Breathe leave for the session they would receive — this is the only
+    # gate now that leave is not approved here. Built once per validation:
+    # two clinicians, two slots.
+    from rota.models import BreatheAbsence, BreatheLeaveMapping, PatternSlot
+    from rota.services import availability
+    people = [req.proposer, req.colleague]
+    slots = list(involved_slots(req))
+    days = [d for d, _ in slots]
+    resolver = availability.AvailabilityResolver(
+        PatternSlot.objects.filter(clinician__in=people),
+        people,
+        BreatheAbsence.objects.filter(clinician__in=people,
+                                      start_date__lte=max(days), end_date__gte=min(days)),
+        BreatheLeaveMapping.as_dict(),
+    )
+    on_leave = []
+    receives = {req.proposer: (req.colleague_day, req.colleague_part),
+                req.colleague: (req.proposer_day, req.proposer_part)}
+    for clinician, (day, part) in receives.items():
+        if resolver.on_leave(clinician.id, day, part):
+            on_leave.append(
+                f"{clinician.name} is on leave on {day} {part} (from Breathe) "
+                "and cannot take that session.")
+    return no_session + paired + on_leave
 
 
 def accept(req, user):
