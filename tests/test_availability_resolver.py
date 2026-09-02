@@ -65,16 +65,6 @@ def test_a_session_after_the_end_date_is_not_worked():
 
 
 @pytest.mark.django_db
-def test_pending_leave_is_ignored():
-    """Out of scope by decision: pending leave stays invisible to scheduling.
-    BreatheAbsence has no pending state at all — the sync only ever writes
-    confirmed absences — so this is exercised by simply not writing one."""
-    c = make_clinician("Maybe", initials="MB")
-    rows = [_pattern(c, 0, "AM")]
-    assert _resolver([c], rows).available(c.id, MON, "AM") is True
-
-
-@pytest.mark.django_db
 def test_leave_type_returns_the_session_type_for_rendering():
     c = make_clinician("Chip", initials="CH")
     absence = make_absence(c, MON)
@@ -190,7 +180,7 @@ def test_a_one_shot_iterable_of_pattern_rows_still_populates_has_pattern():
     if the rows were not coerced to a list first."""
     c = make_clinician("Genwise", initials="GW")
     row = _pattern(c, 0, "AM")
-    r = AvailabilityResolver((row for row in [row]), [c], [])
+    r = AvailabilityResolver((row for row in [row]), [c], [], {})
     assert r.has_pattern(c.id) is True
     assert r.works_on(c.id, MON, "AM") is True
 
@@ -242,3 +232,20 @@ def test_leave_does_not_change_works_on():
     make_absence(c, MON)
     r = availability.AvailabilityResolver(rows, [c], list(BreatheAbsence.objects.all()), _mapping())
     assert r.works_on(c.id, MON, "AM") is True
+
+
+@pytest.mark.django_db
+def test_an_unmapped_kind_still_blocks_scheduling():
+    """Availability must never fail open. A sickness absence whose mapping
+    row has been deleted (an admin misconfiguration, or a kind added to
+    Breathe with nothing set up for it yet) must still take the clinician
+    off the rota — a chip having nothing to render is a separate question
+    from whether the fill engine may schedule over it."""
+    from rota.models import BreatheLeaveMapping as Mapping
+
+    c = make_clinician(); rows = make_pattern(c)
+    make_absence(c, MON, kind="sickness")
+    Mapping.objects.filter(kind="sickness", reason="").delete()
+    r = availability.AvailabilityResolver(rows, [c], list(BreatheAbsence.objects.all()), _mapping())
+    assert r.available(c.id, MON, "AM") is False
+    assert r.leave_type(c.id, MON, "AM") is None

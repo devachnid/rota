@@ -83,6 +83,11 @@
                   style="--chip-bg: var(--tint-{{ cell.entry.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ cell.entry.session_type.tint.key }}-fg);">
               {{ cell.entry.session_type.code }}
             </span>
+          {% elif cell.absence %}
+            <span class="chip" title="From Breathe"
+                  style="--chip-bg: var(--tint-{{ cell.absence.tint.key }}-bg); --chip-fg: var(--tint-{{ cell.absence.tint.key }}-fg);">
+              {{ cell.absence.code }}
+            </span>
           {% else %}
             <span class="day-dash">&mdash;</span>
           {% endif %}

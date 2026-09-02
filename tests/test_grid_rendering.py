@@ -133,6 +133,24 @@ def test_a_part_timer_gets_no_ghost_on_their_non_working_days(admin_client):
 
 
 @pytest.mark.django_db
+def test_a_half_day_absence_only_ghosts_the_half_it_covers(admin_client):
+    """A part-blind mutation of `if part in parts_off(...)` (e.g. checking
+    only the span's dates) would put the chip on both parts of a half-day
+    absence. A PM half-start on a single day should leave Monday AM clear
+    and put the chip on Monday PM alone."""
+    c = make_clinician("Halfday", initials="HF")
+    _full_pattern(c)
+    make_absence(c, MON, MON, half_start=True, half_start_am_pm="PM")
+    chips = _chips(_cells(admin_client))
+    assert chips[(c.id, _iso(0), "AM")] != "absence", (
+        "the morning is not covered by a PM half-start absence"
+    )
+    assert chips[(c.id, _iso(0), "PM")] == "absence", (
+        "the afternoon should still show the absence chip"
+    )
+
+
+@pytest.mark.django_db
 def test_a_clinician_with_no_pattern_at_all_gets_ghosts(admin_client):
     """The original complaint: leave recorded, nothing anywhere."""
     c = make_clinician("Nopattern", initials="NP")
@@ -150,6 +168,25 @@ def test_a_real_entry_beats_a_ghost(admin_client):
     make_absence(c, MON)
     html = _cells(admin_client)
     assert 'title="From Breathe"' not in html
+
+
+@pytest.mark.django_db
+def test_an_unmapped_absence_renders_no_chip_but_does_not_500(admin_client):
+    """leave_type() returns None for an absence whose mapping row is
+    missing, so cell_state has nothing to render — but on_leave() (which the
+    fill engine depends on) does not go through the mapping, and resolving a
+    chip that isn't there must not raise."""
+    from rota.models import BreatheLeaveMapping
+
+    c = make_clinician("Unmapped", initials="UM")
+    _pattern(c, 0, "AM")
+    make_absence(c, MON, kind="sickness")
+    BreatheLeaveMapping.objects.filter(kind="sickness", reason="").delete()
+
+    resp = admin_client.get(f"/rota/?week={MON.isoformat()}")
+    assert resp.status_code == 200
+    chips = _chips(resp.content.decode())
+    assert chips[(c.id, _iso(0), "AM")] != "absence"
 
 
 @pytest.mark.django_db

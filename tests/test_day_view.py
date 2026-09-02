@@ -119,6 +119,20 @@ def test_a_clinician_on_leave_all_day_is_in_the_leave_group_not_the_roster(
     assert "Anwer Al-Hasani" in _on_leave_tbody(html)
 
 
+def test_a_clinician_on_breathe_leave_all_day_shows_the_chip_in_the_leave_group(
+        gp_client, gp_user):
+    """The on-leave table has its own cell markup, separate from the
+    roster's — it must render the overlay chip too, not just fall through to
+    the dash it uses for "nothing recorded"."""
+    make_clinician("Viewer", user=gp_user)
+    c = make_clinician("Beatrice Okafor")
+    make_pattern(c)
+    make_absence(c, TUE)
+    html = _html(gp_client)
+    assert "Beatrice Okafor" in _on_leave_tbody(html)
+    assert 'title="From Breathe"' in _on_leave_tbody(html)
+
+
 def test_half_a_day_of_leave_keeps_the_clinician_in_the_roster(gp_client, gp_user):
     make_clinician("Viewer", user=gp_user)
     c = make_clinician("Esther Lomas")

@@ -98,7 +98,7 @@ class AvailabilityResolver:
     in memory.
     """
 
-    def __init__(self, pattern_rows, clinicians, absences, mapping=None):
+    def __init__(self, pattern_rows, clinicians, absences, mapping):
         # Built from prefetched rows, so the caller's iterable shape must not
         # matter. pattern_rows is walked twice below (once by PatternResolver,
         # once to build _with_pattern) — a one-shot generator would silently
@@ -108,19 +108,20 @@ class AvailabilityResolver:
         self._clinicians = {c.id: c for c in clinicians}
         self._with_pattern = {row.clinician_id for row in pattern_rows}
 
-        # {clinician_id: [(span, session_type), ...]} from the Breathe overlay.
-        # The mapping (kind, reason) -> type is resolved here, once, so a
-        # lookup never touches the database. Exact reason first, then the
-        # kind's default row; an unmapped kind renders nothing rather than
-        # crashing, and the sync status page is where that gets noticed.
+        # {clinician_id: [(span, kind, reason), ...]} — every absence,
+        # unfiltered by the mapping. Availability must never depend on it: an
+        # absence whose (kind, reason) has no mapping row still takes the
+        # clinician off the rota, or the fill engine would schedule over
+        # unmapped sick leave. Only what cell_state has to *render* — via
+        # leave_type() below — depends on the mapping resolving to something.
+        # required, not defaulted: a caller that forgets it should fail
+        # loudly rather than silently see everyone as available.
         mapping = mapping or {}
+        self._mapping = mapping
         self._leave = {}
         for a in absences:
-            session_type = (mapping.get((a.kind, a.reason))
-                            or mapping.get((a.kind, "")))
-            if session_type is None:
-                continue
-            self._leave.setdefault(a.clinician_id, []).append((a.span, session_type))
+            self._leave.setdefault(a.clinician_id, []).append(
+                (a.span, a.kind, a.reason))
 
     def has_pattern(self, clinician_id):
         """Whether any pattern row exists at all. Distinct from "does not work
@@ -141,16 +142,34 @@ class AvailabilityResolver:
             return False
         return self._patterns.works_on(clinician_id, day, part)
 
-    def leave_type(self, clinician_id, day, part):
-        """The absence type covering `day`/`part`, or None. Part-aware:
-        Breathe records half-days, and the rota's parts are the unit."""
-        for span, session_type in self._leave.get(clinician_id, ()):
+    def _covering(self, clinician_id, day, part):
+        """The (kind, reason) of the absence covering `day`/`part`, or None.
+        The one place both leave_type() and on_leave() read the overlay, so
+        they cannot disagree about which absence applies — only about
+        whether it renders."""
+        for span, kind, reason in self._leave.get(clinician_id, ()):
             if part in parts_off(span, day):
-                return session_type
+                return kind, reason
         return None
 
+    def leave_type(self, clinician_id, day, part):
+        """The mapped SessionType covering `day`/`part`, or None — either
+        because nothing covers it, or because what covers it has no mapping
+        row. Part-aware: Breathe records half-days, and the rota's parts are
+        the unit. This is what cell_state renders; on_leave() is what
+        scheduling depends on, and does not go through the mapping."""
+        covering = self._covering(clinician_id, day, part)
+        if covering is None:
+            return None
+        kind, reason = covering
+        return self._mapping.get((kind, reason)) or self._mapping.get((kind, ""))
+
     def on_leave(self, clinician_id, day, part):
-        return self.leave_type(clinician_id, day, part) is not None
+        """Whether any absence — mapped to a chip or not — covers
+        `day`/`part`. An unmapped kind is still an absence: the sync status
+        page is where a missing mapping row gets noticed, not the fill
+        engine scheduling over it."""
+        return self._covering(clinician_id, day, part) is not None
 
     def available(self, clinician_id, day, part):
         return (self.works_on(clinician_id, day, part)
