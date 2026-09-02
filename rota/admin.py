@@ -9,7 +9,7 @@ from django.utils.html import format_html
 from django.utils.text import capfirst
 
 from .models import (Clinician, ClinicianGroup, ClosedDay, CoverageRule,
-                     DayNote, LeaveRequest, LocumRequirement, Part,
+                     DayNote, LocumRequirement, Part,
                      PatternSlot, PracticeSettings, RecurringCommitment, RotaEntry, RotaEntryLog,
                      SessionType, Site, SwapRequest, TraineeProfile, TraineeStageRule)
 from .services.patterns import bulk_set_pattern, current_pattern
@@ -34,7 +34,7 @@ class TraineeProfileInline(admin.StackedInline):
 class ClinicianAdmin(admin.ModelAdmin):
     list_display = ("name", "initials", "group", "active", "is_trainer",
                     "start_date", "end_date",
-                    "leave_entitlement_sessions", "pattern_link")
+                    "pattern_link")
     list_filter = ("group", "active")
     inlines = [TraineeProfileInline]
     actions = ["deactivate_clinicians"]
@@ -169,7 +169,7 @@ class ClinicianAdmin(admin.ModelAdmin):
 @admin.register(SessionType)
 class SessionTypeAdmin(admin.ModelAdmin):
     list_display = ("name", "code", "category", "colour_swatch",
-                    "fairness_tracked", "pin_on_day_view", "counts_toward_entitlement")
+                    "fairness_tracked", "pin_on_day_view")
     list_filter = ("pin_on_day_view", "fairness_tracked", "category")
     filter_horizontal = ("allowed_clinicians", "allowed_groups", "blocks_same_day")
     readonly_fields = ("legacy_colour",)
@@ -383,12 +383,6 @@ class RotaEntryLogAdmin(admin.ModelAdmin):
 @admin.register(LocumRequirement)
 class LocumRequirementAdmin(admin.ModelAdmin):
     list_display = ("day", "part", "session_type", "status", "clinician")
-    list_filter = ("status",)
-
-
-@admin.register(LeaveRequest)
-class LeaveRequestAdmin(admin.ModelAdmin):
-    list_display = ("clinician", "session_type", "start_date", "end_date", "status")
     list_filter = ("status",)
 
 

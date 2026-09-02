@@ -20,16 +20,6 @@ def test_fairness_report_shows_balance(admin_client):
     assert "Alice Adams" in html and "Duty" in html
 
 
-def test_leave_report(admin_client):
-    PracticeSettings.load()
-    al = make_session_type("Annual leave", category="ABSENCE",
-                           counts_toward_entitlement=True)
-    c = make_clinician(leave_entitlement_sessions=60)
-    make_entry(c, day=date.today() + timedelta(days=3), part="AM", session_type=al)
-    html = admin_client.get("/reports/leave/").content.decode()
-    assert "60" in html and "Annual leave" in html
-
-
 def test_staffing_report_lists_gaps(admin_client):
     PracticeSettings.objects.update_or_create(
         pk=1, defaults={"min_clinical_per_session": 1})

@@ -40,7 +40,6 @@ class Clinician(models.Model):
     active = models.BooleanField(default=True)
     is_trainer = models.BooleanField(
         default=False, help_text="May supervise trainee mentoring sessions.")
-    leave_entitlement_sessions = models.PositiveIntegerField(default=0)
     start_date = models.DateField(
         null=True, blank=True,
         help_text="Do not schedule before this date. Blank means no start bound.")

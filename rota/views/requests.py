@@ -6,54 +6,13 @@ from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from rota.models import Clinician, LeaveRequest, RotaEntry, SessionType, SwapRequest
-from rota.services import leave as leave_svc
+from rota.models import RotaEntry, SwapRequest
 from rota.services import swaps as swaps_svc
 from rota.views.decorators import admin_required, parse_errors_as_400
 
 
-@login_required
-@parse_errors_as_400
-def leave_new(request):
-    try:
-        clinician = request.user.clinician
-    except Clinician.DoesNotExist:
-        return HttpResponseForbidden("No clinician profile linked to this account.")
-    absence_types = SessionType.objects.filter(category="ABSENCE")
-    if request.method == "POST":
-        start_date = date.fromisoformat(request.POST["start_date"])
-        end_date = date.fromisoformat(request.POST["end_date"])
-        if end_date < start_date:
-            return render(request, "rota/leave_form.html", {
-                "absence_types": absence_types,
-                "warning": "End date must not be before the start date.",
-            })
-        LeaveRequest.objects.create(
-            clinician=clinician,
-            session_type=get_object_or_404(
-                absence_types, pk=request.POST["session_type_id"]),
-            start_date=start_date,
-            end_date=end_date,
-            message=request.POST.get("message", ""),
-        )
-        messages.success(request, "Leave request submitted.")
-        return redirect("/me/")
-    return render(request, "rota/leave_form.html",
-                  {"absence_types": absence_types})
-
-
 @admin_required
 def inbox(request):
-    pending_leave = []
-    for r in LeaveRequest.objects.filter(
-        status=LeaveRequest.Status.PENDING
-    ).select_related("clinician", "session_type"):
-        sessions = leave_svc.sessions_affected(r)
-        pending_leave.append({
-            "req": r,
-            "overwritten": leave_svc.entries_overwritten(r, sessions),
-            "n_sessions": len(sessions),
-        })
     pending_swaps = [
         {"req": r, "problems": swaps_svc.validate(r)}
         for r in SwapRequest.objects.filter(
@@ -61,37 +20,8 @@ def inbox(request):
         ).select_related("proposer", "colleague")
     ]
     return render(request, "rota/inbox.html", {
-        "pending_leave": pending_leave,
         "pending_swaps": pending_swaps,
     })
-
-
-@admin_required
-@require_POST
-def leave_approve(request, pk):
-    req = get_object_or_404(LeaveRequest, pk=pk,
-                            status=LeaveRequest.Status.PENDING)
-    written = len(leave_svc.sessions_affected(req))
-    leave_svc.approve(request.user, req, request.POST.get("comment", ""))
-    if written:
-        messages.success(request, f"Leave approved ({written} session(s)).")
-    else:
-        messages.warning(
-            request,
-            f"Leave approved, but no rota sessions were written — "
-            f"{req.clinician.name} has no working pattern covering those dates. "
-            f"It will not count towards their entitlement.")
-    return redirect("/requests/")
-
-
-@admin_required
-@require_POST
-def leave_decline(request, pk):
-    req = get_object_or_404(LeaveRequest, pk=pk,
-                            status=LeaveRequest.Status.PENDING)
-    leave_svc.decline(request.user, req, request.POST.get("comment", ""))
-    messages.success(request, f"Declined leave for {req.clinician.name}.")
-    return redirect("/requests/")
 
 
 @login_required

@@ -7,7 +7,6 @@
   <a href="?week={{ next_week|date:'Y-m-d' }}" class="btn">Next &rarr;</a>
   <form method="get"><input type="date" name="week"><button class="btn">Go</button></form>
   {% if has_clinician %}
-  <a href="/me/leave/new/" class="btn">Request leave</a>
   <a href="/me/swap/new/" class="btn">Propose swap</a>
   {% endif %}
   {% if is_admin %}

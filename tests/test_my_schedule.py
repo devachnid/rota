@@ -10,7 +10,7 @@ pytestmark = pytest.mark.django_db
 
 def test_shows_upcoming_sessions(gp_client, gp_user):
     PracticeSettings.load()
-    c = make_clinician(user=gp_user, leave_entitlement_sessions=60)
+    c = make_clinician(user=gp_user)
     from datetime import date
     today = date.today()
     make_entry(c, day=today + timedelta(days=1), part="AM",

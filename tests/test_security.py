@@ -154,8 +154,8 @@ def test_a_password_that_looks_like_the_users_own_email_is_rejected():
 # --------------------------------------------------------------------------
 
 PROTECTED = ["/rota/", "/me/", "/requests/", "/rota/fill/",
-             "/reports/fairness/", "/reports/leave/", "/reports/staffing/",
-             "/reports/trainees/", "/me/leave/new/", "/me/swap/new/"]
+             "/reports/fairness/", "/reports/staffing/",
+             "/reports/trainees/", "/me/swap/new/"]
 
 
 @pytest.mark.django_db
@@ -188,7 +188,7 @@ def test_a_plain_gp_cannot_reach_admin_screens(url, gp_client):
 # but it means leave balances and trainee progress are visible to colleagues
 # too. Pinned so that if it is ever narrowed, the change is a decision rather
 # than a side effect.
-REPORTS = ["/reports/fairness/", "/reports/leave/", "/reports/staffing/",
+REPORTS = ["/reports/fairness/", "/reports/staffing/",
            "/reports/trainees/"]
 
 

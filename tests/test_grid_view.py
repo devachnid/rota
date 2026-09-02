@@ -102,5 +102,4 @@ def test_leave_swap_links_shown_with_clinician_profile(gp_client, gp_user):
     PracticeSettings.load()
     make_clinician(user=gp_user)
     html = gp_client.get(URL).content.decode()
-    assert "Request leave" in html
     assert "Propose swap" in html

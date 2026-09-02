@@ -125,28 +125,6 @@ def test_module_works_on_respects_active_and_the_date_window():
 
 
 @pytest.mark.django_db
-def test_approving_leave_writes_nothing_outside_a_clinicians_window(admin_user):
-    """The reason the module function changed at all."""
-    from rota.models import LeaveRequest, RotaEntry
-    from rota.services import leave as leave_svc
-
-    c = make_clinician("Left", initials="LF")
-    for weekday in range(5):
-        for part in ("AM", "PM"):
-            _pattern(c, weekday, part)
-    c.end_date = MON - timedelta(days=1)
-    c.save()
-
-    al = make_session_type("Annual Leave", code="ALW", category="ABSENCE")
-    req = LeaveRequest.objects.create(
-        clinician=c, session_type=al,
-        start_date=MON, end_date=MON + timedelta(days=4))
-    leave_svc.approve(admin_user, req)
-
-    assert RotaEntry.objects.filter(clinician=c).count() == 0
-
-
-@pytest.mark.django_db
 def test_leave_type_covers_the_full_multi_day_range_but_not_beyond_it():
     """Every other leave test uses a single-day absence, so start <= day <=
     end could quietly be < at either end and still pass."""
