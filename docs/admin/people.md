@@ -55,8 +55,8 @@ any session type restricted by `allowed_groups`.
 
 ### User
 
-Links this clinician to a **login account**, so they can see My Schedule,
-request leave and propose swaps.
+Links this clinician to a **login account**, so they can see My Schedule and
+propose swaps.
 
 Optional. Leave it blank for someone who is on the rota but does not use the
 app — the rota still works, they simply cannot log in. Locums often sit like

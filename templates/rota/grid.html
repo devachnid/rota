@@ -18,7 +18,7 @@
   {% endif %}
 </div>
 {% if unlinked_count %}
-<div class="warn">{{ unlinked_count }} clinician{{ unlinked_count|pluralize }} not linked to Breathe — no leave is read for them. <a href="/admin/rota/clinician/?breathe=unlinked">Link them</a>.</div>
+<div class="warn">{{ unlinked_count }} clinician{{ unlinked_count|pluralize }} not linked to Breathe — no leave is read for them. <a href="/admin/rota/clinician/?breathe=unlinked&amp;active__exact=1">Link them</a>.</div>
 {% endif %}
 <div class="grid-wrap">
 <table class="table-grid">

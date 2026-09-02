@@ -71,6 +71,8 @@ def test_admins_see_an_unlinked_warning_on_the_grid(admin_client):
     make_clinician("A"); make_clinician("B", breathe_employee_id=1)
     html = admin_client.get("/rota/").content.decode()
     assert "1 clinician not linked to Breathe" in html
+    # The count is of active clinicians, so the list it offers must be too.
+    assert "?breathe=unlinked&amp;active__exact=1" in html
 
 
 def test_gps_do_not_see_the_unlinked_warning(gp_client, gp_user):

@@ -1,7 +1,9 @@
 from django.db import transaction
 from django.utils import timezone
 
-from rota.models import RotaEntry, RotaEntryLog, SwapRequest
+from rota.models import (BreatheAbsence, BreatheLeaveMapping, PatternSlot,
+                         RotaEntry, RotaEntryLog, SwapRequest)
+from rota.services import availability
 
 
 def _log(actor, day, part, name, action, detail=""):
@@ -33,7 +35,8 @@ def validate(req):
     # session" problems) is preserved exactly.
     no_session = []
     paired = []
-    for day, part in involved_slots(req):
+    slots = list(involved_slots(req))
+    for day, part in slots:
         for clinician in (req.proposer, req.colleague):
             entry = RotaEntry.objects.filter(clinician=clinician, day=day,
                                              part=part).first()
@@ -50,10 +53,7 @@ def validate(req):
     # Breathe leave for the session they would receive — this is the only
     # gate now that leave is not approved here. Built once per validation:
     # two clinicians, two slots.
-    from rota.models import BreatheAbsence, BreatheLeaveMapping, PatternSlot
-    from rota.services import availability
     people = [req.proposer, req.colleague]
-    slots = list(involved_slots(req))
     days = [d for d, _ in slots]
     resolver = availability.AvailabilityResolver(
         PatternSlot.objects.filter(clinician__in=people),
