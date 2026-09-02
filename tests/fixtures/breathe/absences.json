@@ -1,0 +1,63 @@
+{
+    "absences": [
+        {
+            "employee": {
+                "id": 2340351,
+                "email": "tom@devachnid.co.uk",
+                "first_name": "Thomas",
+                "last_name": "Hodges-Hoyland"
+            },
+            "approved_by": {
+                "id": 2340351,
+                "first_name": "Thomas",
+                "last_name": "Hodges-Hoyland"
+            },
+            "leave_reason": {
+                "name": "Maternity",
+                "id": 1515171
+            },
+            "deducted": "0.0",
+            "work_units": "7.0",
+            "id": 37454316,
+            "start_date": "2026-09-14",
+            "half_start": false,
+            "half_start_am_pm": null,
+            "end_date": "2026-09-22",
+            "half_end": false,
+            "half_end_am_pm": null,
+            "cancelled": false,
+            "notes": "",
+            "type": "OtherLeave",
+            "created_at": "2026-09-01T20:55:03+01:00",
+            "updated_at": "2026-09-01T20:55:03+01:00"
+        },
+        {
+            "employee": {
+                "id": 2340351,
+                "email": "tom@devachnid.co.uk",
+                "first_name": "Thomas",
+                "last_name": "Hodges-Hoyland"
+            },
+            "approved_by": {
+                "id": 2340351,
+                "first_name": "Thomas",
+                "last_name": "Hodges-Hoyland"
+            },
+            "leave_reason": null,
+            "deducted": "3.0",
+            "work_units": "3.0",
+            "id": 37454317,
+            "start_date": "2026-09-28",
+            "half_start": false,
+            "half_start_am_pm": null,
+            "end_date": "2026-09-30",
+            "half_end": false,
+            "half_end_am_pm": null,
+            "cancelled": false,
+            "notes": "",
+            "type": "Holiday",
+            "created_at": "2026-09-01T20:55:25+01:00",
+            "updated_at": "2026-09-01T20:55:25+01:00"
+        }
+    ]
+}

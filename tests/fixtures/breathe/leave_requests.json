@@ -1,0 +1,318 @@
+{
+    "leave_requests": [
+        {
+            "employee": {
+                "id": 2340352
+            },
+            "reviewed_by": {
+                "id": 2340351
+            },
+            "reason": null,
+            "type": "Holiday",
+            "deducted": "2.0",
+            "cancelled": false,
+            "id": 44203884,
+            "start_date": "2026-03-02",
+            "half_start": false,
+            "half_start_am_pm": null,
+            "end_date": "2026-03-03",
+            "half_end": false,
+            "half_end_am_pm": null,
+            "action": "request",
+            "status": "approved",
+            "notes": null,
+            "created_at": "2026-08-31T19:57:32+01:00",
+            "updated_at": "2026-08-31T19:57:32+01:00"
+        },
+        {
+            "employee": {
+                "id": 2340352
+            },
+            "reviewed_by": {
+                "id": 2340351
+            },
+            "reason": null,
+            "type": "Holiday",
+            "deducted": "2.0",
+            "cancelled": false,
+            "id": 44203885,
+            "start_date": "2026-06-05",
+            "half_start": false,
+            "half_start_am_pm": null,
+            "end_date": "2026-06-08",
+            "half_end": false,
+            "half_end_am_pm": null,
+            "action": "request",
+            "status": "approved",
+            "notes": null,
+            "created_at": "2026-08-31T19:57:32+01:00",
+            "updated_at": "2026-08-31T19:57:32+01:00"
+        },
+        {
+            "employee": {
+                "id": 2340352
+            },
+            "reviewed_by": {
+                "id": 2340351
+            },
+            "reason": null,
+            "type": "Holiday",
+            "deducted": "10.0",
+            "cancelled": false,
+            "id": 44203886,
+            "start_date": "2026-11-02",
+            "half_start": false,
+            "half_start_am_pm": null,
+            "end_date": "2026-11-13",
+            "half_end": false,
+            "half_end_am_pm": null,
+            "action": "request",
+            "status": "approved",
+            "notes": null,
+            "created_at": "2026-08-31T19:57:33+01:00",
+            "updated_at": "2026-08-31T19:57:33+01:00"
+        },
+        {
+            "employee": {
+                "id": 2340361
+            },
+            "reviewed_by": {
+                "id": 2340351
+            },
+            "reason": null,
+            "type": "Holiday",
+            "deducted": "3.0",
+            "cancelled": false,
+            "id": 44203887,
+            "start_date": "2026-08-05",
+            "half_start": false,
+            "half_start_am_pm": null,
+            "end_date": "2026-08-07",
+            "half_end": false,
+            "half_end_am_pm": null,
+            "action": "request",
+            "status": "approved",
+            "notes": null,
+            "created_at": "2026-08-31T19:57:33+01:00",
+            "updated_at": "2026-08-31T19:57:33+01:00"
+        },
+        {
+            "employee": {
+                "id": 2340361
+            },
+            "reviewed_by": {
+                "id": 2340351
+            },
+            "reason": null,
+            "type": "Holiday",
+            "deducted": "2.0",
+            "cancelled": false,
+            "id": 44203888,
+            "start_date": "2026-09-14",
+            "half_start": false,
+            "half_start_am_pm": null,
+            "end_date": "2026-09-15",
+            "half_end": false,
+            "half_end_am_pm": null,
+            "action": "request",
+            "status": "approved",
+            "notes": null,
+            "created_at": "2026-08-31T19:57:33+01:00",
+            "updated_at": "2026-08-31T19:57:33+01:00"
+        },
+        {
+            "employee": {
+                "id": 2340361
+            },
+            "reviewed_by": {
+                "id": 2340351
+            },
+            "reason": null,
+            "type": "Holiday",
+            "deducted": "5.0",
+            "cancelled": false,
+            "id": 44203889,
+            "start_date": "2026-11-09",
+            "half_start": false,
+            "half_start_am_pm": null,
+            "end_date": "2026-11-13",
+            "half_end": false,
+            "half_end_am_pm": null,
+            "action": "request",
+            "status": "approved",
+            "notes": null,
+            "created_at": "2026-08-31T19:57:33+01:00",
+            "updated_at": "2026-08-31T19:57:33+01:00"
+        },
+        {
+            "employee": {
+                "id": 2340356
+            },
+            "reviewed_by": null,
+            "reason": null,
+            "type": "Holiday",
+            "deducted": "2.0",
+            "cancelled": false,
+            "id": 44203890,
+            "start_date": "2026-09-03",
+            "half_start": false,
+            "half_start_am_pm": null,
+            "end_date": "2026-09-04",
+            "half_end": false,
+            "half_end_am_pm": null,
+            "action": "request",
+            "status": "pending",
+            "notes": null,
+            "created_at": "2026-08-31T19:57:33+01:00",
+            "updated_at": "2026-08-31T19:57:33+01:00"
+        },
+        {
+            "employee": {
+                "id": 2340356
+            },
+            "reviewed_by": null,
+            "reason": {
+                "name": "Paternity",
+                "id": 1515174
+            },
+            "type": "OtherLeave",
+            "deducted": "0.0",
+            "cancelled": false,
+            "id": 44203891,
+            "start_date": "2026-10-19",
+            "half_start": false,
+            "half_start_am_pm": null,
+            "end_date": "2026-10-30",
+            "half_end": false,
+            "half_end_am_pm": null,
+            "action": "request",
+            "status": "pending",
+            "notes": null,
+            "created_at": "2026-08-31T19:57:33+01:00",
+            "updated_at": "2026-08-31T19:57:33+01:00"
+        },
+        {
+            "employee": {
+                "id": 2340353
+            },
+            "reviewed_by": {
+                "id": 2340351
+            },
+            "reason": null,
+            "type": "Holiday",
+            "deducted": "3.0",
+            "cancelled": false,
+            "id": 44203892,
+            "start_date": "2026-08-14",
+            "half_start": false,
+            "half_start_am_pm": null,
+            "end_date": "2026-08-18",
+            "half_end": false,
+            "half_end_am_pm": null,
+            "action": "request",
+            "status": "approved",
+            "notes": null,
+            "created_at": "2026-08-31T19:57:33+01:00",
+            "updated_at": "2026-08-31T19:57:33+01:00"
+        },
+        {
+            "employee": {
+                "id": 2340359
+            },
+            "reviewed_by": {
+                "id": 2340351
+            },
+            "reason": null,
+            "type": "Holiday",
+            "deducted": "5.0",
+            "cancelled": false,
+            "id": 44203893,
+            "start_date": "2026-06-08",
+            "half_start": false,
+            "half_start_am_pm": null,
+            "end_date": "2026-06-12",
+            "half_end": false,
+            "half_end_am_pm": null,
+            "action": "request",
+            "status": "approved",
+            "notes": null,
+            "created_at": "2026-08-31T19:57:33+01:00",
+            "updated_at": "2026-08-31T19:57:33+01:00"
+        },
+        {
+            "employee": {
+                "id": 2340359
+            },
+            "reviewed_by": {
+                "id": 2340351
+            },
+            "reason": null,
+            "type": "Holiday",
+            "deducted": "3.0",
+            "cancelled": false,
+            "id": 44203894,
+            "start_date": "2027-02-22",
+            "half_start": false,
+            "half_start_am_pm": null,
+            "end_date": "2027-02-24",
+            "half_end": false,
+            "half_end_am_pm": null,
+            "action": "request",
+            "status": "approved",
+            "notes": null,
+            "created_at": "2026-08-31T19:57:33+01:00",
+            "updated_at": "2026-08-31T19:57:33+01:00"
+        },
+        {
+            "employee": {
+                "id": 2340351
+            },
+            "reviewed_by": {
+                "id": 2340351
+            },
+            "reason": {
+                "name": "Maternity",
+                "id": 1515171
+            },
+            "type": "OtherLeave",
+            "deducted": "0.0",
+            "cancelled": false,
+            "id": 44235958,
+            "start_date": "2026-09-14",
+            "half_start": false,
+            "half_start_am_pm": null,
+            "end_date": "2026-09-22",
+            "half_end": false,
+            "half_end_am_pm": null,
+            "action": "request",
+            "status": "approved",
+            "notes": "",
+            "created_at": "2026-09-01T20:55:03+01:00",
+            "updated_at": "2026-09-01T20:55:04+01:00"
+        },
+        {
+            "employee": {
+                "id": 2340351
+            },
+            "reviewed_by": {
+                "id": 2340351
+            },
+            "reason": null,
+            "type": "Holiday",
+            "deducted": "3.0",
+            "cancelled": false,
+            "id": 44235963,
+            "start_date": "2026-09-28",
+            "half_start": false,
+            "half_start_am_pm": null,
+            "end_date": "2026-09-30",
+            "half_end": false,
+            "half_end_am_pm": null,
+            "action": "request",
+            "status": "approved",
+            "notes": "",
+            "created_at": "2026-09-01T20:55:25+01:00",
+            "updated_at": "2026-09-01T20:55:25+01:00"
+        }
+    ]
+}
