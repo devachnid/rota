@@ -202,6 +202,20 @@ def test_the_five_column_table_is_gone(gp_client, gp_user):
     assert "table-scroll" not in _html(gp_client)
 
 
+def test_the_agenda_comes_before_your_requests(gp_client, gp_user):
+    """The old order made a GP scroll past secondary content to find out
+    where they are working tomorrow. The balance is gone; the property is
+    not."""
+    from rota.models import SwapRequest
+    from tests.factories import MON
+    c = make_clinician(user=gp_user)
+    other = make_clinician("Other Person")
+    SwapRequest.objects.create(proposer=c, proposer_day=MON, proposer_part="AM",
+                                colleague=other, colleague_day=MON, colleague_part="PM")
+    html = _html(gp_client)
+    assert html.index("ms-weeks") < html.index("ms-requests")
+
+
 def test_a_swap_awaiting_you_comes_before_everything(gp_client, gp_user):
     from rota.models import SwapRequest
     from tests.factories import MON

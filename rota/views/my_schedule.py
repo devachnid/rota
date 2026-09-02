@@ -27,12 +27,11 @@ def _blocks(clinician, today, open_weekdays, closed, entries_by, resolver):
     """Four Monday-based blocks of open days, with a count for each.
 
     A day is shown if the surgery is open on it, OR the clinician has an
-    entry on it, OR either cell carries a Breathe absence. A closed day (or
-    a weekday outside open_weekdays) with nothing on it stays hidden: that
-    is not your day off, and a weekend is not either. But a closed day, or
-    an otherwise-non-open weekday, WITH a published entry is shown anyway:
-    hiding a real session from the person rostered to work it is worse
-    than the tidiness of omitting an empty row.
+    entry on it. A closed day (or a weekday outside open_weekdays) with
+    nothing on it stays hidden: that is not your day off, and a weekend is
+    not either. But a closed day, or an otherwise-non-open weekday, WITH a
+    published entry is shown anyway: hiding a real session from the person
+    rostered to work it is worse than the tidiness of omitting an empty row.
 
     am_cell/pm_cell go through cell_state(), the same as the grid and the
     day view: Breathe is the source of leave now, and a GP must see their
@@ -51,8 +50,11 @@ def _blocks(clinician, today, open_weekdays, closed, entries_by, resolver):
                                  resolver=resolver, closed=not is_open)
             pm_cell = cell_state(clinician.id, day, "PM", entry=pm,
                                  resolver=resolver, closed=not is_open)
-            if not (is_open or am_cell["entry"] or pm_cell["entry"]
-                    or am_cell["absence"] or pm_cell["absence"]):
+            # No absence clause here: cell_state suppresses absence on a
+            # closed day, so a bank holiday inside a leave span is omitted
+            # like any other closed day — which is the decision for this
+            # page.
+            if not (is_open or am_cell["entry"] or pm_cell["entry"]):
                 continue
             worked_cells = [c for c in (am_cell, pm_cell) if not c["off"]]
             is_leave = bool(worked_cells) and all(
@@ -118,6 +120,13 @@ def my_schedule(request):
     # telling a GP the surgery is shut on a day they have a session or
     # leave sitting against them. "closed" and "not_in" are reserved for
     # the no-entry, no-absence cases below.
+    #
+    # Unlike _blocks()'s inclusion rule, this absence clause is not dead:
+    # there is no third "already true" disjunct here keyed off today_closed
+    # the way is_open is there, so on an open today with a half-day Breathe
+    # absence and no RotaEntry, the absence clause is the only route to
+    # "working" — dropping it reads a GP as "not_in" on a day they are, in
+    # fact, half in.
     today_closed = today in closed or today.weekday() not in open_weekdays
     today_am_cell = cell_state(clinician.id, today, "AM",
                                entry=entries_by.get((today, "AM")),
