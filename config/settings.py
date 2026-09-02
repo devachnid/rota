@@ -142,6 +142,12 @@ TRUSTED_PROXY_IPS = frozenset(
     ).split(",") if h.strip()
 )
 
+# BreatheHR, which owns leave. Read-only. The key comes from /etc/rota.env
+# like SECRET_KEY and never from a file in this repository; with no key the
+# integration is off and every consumer degrades quietly.
+BREATHE_API_KEY = os.environ.get("BREATHE_API_KEY", "")
+BREATHE_API_URL = os.environ.get("BREATHE_API_URL", "https://api.breathehr.com/v1")
+
 # Without this axes uses REMOTE_ADDR, which behind the tunnel is always
 # 127.0.0.1 — one key for every user in the world. django-ipware would also do
 # it, but that is a new dependency and this project does not take those.
