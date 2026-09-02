@@ -2,7 +2,7 @@
 
 Before this, the question was answered in the grid and in the fill engine
 separately, and knew only about the working pattern. Clinician date windows
-and approved leave both belong in it. Composing them in one place is what
+and Breathe absences both belong in it. Composing them in one place is what
 stops `active` and the dates disagreeing.
 """
 
@@ -10,9 +10,10 @@ from datetime import date, timedelta
 
 import pytest
 
-from rota.models import LeaveRequest, PatternSlot
+from rota.models import BreatheAbsence, BreatheLeaveMapping, PatternSlot
+from rota.services import availability
 from rota.services.availability import AvailabilityResolver
-from tests.factories import make_clinician, make_session_type
+from tests.factories import make_absence, make_clinician, make_pattern, make_session_type
 
 MON = date(2026, 9, 7)
 LONG_AGO = date(2025, 1, 1)
@@ -24,8 +25,9 @@ def _pattern(clinician, weekday, part, works=True, effective_from=LONG_AGO):
         works=works, effective_from=effective_from)
 
 
-def _resolver(clinicians, rows=(), leave=()):
-    return AvailabilityResolver(list(rows), list(clinicians), list(leave))
+def _resolver(clinicians, rows=(), absences=()):
+    return AvailabilityResolver(
+        list(rows), list(clinicians), list(absences), BreatheLeaveMapping.as_dict())
 
 
 @pytest.mark.django_db
@@ -63,54 +65,22 @@ def test_a_session_after_the_end_date_is_not_worked():
 
 
 @pytest.mark.django_db
-def test_approved_leave_makes_a_worked_session_unavailable():
-    c = make_clinician("Away", initials="AW")
-    al = make_session_type("Annual Leave", code="AL", category="ABSENCE")
-    rows = [_pattern(c, 0, "AM")]
-    leave = [LeaveRequest.objects.create(
-        clinician=c, session_type=al, start_date=MON, end_date=MON,
-        status=LeaveRequest.Status.APPROVED)]
-    r = _resolver([c], rows, leave)
-    assert r.works_on(c.id, MON, "AM") is True, "leave must not change works_on"
-    assert r.on_leave(c.id, MON, "AM") is True
-    assert r.available(c.id, MON, "AM") is False
-
-
-@pytest.mark.django_db
 def test_pending_leave_is_ignored():
-    """Out of scope by decision: pending leave stays invisible to scheduling."""
+    """Out of scope by decision: pending leave stays invisible to scheduling.
+    BreatheAbsence has no pending state at all — the sync only ever writes
+    confirmed absences — so this is exercised by simply not writing one."""
     c = make_clinician("Maybe", initials="MB")
-    al = make_session_type("Annual Leave", code="AL2", category="ABSENCE")
     rows = [_pattern(c, 0, "AM")]
-    leave = [LeaveRequest.objects.create(
-        clinician=c, session_type=al, start_date=MON, end_date=MON,
-        status=LeaveRequest.Status.PENDING)]
-    assert _resolver([c], rows, leave).available(c.id, MON, "AM") is True
-
-
-@pytest.mark.django_db
-def test_leave_is_whole_day_because_requests_store_dates_not_parts():
-    c = make_clinician("Allday", initials="AD")
-    al = make_session_type("Annual Leave", code="AL3", category="ABSENCE")
-    rows = [_pattern(c, 0, "AM"), _pattern(c, 0, "PM")]
-    leave = [LeaveRequest.objects.create(
-        clinician=c, session_type=al, start_date=MON, end_date=MON,
-        status=LeaveRequest.Status.APPROVED)]
-    r = _resolver([c], rows, leave)
-    assert r.on_leave(c.id, MON, "AM") is True
-    assert r.on_leave(c.id, MON, "PM") is True
+    assert _resolver([c], rows).available(c.id, MON, "AM") is True
 
 
 @pytest.mark.django_db
 def test_leave_type_returns_the_session_type_for_rendering():
     c = make_clinician("Chip", initials="CH")
-    al = make_session_type("Study Leave", code="SL", category="ABSENCE")
-    leave = [LeaveRequest.objects.create(
-        clinician=c, session_type=al, start_date=MON, end_date=MON,
-        status=LeaveRequest.Status.APPROVED)]
-    r = _resolver([c], (), leave)
-    assert r.leave_type(c.id, MON) == al
-    assert r.leave_type(c.id, MON + timedelta(days=1)) is None
+    absence = make_absence(c, MON)
+    r = _resolver([c], (), [absence])
+    assert r.leave_type(c.id, MON, "AM").code == "AL"
+    assert r.leave_type(c.id, MON + timedelta(days=1), "AM") is None
 
 
 @pytest.mark.django_db
@@ -188,21 +158,17 @@ def test_approving_leave_writes_nothing_outside_a_clinicians_window(admin_user):
 
 @pytest.mark.django_db
 def test_leave_type_covers_the_full_multi_day_range_but_not_beyond_it():
-    """Every other leave test uses a single-day request, so start <= day <=
+    """Every other leave test uses a single-day absence, so start <= day <=
     end could quietly be < at either end and still pass."""
     c = make_clinician("Spanning", initials="SP")
-    al = make_session_type("Annual Leave", code="AL4", category="ABSENCE")
-    leave = [LeaveRequest.objects.create(
-        clinician=c, session_type=al,
-        start_date=MON, end_date=MON + timedelta(days=2),
-        status=LeaveRequest.Status.APPROVED)]
-    r = _resolver([c], (), leave)
+    absence = make_absence(c, MON, MON + timedelta(days=2))
+    r = _resolver([c], (), [absence])
 
-    assert r.leave_type(c.id, MON) == al, "first day of the range"
-    assert r.leave_type(c.id, MON + timedelta(days=1)) == al, "middle of the range"
-    assert r.leave_type(c.id, MON + timedelta(days=2)) == al, "last day of the range"
-    assert r.leave_type(c.id, MON - timedelta(days=1)) is None, "day before the range"
-    assert r.leave_type(c.id, MON + timedelta(days=3)) is None, "day after the range"
+    assert r.leave_type(c.id, MON, "AM").code == "AL", "first day of the range"
+    assert r.leave_type(c.id, MON + timedelta(days=1), "AM").code == "AL", "middle of the range"
+    assert r.leave_type(c.id, MON + timedelta(days=2), "AM").code == "AL", "last day of the range"
+    assert r.leave_type(c.id, MON - timedelta(days=1), "AM") is None, "day before the range"
+    assert r.leave_type(c.id, MON + timedelta(days=3), "AM") is None, "day after the range"
 
 
 @pytest.mark.django_db
@@ -226,4 +192,53 @@ def test_a_one_shot_iterable_of_pattern_rows_still_populates_has_pattern():
     row = _pattern(c, 0, "AM")
     r = AvailabilityResolver((row for row in [row]), [c], [])
     assert r.has_pattern(c.id) is True
+    assert r.works_on(c.id, MON, "AM") is True
+
+
+# --------------------------------------------------------- Breathe overlay ---
+
+def _mapping():
+    return BreatheLeaveMapping.as_dict()
+
+
+@pytest.mark.django_db
+def test_a_full_day_absence_covers_both_parts():
+    c = make_clinician(); rows = make_pattern(c)
+    make_absence(c, MON)
+    r = availability.AvailabilityResolver(rows, [c], [BreatheAbsence.objects.get()], _mapping())
+    assert r.on_leave(c.id, MON, "AM") and r.on_leave(c.id, MON, "PM")
+    assert r.available(c.id, MON, "AM") is False
+
+
+@pytest.mark.django_db
+def test_a_half_start_afternoon_leaves_the_morning_available():
+    c = make_clinician(); rows = make_pattern(c)
+    make_absence(c, MON, MON + timedelta(days=2), half_start=True, half_start_am_pm="PM")
+    r = availability.AvailabilityResolver(rows, [c], list(BreatheAbsence.objects.all()), _mapping())
+    assert r.on_leave(c.id, MON, "AM") is False
+    assert r.on_leave(c.id, MON, "PM") is True
+    assert r.on_leave(c.id, MON + timedelta(days=1), "AM") is True
+
+
+@pytest.mark.django_db
+def test_leave_type_resolves_through_the_mapping():
+    c = make_clinician(); rows = make_pattern(c)
+    make_absence(c, MON, kind="sickness")
+    r = availability.AvailabilityResolver(rows, [c], list(BreatheAbsence.objects.all()), _mapping())
+    assert r.leave_type(c.id, MON, "AM").code == "SICK"
+
+
+@pytest.mark.django_db
+def test_an_unmapped_reason_falls_back_to_the_kind_default():
+    c = make_clinician(); rows = make_pattern(c)
+    make_absence(c, MON, kind="other", reason="Jury service")
+    r = availability.AvailabilityResolver(rows, [c], list(BreatheAbsence.objects.all()), _mapping())
+    assert r.leave_type(c.id, MON, "AM").code == "OTH"
+
+
+@pytest.mark.django_db
+def test_leave_does_not_change_works_on():
+    c = make_clinician(); rows = make_pattern(c)
+    make_absence(c, MON)
+    r = availability.AvailabilityResolver(rows, [c], list(BreatheAbsence.objects.all()), _mapping())
     assert r.works_on(c.id, MON, "AM") is True

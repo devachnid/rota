@@ -1,7 +1,7 @@
 """What a rota cell shows, decided once.
 
     entry exists                -> the entry
-    on leave and ghostable      -> a ghosted leave chip
+    on leave and showable       -> the Breathe absence
     works_on                    -> not off: here, nothing allocated
     otherwise                   -> off: not here
 
@@ -15,25 +15,23 @@ def cell_state(clinician_id, day, part, *, entry, resolver, closed,
                partner=None):
     """One cell's state. Performs no queries — the caller prefetches."""
     works = resolver.works_on(clinician_id, day, part)
-    leave_type = resolver.leave_type(clinician_id, day) if entry is None else None
+    leave_type = resolver.leave_type(clinician_id, day, part) if entry is None else None
 
-    # Ghost only where it means something: on a session the clinician works
-    # (approval should have written an entry and did not), or for a clinician
-    # with no pattern at all (nothing would ever show for them otherwise).
-    # Ghosting every session leave spans would put chips on every part-timer's
-    # days off.
+    # Show the absence only where it means something: on a session the
+    # clinician works, or for a clinician with no pattern at all (nothing
+    # would ever show for them otherwise). Showing it on every session a
+    # leave span covers would put chips on every part-timer's days off —
+    # a part-timer's day off must not read "AL" on a day they never work.
     #
     # Two things the "no pattern" clause must not skip:
-    #  - the contractual window. leave.sessions_affected() and works_on() both
-    #    refuse to write outside it, so a chip there accuses approval of
-    #    missing an entry it was right not to write. `works` already carries
-    #    the window; the no-pattern branch has to ask separately.
-    #  - a closed day. sessions_affected() skips days where calendar.is_open()
-    #    is false, so a bank holiday inside a leave range correctly has no
-    #    entry, and a ghost there is noise on every Christmas closure.
+    #  - the contractual window. `works` already carries the window; the
+    #    no-pattern branch has to ask separately, or a chip would show for a
+    #    week the clinician was never employed for.
+    #  - a closed day. A bank holiday inside a leave range correctly has no
+    #    entry, and a chip there is noise on every Christmas closure.
     no_pattern_here = (not resolver.has_pattern(clinician_id)
                        and resolver.in_service(clinician_id, day))
-    ghostable = (works or no_pattern_here) and not closed
+    showable = (works or no_pattern_here) and not closed
 
     return {
         "day": day,
@@ -41,7 +39,7 @@ def cell_state(clinician_id, day, part, *, entry, resolver, closed,
         "part": part,
         "entry": entry,
         "off": entry is None and not works,
-        "ghost_leave": leave_type if ghostable else None,
+        "absence": leave_type if showable else None,
         "closed": closed,
         "partner": partner,
     }

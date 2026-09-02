@@ -9,9 +9,9 @@ from datetime import date
 
 import pytest
 
-from rota.models import LeaveRequest, PatternSlot, PracticeSettings
-from tests.factories import (make_clinician, make_entry, make_pattern,
-                             make_session_type, make_site)
+from rota.models import PatternSlot, PracticeSettings
+from tests.factories import (make_absence, make_clinician, make_entry,
+                             make_pattern, make_session_type, make_site)
 
 pytestmark = pytest.mark.django_db
 
@@ -167,13 +167,10 @@ def test_a_clinician_with_no_pattern_and_approved_leave_is_a_ghost_in_the_roster
     entered their pattern yet."""
     make_clinician("Viewer", user=gp_user)
     c = make_clinician("Locum Newcomer")  # deliberately: no make_pattern()
-    al = make_session_type("Annual Leave", code="AL", category="ABSENCE")
-    LeaveRequest.objects.create(
-        clinician=c, session_type=al, start_date=TUE, end_date=TUE,
-        status=LeaveRequest.Status.APPROVED)
+    make_absence(c, TUE)
     html = _html(gp_client)
     assert "Locum Newcomer" in _roster_tbody(html)
-    assert "is-ghost" in _roster_tbody(html)
+    assert 'title="From Breathe"' in _roster_tbody(html)
     not_in_line = html[html.index('class="day-not-in"'):]
     assert "Locum Newcomer" not in not_in_line
 

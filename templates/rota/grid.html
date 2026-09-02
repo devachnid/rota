@@ -52,11 +52,10 @@
             style="--chip-bg: var(--tint-{{ cell.entry.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ cell.entry.session_type.tint.key }}-fg);">
         {{ cell.entry.session_type.code }}{% if cell.entry.site %}<span class="site-marker">{{ cell.entry.site.name|slice:":1" }}</span>{% endif %}
       </span>
-    {% elif cell.ghost_leave %}
-      <span class="chip is-ghost"
-            title="Approved leave with no rota entry — check the clinician's pattern"
-            style="--chip-bg: transparent; --chip-fg: var(--tint-{{ cell.ghost_leave.tint.key }}-fg); --chip-edge: var(--tint-{{ cell.ghost_leave.tint.key }}-fg);">
-        {{ cell.ghost_leave.code }}
+    {% elif cell.absence %}
+      <span class="chip" title="From Breathe"
+            style="--chip-bg: var(--tint-{{ cell.absence.tint.key }}-bg); --chip-fg: var(--tint-{{ cell.absence.tint.key }}-fg);">
+        {{ cell.absence.code }}
       </span>
     {% elif cell.off %}
       <span class="chip is-off">&nbsp;</span>

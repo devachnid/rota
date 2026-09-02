@@ -53,6 +53,19 @@ def make_entry(clinician, day=MON, part="AM", session_type=None, **kw):
     )
 
 
+def make_absence(clinician, start, end=None, kind="holiday", reason="", **half):
+    """A Breathe absence row, as the sync would write it."""
+    from rota.models import BreatheAbsence
+    return BreatheAbsence.objects.create(
+        clinician=clinician, start_date=start, end_date=end or start,
+        kind=kind, reason=reason, source_ids="test",
+        half_start=half.get("half_start", False),
+        half_start_am_pm=half.get("half_start_am_pm") or "",
+        half_end=half.get("half_end", False),
+        half_end_am_pm=half.get("half_end_am_pm") or "",
+    )
+
+
 def make_trainee(clinician=None, stage="ST2", wte=100, trainer=None,
                  start=MON, end=None, requirements_tracked_from=None):
     from datetime import timedelta

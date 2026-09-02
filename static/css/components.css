@@ -357,14 +357,6 @@ body {
   background: var(--sunken);
 }
 
-/* Approved leave with no rota entry behind it: outlined rather than filled,
-   so it cannot be mistaken for a real allocation. */
-.chip.is-ghost {
-  background: transparent;
-  border: 1px dashed var(--chip-edge, var(--muted));
-  color: var(--chip-fg, var(--muted));
-}
-
 /* Drafts stay hatched so they read as provisional at a glance. --wash rather
    than a literal white: laid over a dark-mode chip tint, a light wash
    composited to mid-grey and took the chip's light text down to 1.76:1.

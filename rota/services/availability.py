@@ -1,4 +1,5 @@
-from rota.models import LeaveRequest, Part, PatternSlot
+from rota.models import Part, PatternSlot
+from rota.services.breathe.halfdays import parts_off
 
 
 def _current_slot(clinician, weekday, part, as_of):
@@ -89,7 +90,7 @@ class AvailabilityResolver:
     """The one answer to "can this clinician be given this session?".
 
     Composes, cheapest check first: `active`, the contractual date window, the
-    working pattern, then approved leave. All four are read at one moment by
+    working pattern, then Breathe absences. All four are read at one moment by
     one call, so they cannot disagree — which is the risk in `active` and the
     date window being separate concepts.
 
@@ -97,7 +98,7 @@ class AvailabilityResolver:
     in memory.
     """
 
-    def __init__(self, pattern_rows, clinicians, leave_requests):
+    def __init__(self, pattern_rows, clinicians, absences, mapping=None):
         # Built from prefetched rows, so the caller's iterable shape must not
         # matter. pattern_rows is walked twice below (once by PatternResolver,
         # once to build _with_pattern) — a one-shot generator would silently
@@ -107,13 +108,19 @@ class AvailabilityResolver:
         self._clinicians = {c.id: c for c in clinicians}
         self._with_pattern = {row.clinician_id for row in pattern_rows}
 
-        # {clinician_id: [(start, end, session_type), ...]} for approved leave
+        # {clinician_id: [(span, session_type), ...]} from the Breathe overlay.
+        # The mapping (kind, reason) -> type is resolved here, once, so a
+        # lookup never touches the database. Exact reason first, then the
+        # kind's default row; an unmapped kind renders nothing rather than
+        # crashing, and the sync status page is where that gets noticed.
+        mapping = mapping or {}
         self._leave = {}
-        for req in leave_requests:
-            if req.status != LeaveRequest.Status.APPROVED:
+        for a in absences:
+            session_type = (mapping.get((a.kind, a.reason))
+                            or mapping.get((a.kind, "")))
+            if session_type is None:
                 continue
-            self._leave.setdefault(req.clinician_id, []).append(
-                (req.start_date, req.end_date, req.session_type))
+            self._leave.setdefault(a.clinician_id, []).append((a.span, session_type))
 
     def has_pattern(self, clinician_id):
         """Whether any pattern row exists at all. Distinct from "does not work
@@ -134,19 +141,16 @@ class AvailabilityResolver:
             return False
         return self._patterns.works_on(clinician_id, day, part)
 
-    def leave_type(self, clinician_id, day):
-        """The SessionType of approved leave covering `day`, or None.
-
-        Requests store dates, not parts, so leave is whole-day across its
-        range and `part` does not enter into it.
-        """
-        for start, end, session_type in self._leave.get(clinician_id, ()):
-            if start <= day <= end:
+    def leave_type(self, clinician_id, day, part):
+        """The absence type covering `day`/`part`, or None. Part-aware:
+        Breathe records half-days, and the rota's parts are the unit."""
+        for span, session_type in self._leave.get(clinician_id, ()):
+            if part in parts_off(span, day):
                 return session_type
         return None
 
     def on_leave(self, clinician_id, day, part):
-        return self.leave_type(clinician_id, day) is not None
+        return self.leave_type(clinician_id, day, part) is not None
 
     def available(self, clinician_id, day, part):
         return (self.works_on(clinician_id, day, part)

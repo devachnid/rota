@@ -1,8 +1,8 @@
 from datetime import timedelta
 
-from rota.models import (Clinician, LeaveRequest, PatternSlot,
-                         PracticeSettings, RotaEntry, SessionType,
-                         TraineeStageRule)
+from rota.models import (BreatheAbsence, BreatheLeaveMapping, Clinician,
+                         PatternSlot, PracticeSettings, RotaEntry,
+                         SessionType, TraineeStageRule)
 from rota.services import availability, calendar, fairness
 
 
@@ -25,12 +25,12 @@ class FillContext:
         pattern_rows = list(PatternSlot.objects.filter(
             clinician__in=self.clinicians
         ).order_by("effective_from"))
-        approved_leave = LeaveRequest.objects.filter(
-            status=LeaveRequest.Status.APPROVED,
+        absences = BreatheAbsence.objects.filter(
+            clinician__in=self.clinicians,
             start_date__lte=end, end_date__gte=start,
-        ).select_related("session_type")
+        )
         self._availability = availability.AvailabilityResolver(
-            pattern_rows, self.clinicians, approved_leave)
+            pattern_rows, self.clinicians, absences, BreatheLeaveMapping.as_dict())
 
         self._cells = {}
         self._type_count = {}
