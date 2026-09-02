@@ -24,6 +24,7 @@ def test_no_template_offers_a_leave_request():
         text = path.read_text()
         assert "leave/new" not in text, f"{path.name} still links the leave form"
         assert "Request leave" not in text, f"{path.name} still offers Request leave"
+        assert "reports/leave" not in text, f"{path.name} still links the leave report"
 
 
 @pytest.mark.parametrize("url", ["/me/leave/new/", "/reports/leave/",

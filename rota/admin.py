@@ -97,10 +97,10 @@ class ClinicianAdmin(admin.ModelAdmin):
                 f"{n_drafts} unpublished rota entr"
                 f"{'y' if n_drafts == 1 else 'ies'} (will be deleted)"
             ]
-        # Everything else cascades: pattern slots, leave requests, recurring
-        # commitments, the trainee profile, and swap requests — including ones
-        # where this clinician was the *colleague*, which touches someone
-        # else's history. Locum bookings survive with the name set to null.
+        # Everything else cascades: pattern slots, recurring commitments,
+        # the trainee profile, and swap requests — including ones where
+        # this clinician was the *colleague*, which touches someone else's
+        # history. Locum bookings survive with the name set to null.
         # The audit log is unaffected: it stores names as text, not a key.
         return deletable, model_count, perms_needed, protected
 
