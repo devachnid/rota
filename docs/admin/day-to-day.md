@@ -105,27 +105,11 @@ A **booked** requirement is protected: it cannot be unbooked or rebooked out
 from under itself by a later fill. Requirements at the earlier two statuses can
 step back freely.
 
-## Leave requests
+## Leave
 
-`/admin/rota/leaverequest/` — GPs raise these from My Schedule; admins approve
-or decline from `/requests/`.
-
-Only **absence-category** session types are offered, so a GP cannot request
-"leave" of a working type.
-
-Approving writes entries across the requested range, **only for the sessions the
-clinician actually works** — a request spanning a week they are part-time in
-does not create leave on days they were never in anyway, and closed days are
-skipped.
-
-Those entries are created **published and manually set**, so the GP sees the
-leave immediately and a later assisted fill will not overwrite it.
-
-Whether the leave consumes their allowance depends on [counts toward
-entitlement](session-types.md#counts-toward-entitlement) on the type they
-requested.
-
-`admin_comment`, `decided_by` and `decided_at` record the decision.
+Not managed here. Leave is requested and approved in BreatheHR and read into
+the rota every fifteen minutes — see [Leave from Breathe](breathe.md). Swaps
+are still managed here.
 
 ## Swap requests
 

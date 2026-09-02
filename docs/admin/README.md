@@ -23,8 +23,7 @@ Five ideas explain most of the app.
 
 **A session is half a day.** Everything is AM or PM. A "full day" is two
 sessions, and a rule that says "one Duty per day" means two sessions of Duty.
-Fairness, leave entitlement and trainee requirements are all counted in
-sessions, never in days.
+Fairness and trainee requirements are counted in sessions, never in days.
 
 **Availability and assignment are separate.** A **pattern slot** says a
 clinician *works* Tuesday PM. A **rota entry** says what they are *doing* that
@@ -60,7 +59,6 @@ their history stays intact and they drop out of every eligibility pool.
 | Assisted fill created nothing | [Pattern slots](availability.md#pattern-slots) — does anyone work those sessions? |
 | "No eligible clinician" | [Session type restrictions](session-types.md#allowed-clinicians-and-allowed-groups) |
 | A rule never places anything | [Coverage rule frequency and count](coverage-rules.md) — and check `priority` against competing rules |
-| Leave balances look wrong or negative | [Counts toward entitlement](session-types.md#counts-toward-entitlement) and each clinician's entitlement figure |
 | A trainee shows a huge backlog | [`requirements_tracked_from`](people.md#trainee-profile) |
 | A warning you do not want | [Warnings](day-to-day.md#warnings-on-the-grid) — they come from three separate sources |
 | Someone's leave is not on the grid | Are they [linked to Breathe](breathe.md#setting-it-up-in-this-order)? Has a sync run since it was approved? |

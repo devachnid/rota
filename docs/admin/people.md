@@ -94,19 +94,12 @@ not only on the named trainers.
 The trainer dropdown on a trainee profile only offers clinicians with this
 ticked.
 
-### Leave entitlement sessions
+### Breathe employee
 
-Annual leave allowance **in sessions, not days**. A full-time GP entitled to six
-weeks of a ten-session week is `60`.
-
-Drives the leave report's "Remaining" column and the balance on the GP's own My
-Schedule: `entitlement − taken − booked`.
-
-**Default is 0**, which means an unconfigured clinician goes negative the moment
-they book anything. If the balances look wrong across the board, check this
-before suspecting the report.
-
-Pro-rata is not automatic — set the part-timer's actual allowance here.
+Which BreatheHR employee this clinician is. A dropdown of your Breathe
+employees; pick one and save. **Unlinked clinicians have no leave read for
+them and are treated as available** — the sync status page and the week grid
+both warn admins about them. See [Leave from Breathe](breathe.md).
 
 ## Trainee profile
 

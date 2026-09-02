@@ -1,0 +1,10 @@
+[Unit]
+Description=Read leave from BreatheHR every fifteen minutes
+
+[Timer]
+OnCalendar=*-*-* *:0/15:00
+Persistent=true
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target

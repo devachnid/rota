@@ -23,8 +23,8 @@ features branch on it.
   trainee doing SDL is not clinical cover.
 - **Absence** is excluded from the [group minimum
   warning](people.md#min-per-session), so someone on leave correctly does not
-  count as present. Absence types are also the only ones offered on the leave
-  request form.
+  count as present. Absence types are what Breathe leave renders as — see [the
+  mapping](breathe.md#breathe-leave-mapping).
 
 Getting this wrong is quiet. A study-leave type marked Clinical will make a day
 look staffed when nobody is there.
@@ -76,27 +76,6 @@ roster, so "who is on Duty today" is answered without reading every row.
 Leave it off for the bulk of the rota. Pinning Routine would put most of the
 practice in the pinned block and defeat the point of having one. If nothing is
 pinned, the block does not appear at all.
-
-## Counts toward entitlement
-
-**Tick this on absence types only.**
-
-It means "a session of this type consumes one session of the clinician's annual
-leave allowance". It is the entire basis of the leave report and of the balance
-on each GP's My Schedule: published entries of types with this ticked, inside
-the current leave year, counted as *taken* (past) or *booked* (future) against
-their entitlement.
-
-Two things worth knowing:
-
-- **It counts published entries only.** Drafts do not consume allowance.
-- **It counts sessions, not days.** A full day off is two.
-
-If this is ticked on working session types, the leave report counts ordinary
-work as leave taken and balances go negative. If it is unticked on Annual Leave,
-actual leave is counted against nobody. Both mistakes produce a report that
-looks broken rather than one that looks empty, so it is worth checking directly
-rather than inferring from the numbers.
 
 ## Default site
 
