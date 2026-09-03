@@ -1,6 +1,7 @@
 """The Delete-drafts card on the fill screen. Nothing is deleted without
 the second click — the spec's preview rule for destructive actions."""
 
+import re
 from datetime import timedelta
 
 import pytest
@@ -77,3 +78,29 @@ def test_an_end_before_the_start_is_a_400(admin_client):
                                    "start": FRI.isoformat(), "end": MON.isoformat()})
     assert resp.status_code == 400
     assert b"before" in resp.content
+
+
+def test_the_confirm_form_carries_the_previewed_scope_and_the_screen_shows_it(drafts, admin_client):
+    resp = admin_client.post(URL, {"scope": "fill", "range": "all"})
+    assert resp.status_code == 200
+    html = resp.content.decode()
+    assert "only the fill engine's own drafts" in html
+
+    scope_block = html[html.index('name="scope"'):html.index('name="range"')]
+    assert 'value="fill" checked' in scope_block
+    assert 'value="all" checked' not in scope_block
+
+    last_form_start = html.rindex('<form method="post" action="/rota/drafts/delete/">')
+    confirm_form = html[last_form_start:html.index("</form>", last_form_start)]
+    hidden = dict(re.findall(r'<input type="hidden" name="([^"]+)" value="([^"]*)">', confirm_form))
+
+    resp2 = admin_client.post(URL, hidden)
+    assert resp2.status_code == 302 and resp2["Location"] == "/rota/fill/"
+    assert RotaEntry.objects.filter(day=FRI, part="AM", manually_set=True).exists()
+    assert not RotaEntry.objects.filter(is_published=False, manually_set=False).exists()
+
+
+def test_a_confirmed_range_with_no_dates_is_refused(drafts, admin_client):
+    resp = admin_client.post(URL, {"scope": "all", "range": "dates", "confirm": "1"})
+    assert resp.status_code == 400
+    assert RotaEntry.objects.filter(is_published=False).count() == 3

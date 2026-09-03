@@ -55,9 +55,11 @@ Also on `/rota/fill/`. Two choices, then a preview, then the deletion.
 
 **Preview** shows how many drafts that is and how many were placed by hand.
 Nothing is deleted until you press **Delete** on that preview. Published
-sessions are never in scope; a booked locum's session is published when it is
-booked, so it is never in scope either. One line goes to the rota entry log
-per deletion, naming the range and the counts.
+sessions are never deleted; a booked locum's session is published when it is
+booked, so it is never deleted either. A published session that was paired
+with a deleted draft — the other half of a full day, or a companion in a
+paired session — keeps its own session but loses the pairing. One line goes
+to the rota entry log per deletion, naming the range and the counts.
 
 ## Rota entries
 
