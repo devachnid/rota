@@ -142,11 +142,12 @@ class AvailabilityResolver:
             return False
         return self._patterns.works_on(clinician_id, day, part)
 
-    def _covering(self, clinician_id, day, part):
+    def covering(self, clinician_id, day, part):
         """The (kind, reason) of the absence covering `day`/`part`, or None.
         The one place both leave_type() and on_leave() read the overlay, so
         they cannot disagree about which absence applies — only about
-        whether it renders."""
+        whether it renders. Public because cell_state() labels the absence
+        from it, entry or no entry."""
         for span, kind, reason in self._leave.get(clinician_id, ()):
             if part in parts_off(span, day):
                 return kind, reason
@@ -158,7 +159,7 @@ class AvailabilityResolver:
         row. Part-aware: Breathe records half-days, and the rota's parts are
         the unit. This is what cell_state renders; on_leave() is what
         scheduling depends on, and does not go through the mapping."""
-        covering = self._covering(clinician_id, day, part)
+        covering = self.covering(clinician_id, day, part)
         if covering is None:
             return None
         kind, reason = covering
@@ -169,7 +170,7 @@ class AvailabilityResolver:
         `day`/`part`. An unmapped kind is still an absence: the sync status
         page is where a missing mapping row gets noticed, not the fill
         engine scheduling over it."""
-        return self._covering(clinician_id, day, part) is not None
+        return self.covering(clinician_id, day, part) is not None
 
     def available(self, clinician_id, day, part):
         return (self.works_on(clinician_id, day, part)
