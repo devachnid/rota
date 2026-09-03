@@ -67,7 +67,8 @@ def grid(request):
     notes = {n.day: n for n in DayNote.objects.filter(day__in=days)}
     day_headers = [
         {"day": d, "closed": d in closed, "note": notes.get(d),
-         "warnings": day_warnings(d, include_drafts=is_admin) if is_admin else []}
+         "warnings": (day_warnings(d, include_drafts=is_admin, resolver=resolver)
+                      if is_admin else [])}
         for d in days
     ]
 
