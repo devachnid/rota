@@ -3,8 +3,9 @@ from datetime import date, timedelta
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 
-from rota.models import (Clinician, ClosedDay, DayNote, LeaveRequest,
-                         PatternSlot, PracticeSettings, RotaEntry, SessionType)
+from rota.models import (BreatheAbsence, BreatheLeaveMapping, Clinician,
+                         ClosedDay, DayNote, PatternSlot, PracticeSettings,
+                         RotaEntry, SessionType)
 from rota.services import availability
 from rota.services.cells import cell_state
 
@@ -73,12 +74,12 @@ def day_view(request, day=None):
 
     active = list(Clinician.objects.filter(active=True).order_by("name"))
     pattern_rows = list(PatternSlot.objects.filter(clinician__in=active))
-    approved_leave = LeaveRequest.objects.filter(
-        status=LeaveRequest.Status.APPROVED,
+    absences = BreatheAbsence.objects.filter(
+        clinician__in=active,
         start_date__lte=target, end_date__gte=target,
-    ).select_related("session_type")
+    )
     resolver = availability.AvailabilityResolver(
-        pattern_rows, active, approved_leave)
+        pattern_rows, active, absences, BreatheLeaveMapping.as_dict())
 
     # Filtered by the same in-service test the roster loop below applies —
     # otherwise a clinician past their end_date with a stray entry for a
@@ -102,27 +103,35 @@ def day_view(request, day=None):
                        partner=partner.get((c.id, part)))
             for part in ("AM", "PM")
         ]
-        # On-leave means every part the clinician works is covered by an
-        # absence entry — not that every entry they happen to have is
-        # absence-category. A cell is "off" when nothing is expected there
-        # at all (cell_state already worked that out); a part where off is
-        # False is a part they work, and it needs an absence entry to count
-        # as covered. A clinician with no worked parts at all (nothing to
-        # cover) is never "on leave" — that's not_in below.
+        # On-leave means every part the clinician works is covered — either
+        # by a Breathe absence for this day/part, or (for history predating
+        # the overlay) by an absence-category entry. A cell is "off" when
+        # nothing is expected there at all (cell_state already worked that
+        # out); a part where off is False is a part they work, and it needs
+        # one of those two to count as covered. A clinician with no worked
+        # parts at all (nothing to cover) is never "on leave" — that's
+        # not_in below.
+        #
+        # `on_leave`, not `absence`: `absence` is the mapped chip, so with a
+        # kind's default mapping row missing, a sick clinician read "1 in ·
+        # 0 on leave" — the count and the scheduler disagreeing about the
+        # same person. What renders is still `absence`; what is counted is
+        # what Breathe said.
         absence = SessionType.Category.ABSENCE
         worked_cells = [cell for cell in cells if not cell["off"]]
         is_on_leave = bool(worked_cells) and all(
-            cell["entry"] and cell["entry"].session_type.category == absence
+            cell["on_leave"]
+            or (cell["entry"] and cell["entry"].session_type.category == absence)
             for cell in worked_cells
         )
         if is_on_leave:
             on_leave.append({"clinician": c, "cells": cells})
-        elif mine or any(not cell["off"] or cell["ghost_leave"]
+        elif mine or any(not cell["off"] or cell["absence"]
                           for cell in cells):
-            # cell["ghost_leave"] alone (off True, no entry) is the "no
-            # pattern entered yet" case: cell_state ghosts it precisely
-            # because nothing else would ever show for that clinician. The
-            # grid renders that ghost; filing them under "Not in" instead
+            # cell["absence"] alone (off True, no entry) is the "no pattern
+            # entered yet" case: cell_state shows it precisely because
+            # nothing else would ever show for that clinician. The grid
+            # renders that chip too; filing them under "Not in" instead
             # would drop the integrity warning and assert a lie — that they
             # do not work this day — when the truth is nobody has entered
             # their pattern.

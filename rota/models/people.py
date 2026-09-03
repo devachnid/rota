@@ -40,13 +40,18 @@ class Clinician(models.Model):
     active = models.BooleanField(default=True)
     is_trainer = models.BooleanField(
         default=False, help_text="May supervise trainee mentoring sessions.")
-    leave_entitlement_sessions = models.PositiveIntegerField(default=0)
     start_date = models.DateField(
         null=True, blank=True,
         help_text="Do not schedule before this date. Blank means no start bound.")
     end_date = models.DateField(
         null=True, blank=True,
         help_text="Do not schedule after this date. Blank means no end bound.")
+    # The Breathe employee this clinician is. Linked by hand in admin (a
+    # dropdown of employees); unique so two clinicians can never share one
+    # person's leave; nullable because a locum or a new starter may have no
+    # Breathe record yet. Unlinked clinicians have no leave and are treated
+    # as available — surfaced as an admin warning, not hidden.
+    breathe_employee_id = models.PositiveIntegerField(null=True, blank=True, unique=True)
 
     class Meta:
         ordering = ["name"]

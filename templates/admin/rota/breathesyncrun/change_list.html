@@ -1,0 +1,40 @@
+{% extends "admin/change_list.html" %}
+
+{% block object-tools-items %}
+<li>
+  <form method="post" action="{% url 'admin:rota_breathesyncrun_refresh' %}" style="display:inline">
+    {% csrf_token %}<button type="submit" class="button"{% if not configured %} disabled title="BREATHE_API_KEY is not set"{% endif %}>Refresh now</button>
+  </form>
+</li>
+{{ block.super }}
+{% endblock %}
+
+{% block content %}
+<div style="margin: 0 0 16px; padding: 12px 16px; border: 1px solid var(--hairline-color, #ddd); border-radius: 6px;">
+  {% if not configured %}
+    <p><strong>Breathe is not configured.</strong> Set <code>BREATHE_API_KEY</code> in <code>/etc/rota.env</code> and restart. Until then no leave is read and every clinician is treated as available.</p>
+  {% endif %}
+  {% if last_ok %}
+    <p><strong>Last successful sync:</strong> {{ last_ok.started|date:"D j M H:i" }} —
+       {{ last_ok.n_deduped }} absence{{ last_ok.n_deduped|pluralize }} from
+       {{ last_ok.n_requests }} request{{ last_ok.n_requests|pluralize }},
+       {{ last_ok.n_absences }} absence record{{ last_ok.n_absences|pluralize }} and
+       {{ last_ok.n_sicknesses }} sickness{{ last_ok.n_sicknesses|pluralize:"es" }};
+       {{ last_ok.n_unlinked }} for unlinked employees.</p>
+  {% elif configured %}
+    <p><strong>No successful sync yet.</strong></p>
+  {% endif %}
+  {% if last_error %}
+    <p style="color: var(--error-fg, #b00)"><strong>Most recent run failed</strong> ({{ last_error.started|date:"D j M H:i" }}): {{ last_error.error }}</p>
+  {% endif %}
+  {% if unmapped_count %}
+    <p style="color: var(--error-fg, #b00)">{{ unmapped_count }} absence(s) have no mapping and
+    render as empty cells — add a mapping.</p>
+  {% endif %}
+  {% if unlinked %}
+    <p><strong>Not linked to Breathe</strong> — no leave is read for these, so they are always available:
+    {% for c in unlinked %}<a href="{% url 'admin:rota_clinician_change' c.pk %}">{{ c.name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+  {% endif %}
+</div>
+{{ block.super }}
+{% endblock %}

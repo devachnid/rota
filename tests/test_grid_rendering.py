@@ -2,7 +2,7 @@
 
 Cell precedence:
     entry exists                -> the entry
-    on_leave and ghostable      -> a ghosted leave chip
+    absence from Breathe        -> a chip with the Breathe code
     works_on                    -> grey: working, nothing allocated
     otherwise                   -> blank: not working
 
@@ -15,9 +15,8 @@ from datetime import date, timedelta
 
 import pytest
 
-from rota.models import (ClosedDay, LeaveRequest, PatternSlot,
-                         PracticeSettings)
-from tests.factories import make_clinician, make_entry, make_session_type
+from rota.models import ClosedDay, PatternSlot, PracticeSettings
+from tests.factories import make_absence, make_clinician, make_entry, make_session_type
 
 MON = date(2026, 9, 7)
 
@@ -42,22 +41,30 @@ def _cells(client, day=MON):
 # in the markup that says which clinician, day and part a chip belongs to.
 _CELL_RE = re.compile(
     r"/rota/cell/(?P<cid>\d+)/(?P<day>\d{4}-\d\d-\d\d)/(?P<part>AM|PM)/"
-    r'.*?<span class="chip(?P<classes>[^"]*)"',
+    r'.*?<span class="chip(?P<classes>[^"]*)"(?P<rest>[^>]*)>',
     re.S,
 )
 
 
 def _chips(html):
-    """{(clinician_id, ISO day, part): the chip's modifier classes}.
+    """{(clinician_id, ISO day, part): the chip's modifier classes, or
+    "absence" for a Breathe absence chip.
 
     Counting classes across the whole page cannot tell `empty-slot` on the
     worked cell from `is-off` on it: swap the two template branches and every
     total is identical. This reads which class landed on which cell.
+
+    An absence chip carries no modifier class of its own — the template
+    tells it apart from a real entry with title="From Breathe" — so a cell
+    with an empty class and that title is labelled "absence" here.
     """
-    return {
-        (int(m["cid"]), m["day"], m["part"]): m["classes"].strip()
-        for m in _CELL_RE.finditer(html)
-    }
+    out = {}
+    for m in _CELL_RE.finditer(html):
+        classes = m["classes"].strip()
+        if not classes and 'title="From Breathe"' in m["rest"]:
+            classes = "absence"
+        out[(int(m["cid"]), m["day"], m["part"])] = classes
+    return out
 
 
 def _iso(offset):
@@ -101,46 +108,55 @@ def test_a_non_working_session_is_blank(admin_client):
 
 @pytest.mark.django_db
 def test_approved_leave_ghosts_on_a_session_the_clinician_works(admin_client):
-    """Approval should have written an entry here and did not — the ghost is
-    the signal that something went wrong."""
+    """The Breathe overlay should have written an entry here and did not —
+    the chip is the signal that something went wrong."""
     c = make_clinician("Ghosted", initials="GH")
     _pattern(c, 0, "AM")
-    al = make_session_type("Annual Leave", code="AL", category="ABSENCE")
-    LeaveRequest.objects.create(clinician=c, session_type=al,
-                                start_date=MON, end_date=MON,
-                                status=LeaveRequest.Status.APPROVED)
+    make_absence(c, MON)
     html = _cells(admin_client)
-    assert "is-ghost" in html
+    assert 'title="From Breathe"' in html
     assert "AL" in html
 
 
 @pytest.mark.django_db
 def test_a_part_timer_gets_no_ghost_on_their_non_working_days(admin_client):
-    """The noise case. Ghosting every session a leave request spans would put
-    chips on every part-timer's days off, every time they took leave."""
+    """The noise case. Showing the chip on every session a leave span covers
+    would put chips on every part-timer's days off, every time they took
+    leave."""
     c = make_clinician("Parttime", initials="PT")
     _pattern(c, 0, "AM")            # works Monday AM only
     _pattern(c, 0, "PM", works=False)
-    al = make_session_type("Annual Leave", code="AL2", category="ABSENCE")
-    LeaveRequest.objects.create(clinician=c, session_type=al,
-                                start_date=MON, end_date=MON + timedelta(days=4),
-                                status=LeaveRequest.Status.APPROVED)
+    make_absence(c, MON, MON + timedelta(days=4))
     html = _cells(admin_client)
-    assert html.count("is-ghost") == 1, (
-        f"expected one ghost (Monday AM), got {html.count('is-ghost')}"
+    n = html.count('title="From Breathe"')
+    assert n == 1, f"expected one absence chip (Monday AM), got {n}"
+
+
+@pytest.mark.django_db
+def test_a_half_day_absence_only_ghosts_the_half_it_covers(admin_client):
+    """A part-blind mutation of `if part in parts_off(...)` (e.g. checking
+    only the span's dates) would put the chip on both parts of a half-day
+    absence. A PM half-start on a single day should leave Monday AM clear
+    and put the chip on Monday PM alone."""
+    c = make_clinician("Halfday", initials="HF")
+    _full_pattern(c)
+    make_absence(c, MON, MON, half_start=True, half_start_am_pm="PM")
+    chips = _chips(_cells(admin_client))
+    assert chips[(c.id, _iso(0), "AM")] != "absence", (
+        "the morning is not covered by a PM half-start absence"
+    )
+    assert chips[(c.id, _iso(0), "PM")] == "absence", (
+        "the afternoon should still show the absence chip"
     )
 
 
 @pytest.mark.django_db
 def test_a_clinician_with_no_pattern_at_all_gets_ghosts(admin_client):
-    """The original complaint: leave approved, nothing anywhere."""
+    """The original complaint: leave recorded, nothing anywhere."""
     c = make_clinician("Nopattern", initials="NP")
-    al = make_session_type("Annual Leave", code="AL3", category="ABSENCE")
-    LeaveRequest.objects.create(clinician=c, session_type=al,
-                                start_date=MON, end_date=MON,
-                                status=LeaveRequest.Status.APPROVED)
+    make_absence(c, MON)
     html = _cells(admin_client)
-    assert "is-ghost" in html
+    assert 'title="From Breathe"' in html
 
 
 @pytest.mark.django_db
@@ -149,11 +165,28 @@ def test_a_real_entry_beats_a_ghost(admin_client):
     _pattern(c, 0, "AM")
     al = make_session_type("Annual Leave", code="AL4", category="ABSENCE")
     make_entry(c, day=MON, part="AM", session_type=al, is_published=True)
-    LeaveRequest.objects.create(clinician=c, session_type=al,
-                                start_date=MON, end_date=MON,
-                                status=LeaveRequest.Status.APPROVED)
+    make_absence(c, MON)
     html = _cells(admin_client)
-    assert "is-ghost" not in html
+    assert 'title="From Breathe"' not in html
+
+
+@pytest.mark.django_db
+def test_an_unmapped_absence_renders_no_chip_but_does_not_500(admin_client):
+    """leave_type() returns None for an absence whose mapping row is
+    missing, so cell_state has nothing to render — but on_leave() (which the
+    fill engine depends on) does not go through the mapping, and resolving a
+    chip that isn't there must not raise."""
+    from rota.models import BreatheLeaveMapping
+
+    c = make_clinician("Unmapped", initials="UM")
+    _pattern(c, 0, "AM")
+    make_absence(c, MON, kind="sickness")
+    BreatheLeaveMapping.objects.filter(kind="sickness", reason="").delete()
+
+    resp = admin_client.get(f"/rota/?week={MON.isoformat()}")
+    assert resp.status_code == 200
+    chips = _chips(resp.content.decode())
+    assert chips[(c.id, _iso(0), "AM")] != "absence"
 
 
 @pytest.mark.django_db
@@ -176,29 +209,28 @@ def test_warnings_are_admin_only_but_day_notes_are_for_everyone(
 
 @pytest.mark.django_db
 def test_no_ghost_on_a_closed_day_inside_a_leave_range(admin_client):
-    """`leave.sessions_affected()` skips days `calendar.is_open()` calls
-    closed, so approval correctly writes nothing on a bank holiday. A ghost
-    there captions "check the clinician's pattern" about a day where nothing
-    is wrong — two of them per full-timer, on every leave request spanning a
-    bank holiday or the Christmas closure."""
+    """The sync does not write absences for closed days any differently, but
+    cell_state suppresses the chip there — a bank holiday inside a leave
+    range correctly has no entry, and a chip there captions "check the
+    clinician's pattern" about a day where nothing is wrong — two of them
+    per full-timer, on every leave span crossing a bank holiday or the
+    Christmas closure."""
     c = make_clinician("Holiday", initials="HD")
     _full_pattern(c)
     ClosedDay.objects.create(day=MON + timedelta(days=2), reason="Bank holiday")
-    al = make_session_type("Annual Leave", code="ALC", category="ABSENCE")
-    LeaveRequest.objects.create(clinician=c, session_type=al,
-                                start_date=MON, end_date=MON + timedelta(days=4),
-                                status=LeaveRequest.Status.APPROVED)
+    make_absence(c, MON, MON + timedelta(days=4))
     chips = _chips(_cells(admin_client))
 
     for part in ("AM", "PM"):
-        assert chips[(c.id, _iso(2), part)] != "is-ghost", (
-            f"ghosted the {part} of a closed day, where approval was right "
-            f"to write nothing"
+        assert chips[(c.id, _iso(2), part)] != "absence", (
+            f"showed the {part} absence chip on a closed day, where nothing "
+            f"should render"
         )
     for offset in (0, 1, 3, 4):
         for part in ("AM", "PM"):
-            assert chips[(c.id, _iso(offset), part)] == "is-ghost", (
-                "the open days around the closure should still ghost"
+            assert chips[(c.id, _iso(offset), part)] == "absence", (
+                "the open days around the closure should still show the "
+                "absence chip"
             )
 
 
@@ -206,21 +238,16 @@ def test_no_ghost_on_a_closed_day_inside_a_leave_range(admin_client):
 def test_a_clinician_with_no_pattern_gets_no_ghosts_outside_their_window(
     admin_client
 ):
-    """The no-pattern ghost clause never consulted the date window, so a new
+    """The no-pattern chip clause never consulted the date window, so a new
     joiner whose start_date is a month away — and who has no pattern rows yet,
     which is exactly the state a new joiner is in — got a chip on all ten
     sessions of a week they are not employed for."""
     c = make_clinician("Joiner", initials="JO",
                        start_date=MON + timedelta(days=30))
-    al = make_session_type("Annual Leave", code="ALJ", category="ABSENCE")
-    LeaveRequest.objects.create(clinician=c, session_type=al,
-                                start_date=MON, end_date=MON + timedelta(days=4),
-                                status=LeaveRequest.Status.APPROVED)
+    make_absence(c, MON, MON + timedelta(days=4))
     html = _cells(admin_client)
-    assert "is-ghost" not in html, (
-        f"ghosted {html.count('is-ghost')} sessions before the clinician's "
-        f"start date"
-    )
+    n = html.count('title="From Breathe"')
+    assert n == 0, f"showed {n} absence chips before the clinician's start date"
     assert set(_chips(html).values()) == {"is-off"}
 
 
@@ -246,7 +273,7 @@ def test_a_session_outside_the_contractual_window_renders_blank(admin_client):
 @pytest.mark.django_db
 def test_the_grid_renders_with_no_open_weekdays(admin_client):
     """`parse_int_list("")` returns [] by design and PracticeSettings.clean()
-    accepts a blank value, so `days` can be empty. The leave filter's
+    accepts a blank value, so `days` can be empty. The absence filter's
     days[-1]/days[0] made that an IndexError and 500'd the main page; master
     rendered an empty grid."""
     settings = PracticeSettings.load()
@@ -272,15 +299,12 @@ def test_a_reordered_open_weekdays_does_not_run_the_leave_range_backwards(
         open_weekdays="4,0,1,2,3")
     c = make_clinician("Backwards", initials="BW")
     _full_pattern(c)
-    al = make_session_type("Annual Leave", code="ALB", category="ABSENCE")
-    LeaveRequest.objects.create(clinician=c, session_type=al,
-                                start_date=MON, end_date=MON,
-                                status=LeaveRequest.Status.APPROVED)
+    make_absence(c, MON)
     html = admin_client.get(f"/rota/?week={MON.isoformat()}").content.decode()
 
     chips = _chips(html)
-    assert chips[(c.id, _iso(0), "AM")] == "is-ghost", (
-        "Monday's leave fell outside a backwards start..end filter"
+    assert chips[(c.id, _iso(0), "AM")] == "absence", (
+        "Monday's absence fell outside a backwards start..end filter"
     )
     assert f'name="end" value="{_iso(4)}"' in html, (
         "Publish would post a range ending before it starts, publishing nothing"
@@ -293,23 +317,20 @@ def test_the_grid_query_count_does_not_grow_with_clinicians_or_leave(
 ):
     """The spec promised this: "No new per-cell queries; asserted by a
     query-count test rather than by inspection." What existed measured the
-    resolver in isolation — dropping select_related("session_type") from the
-    grid's leave prefetch would add a query per approved leave request and
-    every test would still pass."""
+    resolver in isolation — resolving each absence's session type by
+    querying per row instead of through the pre-fetched
+    BreatheLeaveMapping.as_dict() would add a query per absence and every
+    test would still pass."""
     from django.db import connection
     from django.test.utils import CaptureQueriesContext
 
     PracticeSettings.load()
-    al = make_session_type("Annual Leave", code="ALN", category="ABSENCE")
 
     def add(n, tag):
         for i in range(n):
             c = make_clinician(f"Doctor {tag}{i}", initials=f"D{tag}{i}")
             _full_pattern(c)
-            LeaveRequest.objects.create(
-                clinician=c, session_type=al, start_date=MON,
-                end_date=MON + timedelta(days=4),
-                status=LeaveRequest.Status.APPROVED)
+            make_absence(c, MON, MON + timedelta(days=4))
 
     def queries():
         with CaptureQueriesContext(connection) as ctx:
@@ -320,13 +341,13 @@ def test_the_grid_query_count_does_not_grow_with_clinicians_or_leave(
     add(2, "a")
     queries()               # warm up: session and template lookups
     baseline = queries()
-    assert "is-ghost" in admin_client.get(
+    assert 'title="From Breathe"' in admin_client.get(
         f"/rota/?week={MON.isoformat()}").content.decode(), (
-        "the leave chips must actually be rendering for this to measure them"
+        "the absence chips must actually be rendering for this to measure them"
     )
 
     add(6, "b")
     assert queries() == baseline, (
-        "the grid issues more queries with more clinicians and more approved "
-        "leave — something is asking per row or per cell"
+        "the grid issues more queries with more clinicians and more leave — "
+        "something is asking per row or per cell"
     )

@@ -23,6 +23,8 @@ WorkingDirectory=/root/rota
 #   DEBUG=0
 #   ALLOWED_HOSTS=rota.example.org
 #   CSRF_TRUSTED_ORIGINS=https://rota.example.org
+#   BREATHE_API_KEY=…            # from Breathe: Configure > API Settings
+#   BREATHE_API_URL=https://api.breathehr.com/v1
 #
 # DEBUG defaults to 0 in config/settings.py, so omitting it is safe — but set
 # it explicitly so the file states the intent.

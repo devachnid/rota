@@ -7,7 +7,6 @@
 <div class="page-head">
   <h1>{{ clinician.name }}</h1>
   <div class="form-actions">
-    <a href="/me/leave/new/" class="btn">Request leave</a>
     <a href="/me/swap/new/" class="btn">Propose a swap</a>
   </div>
 </div>
@@ -41,12 +40,15 @@
     <p class="ms-today-note">Not in today.</p>
   {% else %}
     <div class="ms-today-cells">
-      {% for e in today_cells %}
-        {% if e %}
-        <span class="chip{% if not e.is_published %} is-draft{% endif %}"
-              style="--chip-bg: var(--tint-{{ e.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ e.session_type.tint.key }}-fg);">
-          {{ e.session_type.code }}{% if e.site %}<span class="site-marker">{{ e.site.name|slice:":1" }}</span>{% endif %}
+      {% for cell in today_cells %}
+        {% if cell.entry %}
+        <span class="chip{% if not cell.entry.is_published %} is-draft{% endif %}"
+              style="--chip-bg: var(--tint-{{ cell.entry.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ cell.entry.session_type.tint.key }}-fg);">
+          {{ cell.entry.session_type.code }}{% if cell.entry.site %}<span class="site-marker">{{ cell.entry.site.name|slice:":1" }}</span>{% endif %}
         </span>
+        {% elif cell.absence %}
+        <span class="chip" title="From Breathe"
+              style="--chip-bg: var(--tint-{{ cell.absence.tint.key }}-bg); --chip-fg: var(--tint-{{ cell.absence.tint.key }}-fg);">{{ cell.absence.code }}</span>
         {% else %}
         <span class="ms-dash">&mdash;</span>
         {% endif %}
@@ -67,19 +69,25 @@
     <div class="ms-day{% if row.is_leave %} is-leave{% endif %}">
       <span class="ms-date"><b>{{ row.day|date:"D j" }}</b> {{ row.day|date:"M" }}</span>
       <span class="ms-cells">
-        {% if row.am %}
-        <span class="chip{% if not row.am.is_published %} is-draft{% endif %}"
-              style="--chip-bg: var(--tint-{{ row.am.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ row.am.session_type.tint.key }}-fg);">
-          {{ row.am.session_type.code }}{% if row.am.site %}<span class="site-marker">{{ row.am.site.name|slice:":1" }}</span>{% endif %}
+        {% if row.am_cell.entry %}
+        <span class="chip{% if not row.am_cell.entry.is_published %} is-draft{% endif %}"
+              style="--chip-bg: var(--tint-{{ row.am_cell.entry.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ row.am_cell.entry.session_type.tint.key }}-fg);">
+          {{ row.am_cell.entry.session_type.code }}{% if row.am_cell.entry.site %}<span class="site-marker">{{ row.am_cell.entry.site.name|slice:":1" }}</span>{% endif %}
         </span>
+        {% elif row.am_cell.absence %}
+        <span class="chip" title="From Breathe"
+              style="--chip-bg: var(--tint-{{ row.am_cell.absence.tint.key }}-bg); --chip-fg: var(--tint-{{ row.am_cell.absence.tint.key }}-fg);">{{ row.am_cell.absence.code }}</span>
         {% else %}
         <span class="ms-dash">&mdash;</span>
         {% endif %}
-        {% if row.pm %}
-        <span class="chip{% if not row.pm.is_published %} is-draft{% endif %}"
-              style="--chip-bg: var(--tint-{{ row.pm.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ row.pm.session_type.tint.key }}-fg);">
-          {{ row.pm.session_type.code }}{% if row.pm.site %}<span class="site-marker">{{ row.pm.site.name|slice:":1" }}</span>{% endif %}
+        {% if row.pm_cell.entry %}
+        <span class="chip{% if not row.pm_cell.entry.is_published %} is-draft{% endif %}"
+              style="--chip-bg: var(--tint-{{ row.pm_cell.entry.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ row.pm_cell.entry.session_type.tint.key }}-fg);">
+          {{ row.pm_cell.entry.session_type.code }}{% if row.pm_cell.entry.site %}<span class="site-marker">{{ row.pm_cell.entry.site.name|slice:":1" }}</span>{% endif %}
         </span>
+        {% elif row.pm_cell.absence %}
+        <span class="chip" title="From Breathe"
+              style="--chip-bg: var(--tint-{{ row.pm_cell.absence.tint.key }}-bg); --chip-fg: var(--tint-{{ row.pm_cell.absence.tint.key }}-fg);">{{ row.pm_cell.absence.code }}</span>
         {% else %}
         <span class="ms-dash">&mdash;</span>
         {% endif %}
@@ -92,27 +100,9 @@
   {% endfor %}
 </section>
 
-<section class="ms-leave">
-  <h2>Leave</h2>
-  <div class="ms-balance">
-    <div><span class="ms-v">{{ leave.entitlement }}</span><span class="ms-k">Entitled</span></div>
-    <div><span class="ms-v">{{ leave.taken }}</span><span class="ms-k">Taken</span></div>
-    <div><span class="ms-v">{{ leave.booked }}</span><span class="ms-k">Booked</span></div>
-    <div><span class="ms-v">{{ leave.remaining }}</span><span class="ms-k">Left</span></div>
-  </div>
-</section>
-
-{% if my_requests or my_swaps %}
+{% if my_swaps %}
 <section class="ms-requests">
   <h2>Your requests</h2>
-  {% for r in my_requests %}
-  <div class="ms-day">
-    <span class="ms-date"><b>{{ r.start_date|date:"j M" }}</b>&ndash;{{ r.end_date|date:"j M" }}</span>
-    <span class="ms-cells"><span class="chip"
-          style="--chip-bg: var(--tint-{{ r.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ r.session_type.tint.key }}-fg);">{{ r.session_type.code }}</span>
-      <span class="ms-status">{{ r.get_status_display }}</span></span>
-  </div>
-  {% endfor %}
   {% for s in my_swaps %}
   <div class="ms-day">
     <span class="ms-date"><b>{{ s.proposer_day|date:"j M" }}</b></span>

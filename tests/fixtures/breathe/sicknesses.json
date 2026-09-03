@@ -1,0 +1,25 @@
+{
+    "sicknesses": [
+        {
+            "company_sicknesstype": {
+                "id": 790291,
+                "name": "Headache / migraine"
+            },
+            "employee": {
+                "id": 2340351
+            },
+            "id": 3771488,
+            "start_date": "2026-08-29",
+            "end_date": "2026-09-01",
+            "half_start": false,
+            "half_start_am_pm": null,
+            "half_end": false,
+            "half_end_am_pm": null,
+            "deducted": "2.0",
+            "status": "returned",
+            "review_notes": null,
+            "fit_note_required": null,
+            "reason": ""
+        }
+    ]
+}

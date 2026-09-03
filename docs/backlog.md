@@ -23,6 +23,18 @@ autofill v2 review processes had accumulated:
 
 ## Settled
 
+- **Leave moved to BreatheHR** (2026-09-02). Requesting, approving and
+  tracking entitlement locally is gone — `LeaveRequest` and its "counts
+  toward entitlement"/leave-year machinery are deleted, and leave is now
+  read from Breathe every fifteen minutes into a read-only overlay
+  (`BreatheAbsence`) that the availability resolver consults directly.
+  Leave is deliberately **not** written as rota entries: putting it in the
+  entry table as well as the overlay would be two answers to one question,
+  the exact failure the earlier availability consolidation (pattern slot vs.
+  rota entry) exists to prevent. An unlinked clinician is treated as
+  available rather than blocking the sync, with the status page and grid
+  warning admins instead.
+
 - **Axes now locks by address as well as username** (2026-08-26). The earlier
   decision — username only, because behind the tunnel every request carries the
   tunnel's IP — was correct about the symptom and wrong about the fix: axes was

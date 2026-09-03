@@ -1,7 +1,9 @@
 from django.db import transaction
 from django.utils import timezone
 
-from rota.models import RotaEntry, RotaEntryLog, SwapRequest
+from rota.models import (BreatheAbsence, BreatheLeaveMapping, PatternSlot,
+                         RotaEntry, RotaEntryLog, SwapRequest)
+from rota.services import availability
 
 
 def _log(actor, day, part, name, action, detail=""):
@@ -33,7 +35,8 @@ def validate(req):
     # session" problems) is preserved exactly.
     no_session = []
     paired = []
-    for day, part in involved_slots(req):
+    slots = list(involved_slots(req))
+    for day, part in slots:
         for clinician in (req.proposer, req.colleague):
             entry = RotaEntry.objects.filter(clinician=clinician, day=day,
                                              part=part).first()
@@ -45,7 +48,29 @@ def validate(req):
                 paired.append(
                     f"{clinician.name}'s {day} {part} is a paired session "
                     "(mentoring) and cannot be swapped.")
-    return no_session + paired
+
+    # A swap gives each clinician the other's session. Neither may be on
+    # Breathe leave for the session they would receive — this is the only
+    # gate now that leave is not approved here. Built once per validation:
+    # two clinicians, two slots.
+    people = [req.proposer, req.colleague]
+    days = [d for d, _ in slots]
+    resolver = availability.AvailabilityResolver(
+        PatternSlot.objects.filter(clinician__in=people),
+        people,
+        BreatheAbsence.objects.filter(clinician__in=people,
+                                      start_date__lte=max(days), end_date__gte=min(days)),
+        BreatheLeaveMapping.as_dict(),
+    )
+    on_leave = []
+    receives = {req.proposer: (req.colleague_day, req.colleague_part),
+                req.colleague: (req.proposer_day, req.proposer_part)}
+    for clinician, (day, part) in receives.items():
+        if resolver.on_leave(clinician.id, day, part):
+            on_leave.append(
+                f"{clinician.name} is on leave on {day} {part} (from Breathe) "
+                "and cannot take that session.")
+    return no_session + paired + on_leave
 
 
 def accept(req, user):

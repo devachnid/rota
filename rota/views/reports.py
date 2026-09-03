@@ -6,7 +6,6 @@ from django.shortcuts import render
 from rota.models import (Clinician, CoverageRule, PracticeSettings, RotaEntry,
                          SessionType, TraineeProfile, TraineeStageRule)
 from rota.services import fairness as fairness_svc
-from rota.services import leave as leave_svc
 from rota.services.calendar import is_open
 from rota.services.fill.accrual import (due_through, epoch_for, week_monday,
                                         weekly_rate)
@@ -44,22 +43,6 @@ def report_fairness(request):
         tables.append({"session_type": st, "rows": rows})
     return render(request, "rota/report_fairness.html",
                   {"tables": tables, "start": start, "end": end})
-
-
-@login_required
-def report_leave(request):
-    today = date.today()
-    rows = [
-        {"clinician": c, **leave_svc.leave_summary(c, today)}
-        for c in Clinician.objects.filter(active=True)
-    ]
-    upcoming = RotaEntry.objects.filter(
-        is_published=True,
-        session_type__category=SessionType.Category.ABSENCE,
-        day__range=(today, today + timedelta(weeks=8)),
-    ).select_related("clinician", "session_type")
-    return render(request, "rota/report_leave.html",
-                  {"rows": rows, "upcoming": upcoming})
 
 
 @login_required

@@ -1,19 +1,23 @@
-from datetime import date
+from datetime import date, timedelta
 
 from django.contrib import admin, messages
 from django.contrib.admin.utils import NestedObjects
 from django.db import router
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import NoReverseMatch, path, reverse
+from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.text import capfirst
 
-from .models import (Clinician, ClinicianGroup, ClosedDay, CoverageRule,
-                     DayNote, LeaveRequest, LocumRequirement, Part,
+from .models import (BreatheAbsence, BreatheLeaveMapping, BreatheSyncRun,
+                     Clinician, ClinicianGroup, ClosedDay, CoverageRule,
+                     DayNote, LocumRequirement, Part,
                      PatternSlot, PracticeSettings, RecurringCommitment, RotaEntry, RotaEntryLog,
                      SessionType, Site, SwapRequest, TraineeProfile, TraineeStageRule)
 from .services.patterns import bulk_set_pattern, current_pattern
-from .admin_widgets import TintSwatchSelect
+from .services.breathe import client as breathe_client, sync as breathe_sync
+from .admin_widgets import (BreatheEmployeeSelect, TintSwatchSelect,
+                            breathe_employees, employee_label)
 
 WEEKDAY_LABELS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday",
                   "Saturday", "Sunday"]
@@ -30,14 +34,89 @@ class TraineeProfileInline(admin.StackedInline):
     extra = 0
 
 
+class BreatheLinkedFilter(admin.SimpleListFilter):
+    title = "Breathe"
+    parameter_name = "breathe"
+
+    def lookups(self, request, model_admin):
+        # Labels avoid the bare word "Linked": a clinician can genuinely be
+        # named that, and the sidebar renders every option on every page —
+        # including the "not linked" filtered view — so a literal "Linked"
+        # label would show up there regardless of which clinicians matched.
+        return [("linked", "Has a link"), ("unlinked", "No link")]
+
+    def queryset(self, request, qs):
+        if self.value() == "linked":
+            return qs.exclude(breathe_employee_id=None)
+        if self.value() == "unlinked":
+            return qs.filter(breathe_employee_id=None)
+        return qs
+
+
 @admin.register(Clinician)
 class ClinicianAdmin(admin.ModelAdmin):
     list_display = ("name", "initials", "group", "active", "is_trainer",
                     "start_date", "end_date",
-                    "leave_entitlement_sessions", "pattern_link")
-    list_filter = ("group", "active")
+                    "pattern_link", "breathe_link")
+    list_filter = ("group", "active", BreatheLinkedFilter)
     inlines = [TraineeProfileInline]
     actions = ["deactivate_clinicians"]
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        if db_field.name == "breathe_employee_id":
+            employees = breathe_employees()
+            if employees is None:
+                field = super().formfield_for_dbfield(db_field, request, **kwargs)
+                field.help_text = ("Could not reach Breathe, so this is the raw employee id. "
+                                   "The dropdown returns when Breathe is reachable.")
+                return field
+            kwargs["widget"] = BreatheEmployeeSelect(employees)
+            kwargs["help_text"] = "The Breathe employee whose leave this clinician's is."
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
+
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        # Suggest by exact email match — only for a clinician with no link, and
+        # only as an initial value the admin must still submit.
+        #
+        # Setting `field.initial` (form.base_fields[...].initial) has no
+        # effect here: for a change view Django builds the form as
+        # ModelForm(instance=obj), and BaseModelForm.__init__ seeds
+        # self.initial from model_to_dict(instance) *before* anything looks
+        # at the field's own .initial — so self.initial already holds
+        # breathe_employee_id: None, and dict.get(key, default) returns that
+        # stored None rather than falling through to field.initial. The
+        # suggestion has to land in self.initial on the bound form instance
+        # instead, which is why this subclasses rather than touching
+        # base_fields.
+        if obj is not None and obj.breathe_employee_id is None and obj.user_id:
+            employees = breathe_employees() or []
+            email = (obj.user.email or "").lower()
+            match = next((e for e in employees if (e.get("email") or "").lower() == email), None)
+            if match and "breathe_employee_id" in form.base_fields:
+                suggested_id = match["id"]
+
+                class SuggestingForm(form):
+                    def __init__(self, *args, **kw):
+                        super().__init__(*args, **kw)
+                        # Only the empty GET render, never a submitted POST —
+                        # a bound form's initial is irrelevant to what gets
+                        # saved, but leaving this unconditional would still
+                        # be harmless; the guard just documents the intent.
+                        if not self.is_bound:
+                            self.initial["breathe_employee_id"] = suggested_id
+
+                return SuggestingForm
+        return form
+
+    @admin.display(description="Breathe")
+    def breathe_link(self, obj):
+        if obj.breathe_employee_id is None:
+            return format_html(
+                '<span style="color: var(--muted, #6b7280)">{}</span>', "not linked")
+        employees = breathe_employees() or []
+        e = next((x for x in employees if x["id"] == obj.breathe_employee_id), None)
+        return employee_label(e) if e else f"#{obj.breathe_employee_id}"
 
     @admin.action(description="Deactivate selected clinicians")
     def deactivate_clinicians(self, request, queryset):
@@ -97,10 +176,10 @@ class ClinicianAdmin(admin.ModelAdmin):
                 f"{n_drafts} unpublished rota entr"
                 f"{'y' if n_drafts == 1 else 'ies'} (will be deleted)"
             ]
-        # Everything else cascades: pattern slots, leave requests, recurring
-        # commitments, the trainee profile, and swap requests — including ones
-        # where this clinician was the *colleague*, which touches someone
-        # else's history. Locum bookings survive with the name set to null.
+        # Everything else cascades: pattern slots, recurring commitments,
+        # the trainee profile, and swap requests — including ones where
+        # this clinician was the *colleague*, which touches someone else's
+        # history. Locum bookings survive with the name set to null.
         # The audit log is unaffected: it stores names as text, not a key.
         return deletable, model_count, perms_needed, protected
 
@@ -169,7 +248,7 @@ class ClinicianAdmin(admin.ModelAdmin):
 @admin.register(SessionType)
 class SessionTypeAdmin(admin.ModelAdmin):
     list_display = ("name", "code", "category", "colour_swatch",
-                    "fairness_tracked", "pin_on_day_view", "counts_toward_entitlement")
+                    "fairness_tracked", "pin_on_day_view")
     list_filter = ("pin_on_day_view", "fairness_tracked", "category")
     filter_horizontal = ("allowed_clinicians", "allowed_groups", "blocks_same_day")
     readonly_fields = ("legacy_colour",)
@@ -386,13 +465,95 @@ class LocumRequirementAdmin(admin.ModelAdmin):
     list_filter = ("status",)
 
 
-@admin.register(LeaveRequest)
-class LeaveRequestAdmin(admin.ModelAdmin):
-    list_display = ("clinician", "session_type", "start_date", "end_date", "status")
-    list_filter = ("status",)
-
-
 @admin.register(SwapRequest)
 class SwapRequestAdmin(admin.ModelAdmin):
     list_display = ("proposer", "colleague", "status", "created_at")
     list_filter = ("status",)
+
+
+@admin.register(BreatheAbsence)
+class BreatheAbsenceAdmin(admin.ModelAdmin):
+    list_display = ("clinician", "kind", "reason", "start_date", "end_date",
+                    "half_start_am_pm", "half_end_am_pm")
+    list_filter = ("kind",)
+    readonly_fields = [f.name for f in BreatheAbsence._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(BreatheLeaveMapping)
+class BreatheLeaveMappingAdmin(admin.ModelAdmin):
+    list_display = ("kind", "reason", "session_type")
+    list_filter = ("kind",)
+
+    def has_delete_permission(self, request, obj=None):
+        # A row with reason == "" is a kind's default. Deleting it is one
+        # click from every absence of that kind rendering an empty cell —
+        # the resolver falls through (kind, reason) -> (kind, "") and, with
+        # neither present, renders nothing (see BreatheSyncRunAdmin's
+        # "unmapped absences" count below). Reason-specific rows stay
+        # deletable; they only narrow a kind's default, they are not it.
+        if obj is not None and obj.reason == "":
+            return False
+        return super().has_delete_permission(request, obj)
+
+
+def _unmapped_absence_count():
+    """Stored BreatheAbsence rows whose (kind, reason) has no mapping row
+    and whose (kind, "") default also has no row — i.e. absences the
+    resolver currently renders as empty cells, findable nowhere else."""
+    mapping = BreatheLeaveMapping.as_dict()
+    return sum(
+        1 for kind, reason in BreatheAbsence.objects.values_list("kind", "reason")
+        if (kind, reason) not in mapping and (kind, "") not in mapping
+    )
+
+
+@admin.register(BreatheSyncRun)
+class BreatheSyncRunAdmin(admin.ModelAdmin):
+    list_display = ("started", "ok", "n_deduped", "n_unlinked", "error")
+    readonly_fields = [f.name for f in BreatheSyncRun._meta.fields]
+    change_list_template = "admin/rota/breathesyncrun/change_list.html"
+
+    def has_add_permission(self, request):
+        return False
+
+    def get_urls(self):
+        return [path("refresh/", self.admin_site.admin_view(self.refresh),
+                     name="rota_breathesyncrun_refresh")] + super().get_urls()
+
+    def changelist_view(self, request, extra_context=None):
+        last_ok = BreatheSyncRun.objects.filter(ok=True).first()
+        last = BreatheSyncRun.objects.first()
+        extra = {
+            "last_ok": last_ok,
+            "last_error": last if (last and not last.ok) else None,
+            "unlinked": Clinician.objects.filter(active=True, breathe_employee_id=None).order_by("name"),
+            "configured": breathe_client.from_settings() is not None,
+            "unmapped_count": _unmapped_absence_count(),
+        }
+        extra.update(extra_context or {})
+        return super().changelist_view(request, extra_context=extra)
+
+    def refresh(self, request):
+        if request.method != "POST":
+            return redirect("admin:rota_breathesyncrun_changelist")
+        recent = BreatheSyncRun.objects.filter(
+            started__gte=timezone.now() - timedelta(seconds=60)).exists()
+        if recent:
+            messages.warning(request, "A sync ran less than a minute ago; not running another.")
+            return redirect("admin:rota_breathesyncrun_changelist")
+        client = breathe_client.from_settings()
+        if client is None:
+            messages.error(request, "Breathe is not configured (BREATHE_API_KEY unset).")
+            return redirect("admin:rota_breathesyncrun_changelist")
+        run = breathe_sync.run(client)
+        if run.ok:
+            messages.success(request, f"Synced: {run.n_deduped} absences, {run.n_unlinked} for unlinked employees.")
+        else:
+            messages.error(request, f"Sync failed: {run.error}")
+        return redirect("admin:rota_breathesyncrun_changelist")

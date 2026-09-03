@@ -42,7 +42,6 @@ class SessionType(models.Model):
                   "Use it for the roles someone would open the day view to check "
                   "— Duty above all. Leave it off for the bulk of the rota.",
     )
-    counts_toward_entitlement = models.BooleanField(default=False)
     allowed_clinicians = models.ManyToManyField(
         "rota.Clinician", blank=True, related_name="restricted_session_types"
     )
@@ -98,8 +97,6 @@ class DayNote(models.Model):
 
 class PracticeSettings(models.Model):
     min_clinical_per_session = models.PositiveIntegerField(default=2)
-    leave_year_start_month = models.PositiveIntegerField(default=4)
-    leave_year_start_day = models.PositiveIntegerField(default=1)
     default_fill_session_type = models.ForeignKey(
         SessionType, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
     )

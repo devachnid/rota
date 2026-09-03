@@ -19,20 +19,6 @@ non-clinical sessions do not count toward it.
 Set it to what makes you want to act, not to what you would like. A threshold
 that fires every day gets ignored.
 
-### Leave year start month / Leave year start day
-
-**Default: 1 April.** Defines the window every leave balance is measured over.
-"Taken", "booked" and "remaining" on the leave report and on a GP's My Schedule
-all count only entries falling inside the current leave year.
-
-The year runs from this month/day to the day before the same date next year. If
-today is before this year's start date, the app rolls back to last year's — so
-the window is always the one you are currently in.
-
-**29 February is handled.** If you set 29 as the day, the app clamps to the last
-day of that month in non-leap years rather than crashing or skipping. An admin
-who configures 29 February is taken to mean "end of February".
-
 ### Default fill session type
 
 The session type used by assisted fill's **"Fill remaining empty cells"**

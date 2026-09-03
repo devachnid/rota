@@ -129,7 +129,7 @@
 
 /* ---- the agenda: awaiting swaps / today / next four weeks / leave / requests --- */
 
-.ms-awaiting, .ms-today, .ms-weeks, .ms-leave, .ms-requests {
+.ms-awaiting, .ms-today, .ms-weeks, .ms-requests {
   margin-bottom: var(--sp-6);
 }
 
@@ -203,32 +203,6 @@
 .ms-today-cells .ms-dash { color: var(--ink-soft); }
 
 .ms-status { color: var(--muted); font-size: var(--fs-sm); }
-
-.ms-balance {
-  display: flex;
-  background: var(--surface);
-  border: 1px solid var(--hairline);
-  border-radius: var(--r-md);
-  overflow: hidden;
-}
-
-.ms-balance > div {
-  flex: 1;
-  padding: var(--sp-3) var(--sp-2);
-  text-align: center;
-  border-right: 1px solid var(--hairline);
-}
-
-.ms-balance > div:last-child { border-right: 0; }
-
-.ms-v {
-  display: block;
-  font-size: var(--fs-xl);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.ms-k { font-size: var(--fs-xs); color: var(--muted); }
 
 /* ---------------------------------------------------------- day view --- */
 

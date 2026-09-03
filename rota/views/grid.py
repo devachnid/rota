@@ -4,9 +4,9 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Prefetch
 from django.shortcuts import render
 
-from rota.models import (Clinician, ClinicianGroup, ClosedDay, DayNote,
-                         LeaveRequest, LocumRequirement, PatternSlot,
-                         PracticeSettings, RotaEntry)
+from rota.models import (BreatheAbsence, BreatheLeaveMapping, Clinician,
+                         ClinicianGroup, ClosedDay, DayNote, LocumRequirement,
+                         PatternSlot, PracticeSettings, RotaEntry)
 from rota.services import availability
 from rota.services.cells import cell_state
 from rota.services.warnings import day_warnings
@@ -23,6 +23,8 @@ def grid(request):
     days = [monday + timedelta(days=i) for i in settings.open_weekday_list()]
     is_admin = request.user.is_rota_admin
     has_clinician = getattr(request.user, "clinician", None) is not None
+    unlinked_count = (Clinician.objects.filter(active=True, breathe_employee_id=None).count()
+                      if is_admin else 0)
 
     entries = RotaEntry.objects.filter(day__in=days).select_related(
         "session_type", "clinician", "site"
@@ -53,14 +55,13 @@ def grid(request):
     # backwards and the overlap filter match nothing at all. And `days` can
     # be empty -- open_weekdays = "" parses to [] and PracticeSettings.clean()
     # accepts it -- which is an IndexError on either subscript.
-    approved_leave = LeaveRequest.objects.none()
+    absences = BreatheAbsence.objects.none()
     if days:
-        approved_leave = LeaveRequest.objects.filter(
-            status=LeaveRequest.Status.APPROVED,
-            start_date__lte=max(days), end_date__gte=min(days),
-        ).select_related("session_type")
+        absences = BreatheAbsence.objects.filter(
+            clinician__in=active,
+            start_date__lte=max(days), end_date__gte=min(days))
     resolver = availability.AvailabilityResolver(
-        pattern_rows, active, approved_leave)
+        pattern_rows, active, absences, BreatheLeaveMapping.as_dict())
 
     closed = set(ClosedDay.objects.filter(day__in=days).values_list("day", flat=True))
     notes = {n.day: n for n in DayNote.objects.filter(day__in=days)}
@@ -123,6 +124,7 @@ def grid(request):
         "locum_cells": locum_cells,
         "is_admin": is_admin,
         "has_clinician": has_clinician,
+        "unlinked_count": unlinked_count,
         "colspan": len(days) * 2 + 1,
         # max(), for the same reason as the leave filter above: this is one
         # end of a date range (the Publish button posts monday..week_end into

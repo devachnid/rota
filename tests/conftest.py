@@ -5,6 +5,14 @@ from django.test import Client
 User = get_user_model()
 
 
+@pytest.fixture(autouse=True)
+def _breathe_off(settings):
+    """The suite never talks to Breathe. Tests that need a configured client
+    set the key themselves, always with an injected opener or a patched
+    from_settings."""
+    settings.BREATHE_API_KEY = ""
+
+
 @pytest.fixture
 def admin_user(db):
     return User.objects.create_user(

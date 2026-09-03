@@ -1,0 +1,11 @@
+[Unit]
+Description=Read leave from BreatheHR into the GP rota
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/rota
+# BREATHE_API_KEY and BREATHE_API_URL live in the same environment file as
+# SECRET_KEY, readable only by root. See gunicorn.service for why.
+EnvironmentFile=/etc/rota.env
+ExecStart=/root/rota/.venv/bin/python manage.py breathe_sync

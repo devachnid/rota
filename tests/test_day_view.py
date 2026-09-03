@@ -9,9 +9,9 @@ from datetime import date
 
 import pytest
 
-from rota.models import LeaveRequest, PatternSlot, PracticeSettings
-from tests.factories import (make_clinician, make_entry, make_pattern,
-                             make_session_type, make_site)
+from rota.models import PatternSlot, PracticeSettings
+from tests.factories import (make_absence, make_clinician, make_entry,
+                             make_pattern, make_session_type, make_site)
 
 pytestmark = pytest.mark.django_db
 
@@ -119,6 +119,20 @@ def test_a_clinician_on_leave_all_day_is_in_the_leave_group_not_the_roster(
     assert "Anwer Al-Hasani" in _on_leave_tbody(html)
 
 
+def test_a_clinician_on_breathe_leave_all_day_shows_the_chip_in_the_leave_group(
+        gp_client, gp_user):
+    """The on-leave table has its own cell markup, separate from the
+    roster's — it must render the overlay chip too, not just fall through to
+    the dash it uses for "nothing recorded"."""
+    make_clinician("Viewer", user=gp_user)
+    c = make_clinician("Beatrice Okafor")
+    make_pattern(c)
+    make_absence(c, TUE)
+    html = _html(gp_client)
+    assert "Beatrice Okafor" in _on_leave_tbody(html)
+    assert 'title="From Breathe"' in _on_leave_tbody(html)
+
+
 def test_half_a_day_of_leave_keeps_the_clinician_in_the_roster(gp_client, gp_user):
     make_clinician("Viewer", user=gp_user)
     c = make_clinician("Esther Lomas")
@@ -167,13 +181,10 @@ def test_a_clinician_with_no_pattern_and_approved_leave_is_a_ghost_in_the_roster
     entered their pattern yet."""
     make_clinician("Viewer", user=gp_user)
     c = make_clinician("Locum Newcomer")  # deliberately: no make_pattern()
-    al = make_session_type("Annual Leave", code="AL", category="ABSENCE")
-    LeaveRequest.objects.create(
-        clinician=c, session_type=al, start_date=TUE, end_date=TUE,
-        status=LeaveRequest.Status.APPROVED)
+    make_absence(c, TUE)
     html = _html(gp_client)
     assert "Locum Newcomer" in _roster_tbody(html)
-    assert "is-ghost" in _roster_tbody(html)
+    assert 'title="From Breathe"' in _roster_tbody(html)
     not_in_line = html[html.index('class="day-not-in"'):]
     assert "Locum Newcomer" not in not_in_line
 
