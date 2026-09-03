@@ -479,3 +479,15 @@ def test_a_clash_files_under_on_leave_with_the_marker(gp_client, gp_user):
     assert "is-clash" in leave
     assert "On Breathe leave: Holiday" in leave
     assert "0 in &middot; 1 on leave" in html
+
+
+def test_a_note_is_printed_under_the_chip(gp_client, gp_user):
+    """No hover on a phone, and the day view is the phone screen."""
+    make_clinician("Viewer", user=gp_user)
+    c = make_clinician("Nora Note")
+    make_pattern(c)
+    make_entry(c, day=TUE, part="AM", note="Bring the laptop",
+               session_type=make_session_type("Routine", code="ROUT"))
+    roster = _roster_tbody(_html(gp_client))
+    assert "has-note" in roster
+    assert 'class="day-note-text">Bring the laptop<' in roster

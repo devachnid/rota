@@ -143,7 +143,7 @@
   margin: 0;
 }
 
-.ms-today-cells { display: flex; gap: var(--sp-2); align-items: center; }
+.ms-today-cells { display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; }
 
 .ms-week { margin-bottom: var(--sp-5); }
 
@@ -201,6 +201,13 @@
    its own foreground rather than inheriting the shared one above; (0,2,0)
    beats .ms-dash's (0,1,0) on specificity. */
 .ms-today-cells .ms-dash { color: var(--ink-soft); }
+
+/* The note under a chip. flex-basis: 100% drops it onto its own line
+   beneath the two chips, aligned with the cells column rather than the
+   date. Inside the today box the ground is --accent-soft, where --muted
+   fails AA — the same reason .ms-today-cells .ms-dash takes --ink-soft. */
+.ms-note { flex-basis: 100%; color: var(--muted); font-size: var(--fs-xs); }
+.ms-today-cells .ms-note { color: var(--ink-soft); }
 
 .ms-status { color: var(--muted); font-size: var(--fs-sm); }
 
@@ -273,7 +280,7 @@
 .day-roster tbody th { font-weight: 500; }
 .day-roster td { width: 38%; }
 
-.day-partner {
+.day-partner, .day-note-text {
   display: block;
   color: var(--muted);
   font-size: var(--fs-xs);

@@ -20,7 +20,8 @@ def test_the_day_view_section_exists():
 
 def test_every_class_the_template_uses_is_styled():
     for cls in (".day-head", ".day-count", ".day-step", ".day-closed",
-                ".day-pinned", ".day-roster", ".day-dash", ".day-not-in"):
+                ".day-pinned", ".day-roster", ".day-dash", ".day-not-in",
+                ".day-note-text"):
         assert cls in CSS, f"{cls} appears in day.html but nowhere in screens.css"
 
 

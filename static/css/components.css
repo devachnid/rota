@@ -335,6 +335,7 @@ body {
 /* Chips take their colours from variables the template sets per cell, so the
    browser re-resolves them when the theme changes — no re-render needed. */
 .chip {
+  position: relative;
   display: block;
   background: var(--chip-bg, var(--sunken));
   color: var(--chip-fg, var(--muted));
@@ -374,6 +375,22 @@ body {
    themes (tests/test_chrome_contrast.py). */
 .chip.is-clash {
   box-shadow: inset 0 0 0 2px var(--danger);
+}
+
+/* A note on the entry. A corner dot rather than a glyph: the chip clips
+   its overflow with an ellipsis, so a glyph would be the first thing lost
+   on a narrow column. --chip-fg is the cell's own foreground, set per cell
+   by the template, so the dot holds on every tint in both themes with no
+   new token. */
+.chip.has-note::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--chip-fg, var(--muted));
 }
 
 /* ------------------------------------------------------------ badges --- */

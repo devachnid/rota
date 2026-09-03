@@ -418,3 +418,14 @@ def test_a_closed_day_with_a_session_is_never_styled_as_leave(gp_client, gp_user
     rows = {d["day"]: d for d in _ctx(gp_client)["weeks"][0]["days"]}
     assert victim in rows, "a closed day with a session is still shown"
     assert rows[victim]["is_leave"] is False
+
+
+def test_a_note_is_printed_in_the_week_row_and_the_today_box(gp_client, gp_user):
+    c = make_clinician(user=gp_user)
+    make_pattern(c)
+    make_entry(c, day=date.today(), part="AM", note="Bring the laptop",
+               session_type=make_session_type("Routine", code="ROUT"))
+    PracticeSettings.load()
+    html = gp_client.get("/me/").content.decode()
+    assert html.count("has-note") == 2, "the today box and the week row"
+    assert html.count('class="ms-note">AM — Bring the laptop<') == 2

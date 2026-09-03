@@ -42,7 +42,7 @@
     <div class="ms-today-cells">
       {% for cell in today_cells %}
         {% if cell.entry %}
-        <span class="chip{% if not cell.entry.is_published %} is-draft{% endif %}{% if cell.clash %} is-clash{% endif %}"
+        <span class="chip{% if not cell.entry.is_published %} is-draft{% endif %}{% if cell.clash %} is-clash{% endif %}{% if cell.entry.note %} has-note{% endif %}"
               {% if cell.clash %}title="On Breathe leave: {{ cell.leave_label }}"{% endif %}
               style="--chip-bg: var(--tint-{{ cell.entry.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ cell.entry.session_type.tint.key }}-fg);">
           {{ cell.entry.session_type.code }}{% if cell.entry.site %}<span class="site-marker">{{ cell.entry.site.name|slice:":1" }}</span>{% endif %}
@@ -54,6 +54,7 @@
         <span class="ms-dash">&mdash;</span>
         {% endif %}
       {% endfor %}
+      {% for cell in today_cells %}{% if cell.entry.note %}<span class="ms-note">{{ cell.part }} — {{ cell.entry.note }}</span>{% endif %}{% endfor %}
     </div>
   {% endif %}
 </section>
@@ -71,7 +72,7 @@
       <span class="ms-date"><b>{{ row.day|date:"D j" }}</b> {{ row.day|date:"M" }}</span>
       <span class="ms-cells">
         {% if row.am_cell.entry %}
-        <span class="chip{% if not row.am_cell.entry.is_published %} is-draft{% endif %}{% if row.am_cell.clash %} is-clash{% endif %}"
+        <span class="chip{% if not row.am_cell.entry.is_published %} is-draft{% endif %}{% if row.am_cell.clash %} is-clash{% endif %}{% if row.am_cell.entry.note %} has-note{% endif %}"
               {% if row.am_cell.clash %}title="On Breathe leave: {{ row.am_cell.leave_label }}"{% endif %}
               style="--chip-bg: var(--tint-{{ row.am_cell.entry.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ row.am_cell.entry.session_type.tint.key }}-fg);">
           {{ row.am_cell.entry.session_type.code }}{% if row.am_cell.entry.site %}<span class="site-marker">{{ row.am_cell.entry.site.name|slice:":1" }}</span>{% endif %}
@@ -83,7 +84,7 @@
         <span class="ms-dash">&mdash;</span>
         {% endif %}
         {% if row.pm_cell.entry %}
-        <span class="chip{% if not row.pm_cell.entry.is_published %} is-draft{% endif %}{% if row.pm_cell.clash %} is-clash{% endif %}"
+        <span class="chip{% if not row.pm_cell.entry.is_published %} is-draft{% endif %}{% if row.pm_cell.clash %} is-clash{% endif %}{% if row.pm_cell.entry.note %} has-note{% endif %}"
               {% if row.pm_cell.clash %}title="On Breathe leave: {{ row.pm_cell.leave_label }}"{% endif %}
               style="--chip-bg: var(--tint-{{ row.pm_cell.entry.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ row.pm_cell.entry.session_type.tint.key }}-fg);">
           {{ row.pm_cell.entry.session_type.code }}{% if row.pm_cell.entry.site %}<span class="site-marker">{{ row.pm_cell.entry.site.name|slice:":1" }}</span>{% endif %}
@@ -94,6 +95,8 @@
         {% else %}
         <span class="ms-dash">&mdash;</span>
         {% endif %}
+        {% if row.am_cell.entry.note %}<span class="ms-note">AM — {{ row.am_cell.entry.note }}</span>{% endif %}
+        {% if row.pm_cell.entry.note %}<span class="ms-note">PM — {{ row.pm_cell.entry.note }}</span>{% endif %}
       </span>
     </div>
     {% empty %}

@@ -407,3 +407,22 @@ def test_the_absence_tooltip_names_the_kind_and_reason(admin_client):
     assert 'title="Holiday — from Breathe"' in html
     assert 'title="Sick — from Breathe"' in html
     assert 'title="Other leave: Jury service — from Breathe"' in html
+
+
+# --------------------------------------------------------------- notes ---
+
+
+@pytest.mark.django_db
+def test_a_note_marks_its_chip_and_a_fill_reason_alone_does_not(admin_client):
+    """A note is something a person wrote; fill_reason is the engine's
+    diagnostic. Only the first earns a dot."""
+    rout = make_session_type("Routine", code="ROUT")
+    noted = make_clinician("Noted", initials="NT")
+    _pattern(noted, 0, "AM")
+    make_entry(noted, day=MON, part="AM", session_type=rout, note="Bring the laptop")
+    plain = make_clinician("Plain", initials="PL")
+    _pattern(plain, 0, "AM")
+    make_entry(plain, day=MON, part="AM", session_type=rout, fill_reason="default fill")
+    chips = _chips(_cells(admin_client))
+    assert "has-note" in chips[(noted.id, _iso(0), "AM")]
+    assert "has-note" not in chips[(plain.id, _iso(0), "AM")]
