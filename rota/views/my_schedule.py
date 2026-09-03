@@ -62,7 +62,10 @@ def _blocks(clinician, today, open_weekdays, closed, entries_by, resolver):
             if not (is_open or am_cell["entry"] or pm_cell["entry"]):
                 continue
             worked_cells = [c for c in (am_cell, pm_cell) if not c["off"]]
-            is_leave = bool(worked_cells) and all(
+            # `is_open and`: the same guard today_state applies. A closed day
+            # is shown here only because a session is on it, and a session
+            # is not a day off — whatever Breathe says about the date.
+            is_leave = is_open and bool(worked_cells) and all(
                 _is_leave_cell(c) for c in worked_cells)
             days.append({"day": day, "am": am, "pm": pm,
                         "am_cell": am_cell, "pm_cell": pm_cell,
