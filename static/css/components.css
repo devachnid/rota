@@ -407,6 +407,10 @@ body {
   cursor: pointer;
 }
 .badge.POSSIBLE   { background: var(--danger-soft);  color: var(--danger); }
+/* Outline, not a fourth hue: --accent and --ok are one green in dark mode,
+   so any green-ish "approved" would read as booked. Same family as
+   Advertised, one step less filled. */
+.badge.APPROVED   { background: transparent; box-shadow: inset 0 0 0 1px var(--warning); color: var(--warning); }
 .badge.ADVERTISED { background: var(--warning-soft); color: var(--warning); }
 .badge.BOOKED     { background: var(--ok-soft);      color: var(--ok); }
 

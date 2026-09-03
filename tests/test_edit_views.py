@@ -140,3 +140,11 @@ def test_locum_error_rerender_preserves_pk(admin_client, admin_user):
     assert b"Already booked" in resp.content
     assert f'value="{req.pk}"'.encode() in resp.content
     assert LocumRequirement.objects.count() == 1
+
+
+def test_the_locum_form_lists_the_four_statuses_in_order(admin_client):
+    make_session_type()
+    html = admin_client.get(f"/rota/locum/new/?day={MON.isoformat()}&part=AM").content.decode()
+    labels = ["Possibly needed", "Need approved", "Advertised", "Booked"]
+    positions = [html.index(label) for label in labels]
+    assert positions == sorted(positions), labels

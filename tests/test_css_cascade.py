@@ -481,3 +481,16 @@ def test_the_today_box_wraps_so_a_note_can_take_its_own_line():
         "--muted fails AA on the today box's --accent-soft ground; the note "
         "there needs its own foreground, as .ms-today-cells .ms-dash has"
     )
+
+
+def test_the_approved_badge_is_an_amber_outline():
+    """Progress in one colour family: red = possibly needed, amber outline
+    = need approved, amber filled = advertised, green = booked. Not a
+    fourth hue, because --accent and --ok are the same green in dark mode
+    and any green-ish choice would read as booked."""
+    rules = [r for r in RULES if r.selector == ".badge.APPROVED" and r.media is None]
+    assert rules, ".badge.APPROVED has no rule"
+    d = rules[-1].declarations
+    assert d.get("background") == "transparent"
+    assert "var(--warning)" in d.get("box-shadow", "") and "inset" in d.get("box-shadow", "")
+    assert d.get("color") == "var(--warning)"

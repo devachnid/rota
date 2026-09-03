@@ -89,9 +89,12 @@ from one you are already working on.
 ## Locum requirements
 
 `/admin/rota/locumrequirement/` — tracks a gap you are trying to fill
-externally, through three states:
+externally, through four states:
 
-**Possibly needed → Advertised → Booked.**
+**Possibly needed → Need approved → Advertised → Booked.**
+
+The badge colour follows: red, amber outline, amber, green. "Need approved"
+is approval to seek a locum, before anyone advertises.
 
 Add one from the "Need" row at the bottom of the grid. The status shows as a
 badge and appends to the matching coverage warning, so the grid distinguishes
@@ -102,7 +105,7 @@ badge and appends to the matching coverage warning, so the grid distinguishes
 - **Rota entry** — the entry created when the booking is confirmed.
 
 A **booked** requirement is protected: it cannot be unbooked or rebooked out
-from under itself by a later fill. Requirements at the earlier two statuses can
+from under itself by a later fill. Requirements at the earlier three statuses can
 step back freely.
 
 ## Leave

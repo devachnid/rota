@@ -99,6 +99,16 @@ def test_per_slot_rule_still_warns_alongside_per_week_rule():
     assert any("Coil Clinic" in w.message for w in warnings)
 
 
+def test_a_need_approved_locum_is_named_in_the_suffix(duty_rule):
+    PracticeSettings.objects.update_or_create(pk=1, defaults={"min_clinical_per_session": 0})
+    LocumRequirement.objects.create(
+        day=MON, part="PM", session_type=duty_rule,
+        status=LocumRequirement.Status.APPROVED,
+    )
+    warnings = [w for w in day_warnings(MON) if w.code == "coverage"]
+    assert any(w.message.endswith("— locum need approved") for w in warnings)
+
+
 def test_group_minimum_ignores_absences():
     PracticeSettings.objects.update_or_create(pk=1, defaults={"min_clinical_per_session": 0})
     partners = make_group("Partner", min_per_session=1, display_order=1)
