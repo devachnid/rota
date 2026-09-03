@@ -368,6 +368,14 @@ body {
     var(--wash) 4px, var(--wash) 8px);
 }
 
+/* A session rostered on someone Breathe says is off. An inset ring rather
+   than a background change: the tint under it still has to read, and the
+   draft hatch may be there too. --danger holds AA on every ground in both
+   themes (tests/test_chrome_contrast.py). */
+.chip.is-clash {
+  box-shadow: inset 0 0 0 2px var(--danger);
+}
+
 /* ------------------------------------------------------------ badges --- */
 
 .badge {

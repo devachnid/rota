@@ -45,13 +45,14 @@
         {% for cell in row.cells %}
         <td>
           {% if cell.entry %}
-            <span class="chip{% if not cell.entry.is_published %} is-draft{% endif %}"
+            <span class="chip{% if not cell.entry.is_published %} is-draft{% endif %}{% if cell.clash %} is-clash{% endif %}"
+                  {% if cell.clash %}title="On Breathe leave: {{ cell.leave_label }}"{% endif %}
                   style="--chip-bg: var(--tint-{{ cell.entry.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ cell.entry.session_type.tint.key }}-fg);">
               {{ cell.entry.session_type.code }}{% if cell.entry.site %}<span class="site-marker">{{ cell.entry.site.name|slice:":1" }}</span>{% endif %}
             </span>
             {% if cell.partner %}<span class="day-partner">with {{ cell.partner }}</span>{% endif %}
           {% elif cell.absence %}
-            <span class="chip" title="From Breathe"
+            <span class="chip" title="{{ cell.leave_label }} — from Breathe"
                   style="--chip-bg: var(--tint-{{ cell.absence.tint.key }}-bg); --chip-fg: var(--tint-{{ cell.absence.tint.key }}-fg);">
               {{ cell.absence.code }}
             </span>
@@ -79,12 +80,13 @@
         {% for cell in row.cells %}
         <td>
           {% if cell.entry %}
-            <span class="chip{% if not cell.entry.is_published %} is-draft{% endif %}"
+            <span class="chip{% if not cell.entry.is_published %} is-draft{% endif %}{% if cell.clash %} is-clash{% endif %}"
+                  {% if cell.clash %}title="On Breathe leave: {{ cell.leave_label }}"{% endif %}
                   style="--chip-bg: var(--tint-{{ cell.entry.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ cell.entry.session_type.tint.key }}-fg);">
               {{ cell.entry.session_type.code }}
             </span>
           {% elif cell.absence %}
-            <span class="chip" title="From Breathe"
+            <span class="chip" title="{{ cell.leave_label }} — from Breathe"
                   style="--chip-bg: var(--tint-{{ cell.absence.tint.key }}-bg); --chip-fg: var(--tint-{{ cell.absence.tint.key }}-fg);">
               {{ cell.absence.code }}
             </span>

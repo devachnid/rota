@@ -361,7 +361,7 @@ def test_a_gps_own_breathe_leave_shows_on_their_schedule(gp_client, gp_user):
     tuesday = monday + timedelta(days=1)
     make_absence(c, tuesday)
     html = gp_client.get("/me/").content.decode()
-    assert 'title="From Breathe"' in html
+    assert 'title="Holiday — from Breathe"' in html
     assert "AL" in html
 
 

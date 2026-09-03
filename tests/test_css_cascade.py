@@ -446,3 +446,12 @@ def test_rules_are_numbered_in_document_order_across_a_media_block():
     rules, _ = _parse(css, "fake.css", 0)
     order = {r.selector: r.order for r in rules}
     assert order[".a"] < order[".b"] < order[".c"]
+
+
+def test_the_clash_ring_is_an_inset_danger_shadow():
+    """A ring rather than a background: the tint underneath and the draft
+    hatch both still have to read."""
+    rules = [r for r in RULES if r.selector == ".chip.is-clash" and r.media is None]
+    assert rules, ".chip.is-clash has no rule"
+    shadow = rules[-1].declarations.get("box-shadow", "")
+    assert "inset" in shadow and "var(--danger)" in shadow, shadow

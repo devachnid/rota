@@ -38,9 +38,18 @@ Three Breathe sources, combined and de-duplicated:
 it is approved, within fifteen minutes.
 
 **A week already published keeps its sessions.** Nothing in the rota overwrites
-a session when leave is approved in Breathe afterwards, so the week grid warns
-admins — "1 rostered on Breathe leave (AM)" on that day's header — and you clear
-the session by hand.
+a session when leave is approved in Breathe afterwards. Instead the cell is
+ringed in red, its tooltip says "On Breathe leave: Holiday", and the day's
+header names who — "On Breathe leave but rostered (AM): TH (Holiday)". The
+ring and tooltip are visible to everyone who can see the session; the header
+line is for admins, who clear the session by hand. On the day view and on My
+Schedule the clinician files under "On leave", with the ringed session still
+shown.
+
+Every Breathe chip's tooltip names the kind of leave — "Holiday — from
+Breathe", "Sick — from Breathe", "Other leave: Jury service — from Breathe".
+The reason on "other" leave is whatever Breathe recorded; sickness never
+carries one.
 
 ## Breathe leave mapping
 
