@@ -53,17 +53,22 @@ def _breathe_conflicts(day, entries, resolver=None):
         )
     warnings = []
     for part in ["AM", "PM"]:
-        clashing = {}
+        clashing = []
         for e in entries:
             if e.part != part:
                 continue
             cell = cell_state(e.clinician_id, day, part, entry=e,
                               resolver=resolver, closed=False)
             if cell["clash"]:
-                clashing[e.clinician.initials] = cell["leave_label"]
+                clashing.append((e.clinician.initials, e.clinician.name,
+                                 cell["leave_label"]))
         if clashing:
+            # Keyed by clinician, not initials: initials are free text with
+            # no uniqueness constraint, and two different clinicians sharing
+            # them both clashing must both be named, or the header would
+            # disagree with the cells still ringing for each of them.
             who = ", ".join(f"{initials} ({label})"
-                            for initials, label in sorted(clashing.items()))
+                            for initials, name, label in sorted(clashing))
             warnings.append(Warning(
                 "breathe", part, f"On Breathe leave but rostered ({part}): {who}"))
     return warnings

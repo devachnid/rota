@@ -144,6 +144,21 @@ def test_the_warning_names_everyone_in_initials_order():
     assert w.message == "On Breathe leave but rostered (AM): AA (Holiday), BB (Sick)"
 
 
+def test_two_clinicians_sharing_initials_both_appear():
+    """Initials are free text with no uniqueness constraint. Keying the
+    clash list by initials alone would let the second overwrite the first —
+    the header naming only one clinician while both cells still ring."""
+    for name, kw in (("Ann Able", {}), ("Arthur Abbott", {"kind": "sickness"})):
+        c = make_clinician(name)
+        make_pattern(c)
+        make_entry(c, day=MON, part="AM",
+                   session_type=make_session_type("Routine", code="ROUT"))
+        make_absence(c, MON, **kw)
+    (w,) = _breathe()
+    assert "AA (Holiday)" in w.message
+    assert "AA (Sick)" in w.message
+
+
 def test_an_absence_entry_over_breathe_leave_is_agreement_not_a_clash():
     """An admin marked AL by hand and Breathe agrees. Nothing to fix."""
     c = make_clinician("Ann Able")
