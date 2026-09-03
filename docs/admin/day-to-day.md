@@ -11,7 +11,9 @@ entries exist for correcting things and for looking at history.
 and not manually set** — that is, its own previous drafts. It never touches a
 published entry or one an admin placed by hand, so re-running is safe and
 repeatable. That is also why the run itself has no confirmation step — the
-Delete drafts card below, which can remove hand-placed work, does.
+Delete drafts card below, which can remove hand-placed work, does. That
+clearing is written to the rota entry log as a "deleted drafts" line, even
+when there was nothing to clear, so every run leaves a trace.
 
 **Then it runs six passes in order:**
 
@@ -137,7 +139,10 @@ step back freely.
 
 Locums appear on the grid and the day view **only in a period where they hold
 a session**. An idle locum is neither a blank row nor a name on the "Not in"
-line. The booking form and the admin still list every locum.
+line. The booking form and the admin still list every locum. Because an idle
+locum has no row, there is no cell to click to give them a first session:
+book them through a locum requirement from the Need row, which creates and
+publishes the session.
 
 ## Leave
 

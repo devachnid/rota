@@ -80,9 +80,18 @@ def fill(request):
 def _delete_scope(post):
     """(start, end, include_manual) from the card's fields. A range whose
     end precedes its start is refused rather than silently matching
-    nothing: the preview would say "0 drafts" about a typo."""
-    include_manual = post.get("scope", "all") != "fill"
-    if post.get("range", "all") == "dates":
+    nothing: the preview would say "0 drafts" about a typo. An unrecognised
+    scope or range is refused too, rather than falling through to the
+    broadest reading: this view is destructive, and garbage input should
+    fail closed."""
+    scope = post.get("scope", "all")
+    range_ = post.get("range", "all")
+    if scope not in ("all", "fill"):
+        raise ValueError(f"Unknown scope: {scope!r}")
+    if range_ not in ("all", "dates"):
+        raise ValueError(f"Unknown range: {range_!r}")
+    include_manual = scope != "fill"
+    if range_ == "dates":
         start = date.fromisoformat(post["start"])
         end = date.fromisoformat(post["end"])
         if end < start:

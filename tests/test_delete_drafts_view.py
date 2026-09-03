@@ -104,3 +104,15 @@ def test_a_confirmed_range_with_no_dates_is_refused(drafts, admin_client):
     resp = admin_client.post(URL, {"scope": "all", "range": "dates", "confirm": "1"})
     assert resp.status_code == 400
     assert RotaEntry.objects.filter(is_published=False).count() == 3
+
+
+def test_an_unknown_scope_is_a_400_not_the_broadest_reading(drafts, admin_client):
+    resp = admin_client.post(URL, {"scope": "junk", "range": "all", "confirm": "1"})
+    assert resp.status_code == 400
+    assert RotaEntry.objects.filter(is_published=False).count() == 3
+
+
+def test_an_unknown_range_is_a_400_not_the_broadest_reading(drafts, admin_client):
+    resp = admin_client.post(URL, {"scope": "all", "range": "junk", "confirm": "1"})
+    assert resp.status_code == 400
+    assert RotaEntry.objects.filter(is_published=False).count() == 3

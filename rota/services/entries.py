@@ -134,8 +134,10 @@ def delete_drafts(actor, start=None, end=None, *, include_manual):
 
     Un-groups survivors: a published entry whose allocation_group or
     companion_group was shared with a deleted draft has that field set to
-    None, as clear() does cell by cell — a pair with one half gone is not
-    a pair. One log row for the whole operation.
+    None — a pair with one half gone is not a pair. (clear() goes further
+    for a companion and deletes the partner; that is not done here, because
+    a published session is never deleted by this path.) One log row for the
+    whole operation.
     """
     qs = drafts(start, end, include_manual=include_manual)
     hand_placed = qs.filter(manually_set=True).count()

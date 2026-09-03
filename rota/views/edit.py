@@ -151,7 +151,7 @@ def locum_save(request):
     clinician = Clinician.objects.filter(
         pk=request.POST.get("clinician_id") or None).first()
     covering = Clinician.objects.filter(
-        pk=request.POST.get("covering_id") or None).first()
+        pk=request.POST.get("covering_id") or None, active=True).first()
     day = date.fromisoformat(request.POST["day"])
     part = _clean_part(request.POST["part"])
     try:

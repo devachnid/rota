@@ -60,6 +60,8 @@ def report_staffing(request):
         if not is_open(d):
             continue
         warnings = day_warnings(d, include_drafts=include_drafts)
+        if not request.user.is_rota_admin:
+            warnings = [w for w in warnings if w.code != "breathe"]
         if warnings:
             days.append({"day": d, "warnings": warnings})
     return render(request, "rota/report_staffing.html",

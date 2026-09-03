@@ -159,6 +159,15 @@ def test_locum_save_records_covering(admin_client):
     assert LocumRequirement.objects.get().covering == covered
 
 
+def test_an_inactive_covering_id_is_not_stored(admin_client):
+    st = make_session_type()
+    inactive = make_clinician("Ivy Inactive", active=False)
+    admin_client.post("/rota/locum/save/", {
+        "day": MON.isoformat(), "part": "AM", "session_type_id": st.id,
+        "status": "ADVERTISED", "covering_id": inactive.id})
+    assert LocumRequirement.objects.get().covering is None
+
+
 def test_the_covering_dropdown_offers_no_locums(admin_client):
     make_session_type()
     make_clinician("Cara Covered")
