@@ -461,7 +461,7 @@ class RotaEntryLogAdmin(admin.ModelAdmin):
 
 @admin.register(LocumRequirement)
 class LocumRequirementAdmin(admin.ModelAdmin):
-    list_display = ("day", "part", "session_type", "status", "clinician")
+    list_display = ("day", "part", "session_type", "status", "clinician", "covering")
     list_filter = ("status",)
 
 

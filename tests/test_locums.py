@@ -139,3 +139,17 @@ def test_moving_booked_requirement_day_rejected(admin_user):
             admin_user, pk=req.pk, day=MON + timedelta(days=1), part="AM",
             session_type=st, status=LocumRequirement.Status.BOOKED,
         )
+
+
+def test_the_statuses_run_possible_approved_advertised_booked():
+    S = LocumRequirement.Status
+    assert [s.value for s in S] == ["POSSIBLE", "APPROVED", "ADVERTISED", "BOOKED"]
+    assert S.APPROVED.label == "Need approved"
+
+
+def test_covering_is_an_optional_clinician_that_survives_deletion():
+    field = LocumRequirement._meta.get_field("covering")
+    assert field.null and field.blank
+    assert field.remote_field.model.__name__ == "Clinician"
+    from django.db import models
+    assert field.remote_field.on_delete is models.SET_NULL
