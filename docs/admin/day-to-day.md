@@ -144,6 +144,13 @@ locum has no row, there is no cell to click to give them a first session:
 book them through a locum requirement from the Need row, which creates and
 publishes the session.
 
+**Locum bookings report** — `/reports/locums/` lists every booked requirement
+in a date range (the last 30 days by default): the date and session, which
+locum, who they covered, and what the covered clinician was off for — Breathe's
+kind of leave where it has one, otherwise an absence session on the grid,
+otherwise "No absence recorded". Filter by locum, by who was covered, and by
+kind of absence. Visible to every clinician, like the other reports.
+
 ## Leave
 
 Not managed here. Leave is requested and approved in BreatheHR and read into

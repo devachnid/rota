@@ -31,4 +31,5 @@ urlpatterns = [
     path("reports/fairness/", reports.report_fairness, name="report-fairness"),
     path("reports/staffing/", reports.report_staffing, name="report-staffing"),
     path("reports/trainees/", reports.report_trainees, name="report-trainees"),
+    path("reports/locums/", reports.report_locums, name="report-locums"),
 ]
