@@ -83,7 +83,8 @@ def test_the_app_header_links_to_the_admin_for_rota_admins_only(admin_client, gp
     from tests.factories import make_clinician
     PracticeSettings.load()
     make_clinician(user=gp_user)
-    assert 'href="/admin/"' in admin_client.get("/rota/").content.decode()
+    html = admin_client.get("/rota/").content.decode()
+    assert html.count('class="nav-link">Admin</a>') == 1 and html.count('class="tabbar-link">Admin</a>') == 1
     assert 'href="/admin/"' not in gp_client.get("/rota/").content.decode()
 
 
@@ -105,3 +106,33 @@ def test_an_inactive_rota_admin_has_no_permission(rf):
     request = rf.get("/admin/")
     request.user = user
     assert RotaAdminSite().has_permission(request) is False
+
+
+def test_a_malformed_perm_string_is_never_granted(admin_user):
+    assert not admin_user.has_perm("rota")
+
+
+def test_a_rota_admin_cannot_make_anyone_a_superuser(admin_client, gp_user):
+    url = f"/admin/accounts/user/{gp_user.pk}/change/"
+    resp = admin_client.post(url, {
+        "email": gp_user.email,
+        "is_superuser": "on",
+        "is_staff": "on",
+        "is_rota_admin": "on",
+        "is_active": "on",
+    })
+    assert resp.status_code in (200, 302), resp.content.decode()
+    gp_user.refresh_from_db()
+    assert not gp_user.is_superuser and not gp_user.is_staff
+    assert 'name="is_superuser"' not in admin_client.get(url).content.decode()
+
+
+def test_a_rota_admin_cannot_touch_a_superusers_account(admin_client, staff_user):
+    assert admin_client.get(f"/admin/accounts/user/{staff_user.pk}/change/").status_code == 403
+    assert admin_client.get(f"/admin/accounts/user/{staff_user.pk}/delete/").status_code == 403
+    assert admin_client.get(f"/admin/accounts/user/{staff_user.pk}/password/").status_code == 403
+
+
+def test_a_superuser_still_sees_the_permissions_fieldset(staff_client, gp_user):
+    html = staff_client.get(f"/admin/accounts/user/{gp_user.pk}/change/").content.decode()
+    assert 'name="is_superuser"' in html
