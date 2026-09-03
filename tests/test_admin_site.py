@@ -53,3 +53,55 @@ def test_logout_is_post_only_and_returns_to_the_app_login(admin_client):
     assert admin_client.get("/admin/logout/").status_code == 405
     resp = admin_client.post("/admin/logout/")
     assert resp.status_code == 302 and resp["Location"] == "/accounts/login/"
+
+
+from datetime import date
+
+from rota.models import ClosedDay
+
+
+def test_a_rota_admin_can_open_and_change_rota_models(admin_client):
+    assert admin_client.get("/admin/rota/clinician/").status_code == 200
+    resp = admin_client.post("/admin/rota/closedday/add/",
+                             {"day": "2026-12-25", "reason": "Christmas"})
+    assert resp.status_code == 302
+    assert ClosedDay.objects.filter(day=date(2026, 12, 25)).exists()
+
+
+def test_a_rota_admin_can_open_login_accounts(admin_client):
+    assert admin_client.get("/admin/accounts/user/").status_code == 200
+
+
+@pytest.mark.parametrize("url", ["/admin/axes/accessattempt/", "/admin/auth/group/"])
+def test_a_rota_admin_is_kept_out_of_system_tables(admin_client, staff_client, url):
+    assert admin_client.get(url).status_code == 403
+    assert staff_client.get(url).status_code == 200
+
+
+def test_the_app_header_links_to_the_admin_for_rota_admins_only(admin_client, gp_client, gp_user):
+    from rota.models import PracticeSettings
+    from tests.factories import make_clinician
+    PracticeSettings.load()
+    make_clinician(user=gp_user)
+    assert 'href="/admin/"' in admin_client.get("/rota/").content.decode()
+    assert 'href="/admin/"' not in gp_client.get("/rota/").content.decode()
+
+
+def test_the_login_page_response_is_never_cached(client):
+    """RotaAdminSite.login overrides Django's login view, which loses the
+    @never_cache and @login_not_required decorators unless we re-apply them."""
+    resp = client.get("/admin/login/")
+    assert resp.status_code == 302
+    assert "no-cache" in resp["Cache-Control"]
+
+
+def test_an_inactive_rota_admin_has_no_permission(rf):
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    user = User.objects.create_user(
+        email="inactive-admin@example.com", password="pw",
+        is_rota_admin=True, is_active=False,
+    )
+    request = rf.get("/admin/")
+    request.user = user
+    assert RotaAdminSite().has_permission(request) is False

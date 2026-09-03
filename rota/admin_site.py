@@ -8,12 +8,15 @@ module level, for the same reason.
 
 from django.conf import settings
 from django.contrib.auth import logout as auth_logout
+from django.contrib.auth.decorators import login_not_required
 from django.contrib.auth.views import redirect_to_login
 from django.http import (HttpResponseForbidden, HttpResponseNotAllowed,
                          HttpResponseRedirect)
 from django.templatetags.static import static
 from django.urls import reverse
+from django.utils.decorators import method_decorator
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.cache import never_cache
 from unfold.sites import UnfoldAdminSite
 
 
@@ -44,6 +47,8 @@ class RotaAdminSite(UnfoldAdminSite):
             return target
         return reverse("admin:index")
 
+    @method_decorator(never_cache)
+    @login_not_required
     def login(self, request, extra_context=None):
         """One login page — the app's. A signed-in GP gets a 403 rather
         than a loop through a login form that would sign them in again."""
