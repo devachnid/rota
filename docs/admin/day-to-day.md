@@ -10,7 +10,8 @@ entries exist for correcting things and for looking at history.
 **What it does first:** deletes every entry in the range that is **unpublished
 and not manually set** — that is, its own previous drafts. It never touches a
 published entry or one an admin placed by hand, so re-running is safe and
-repeatable. That is also why there is no confirmation step.
+repeatable. That is also why the run itself has no confirmation step — the
+Delete drafts card below, which can remove hand-placed work, does.
 
 **Then it runs six passes in order:**
 
@@ -42,6 +43,21 @@ configuration:
 
 A long list of "no eligible clinician" across every rule almost always means
 pattern slots are missing rather than that the rules are wrong.
+
+## Delete drafts
+
+Also on `/rota/fill/`. Two choices, then a preview, then the deletion.
+
+- **Which drafts** — every unpublished session, or only the fill engine's own
+  (the rule the engine itself applies before a re-run: unpublished **and** not
+  placed by hand).
+- **Which dates** — every date, or a range.
+
+**Preview** shows how many drafts that is and how many were placed by hand.
+Nothing is deleted until you press **Delete** on that preview. Published
+sessions are never in scope; a booked locum's session is published when it is
+booked, so it is never in scope either. One line goes to the rota entry log
+per deletion, naming the range and the counts.
 
 ## Rota entries
 

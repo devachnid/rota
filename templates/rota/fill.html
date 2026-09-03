@@ -31,6 +31,40 @@
       </div>
     </form>
   </div>
+  <div class="card">
+    <h2>Delete drafts</h2>
+    <form method="post" action="/rota/drafts/delete/">{% csrf_token %}
+      <div class="field">
+        <label><input type="radio" name="scope" value="all" checked> Every unpublished session</label>
+        <label><input type="radio" name="scope" value="fill"> Only the fill engine's own drafts — keep sessions placed by hand</label>
+      </div>
+      <div class="field">
+        <label><input type="radio" name="range" value="all" checked> Every date</label>
+        <label><input type="radio" name="range" value="dates"> Between these dates</label>
+        <input type="date" name="start" aria-label="From" value="{{ start|date:'Y-m-d' }}">
+        <input type="date" name="end" aria-label="To" value="{{ end|date:'Y-m-d' }}">
+      </div>
+      <p class="field-help">Published sessions are never touched. You will see a count before anything is deleted.</p>
+      <div class="form-actions">
+        <button type="submit" class="btn">Preview</button>
+      </div>
+    </form>
+    {% if delete_preview %}
+    <p>This will delete <strong>{{ delete_preview.count }} draft{{ delete_preview.count|pluralize }}</strong>{% if delete_preview.range == "dates" %} between {{ delete_preview.start|date:"j M" }} and {{ delete_preview.end|date:"j M" }}{% else %} across every date{% endif %}{% if delete_preview.include_manual %}, {{ delete_preview.hand_placed }} placed by hand{% endif %}.</p>
+    <form method="post" action="/rota/drafts/delete/">{% csrf_token %}
+      <input type="hidden" name="scope" value="{{ delete_preview.scope }}">
+      <input type="hidden" name="range" value="{{ delete_preview.range }}">
+      {% if delete_preview.start %}
+      <input type="hidden" name="start" value="{{ delete_preview.start|date:'Y-m-d' }}">
+      <input type="hidden" name="end" value="{{ delete_preview.end|date:'Y-m-d' }}">
+      {% endif %}
+      <input type="hidden" name="confirm" value="1">
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Delete {{ delete_preview.count }} draft{{ delete_preview.count|pluralize }}</button>
+      </div>
+    </form>
+    {% endif %}
+  </div>
   {% if result %}
   <div class="card">
     <h2>{{ result.created }} draft session(s) created</h2>

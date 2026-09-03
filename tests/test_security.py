@@ -155,7 +155,7 @@ def test_a_password_that_looks_like_the_users_own_email_is_rejected():
 
 PROTECTED = ["/rota/", "/me/", "/requests/", "/rota/fill/",
              "/reports/fairness/", "/reports/staffing/",
-             "/reports/trainees/", "/me/swap/new/"]
+             "/reports/trainees/", "/me/swap/new/", "/rota/drafts/delete/"]
 
 
 @pytest.mark.django_db
@@ -170,7 +170,7 @@ def test_anonymous_users_are_sent_to_login(url):
 # Screens that change the rota or act on other people's requests.
 ADMIN_ONLY = ["/requests/", "/rota/fill/", "/rota/publish/", "/rota/assign/",
               "/rota/clear/", "/rota/daynote/save/", "/rota/locum/new/",
-              "/rota/locum/save/"]
+              "/rota/locum/save/", "/rota/drafts/delete/"]
 
 
 @pytest.mark.django_db
