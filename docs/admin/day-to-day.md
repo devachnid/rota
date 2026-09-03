@@ -70,7 +70,9 @@ seeing the fields the grid hides.
 - **Day / Part / Clinician / Session type** — who is doing what, when.
 - **Site** — where. Auto-stamped from the commitment or the type's default site
   unless set by hand.
-- **Note** — free text on this one entry, shown on the cell.
+- **Note** — free text on this one entry. A dot in the chip's corner says
+  one exists; the grid shows it on hover, and the day view and My Schedule
+  print it under the session.
 - **Is published** — whether GPs can see it. Set in bulk by publishing a week
   from the grid.
 - **Manually set** — marks the entry as placed by a human. **Assisted fill will
@@ -85,7 +87,7 @@ seeing the fields the grid hides.
 
 ## Warnings on the grid
 
-The red strips in a day's header come from **three separate sources**, so if you
+The red strips in a day's header come from **four separate sources**, so if you
 want to silence one, you need to know which:
 
 1. **Coverage warnings** — "No Duty cover (AM)". From coverage rules with
@@ -97,6 +99,10 @@ want to silence one, you need to know which:
    clinical-category entries only.
 3. **Group warnings** — "Salaried: 2/3 in (AM)". From a group's [min per
    session](people.md#min-per-session), counting non-absence entries.
+4. **Breathe clashes** — "On Breathe leave but rostered (AM): TH (Holiday)".
+   A published or drafted session on someone Breathe says is off. The cell
+   itself is ringed for everyone; this header line is yours. See
+   [Leave from Breathe](breathe.md).
 
 Closed days generate no warnings at all.
 
