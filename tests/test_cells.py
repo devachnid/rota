@@ -205,3 +205,18 @@ def test_a_clash_ignores_the_closed_flag():
                       resolver=_resolver([c], [make_absence(c, TUE)]),
                       closed=True)
     assert cell["clash"] is True
+
+
+# ------------------------------------------------------------- locums ---
+
+from rota.services.cells import shows_on_roster
+
+
+@pytest.mark.parametrize("is_locum,has_entry,shown", [
+    (False, False, True),
+    (False, True, True),
+    (True, False, False),
+    (True, True, True),
+])
+def test_only_an_idle_locum_is_hidden(is_locum, has_entry, shown):
+    assert shows_on_roster(is_locum=is_locum, has_entry=has_entry) is shown

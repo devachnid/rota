@@ -82,3 +82,19 @@ def cell_state(clinician_id, day, part, *, entry, resolver, closed,
         "closed": closed,
         "partner": partner,
     }
+
+
+def shows_on_roster(*, is_locum, has_entry):
+    """Whether a clinician gets a row on a roster screen at all.
+
+    Many locums are defined and few are booked in any given week, so an
+    idle locum is a blank row on the grid and a name on the day view's
+    "Not in" line — noise, on every screen, for every locum, every day.
+    A locum is listed only while they hold a session in the period shown.
+    Everyone else is listed regardless: a salaried GP's empty week is
+    information (nothing allocated yet), a locum's is not.
+
+    The grid and the day view both ask this; admin dropdowns and the
+    booking form do not — they need every locum.
+    """
+    return has_entry or not is_locum

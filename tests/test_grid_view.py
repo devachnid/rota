@@ -115,3 +115,21 @@ def test_the_badge_tooltip_says_who_is_covered(admin_client):
     )
     html = admin_client.get(URL).content.decode()
     assert 'title="Covering Cara Covered — agency emailed"' in html
+
+
+def test_an_idle_locum_has_no_row_but_the_need_row_stays(admin_client):
+    PracticeSettings.load()
+    locums = make_group("Locum", is_locum_group=True, display_order=99)
+    make_clinician("Idle Locum", group=locums)
+    html = admin_client.get(URL).content.decode()
+    assert "Idle Locum" not in html
+    assert ">Need<" in html
+
+
+def test_a_booked_locum_has_a_row_that_week(admin_client):
+    PracticeSettings.load()
+    locums = make_group("Locum", is_locum_group=True, display_order=99)
+    busy = make_clinician("Busy Locum", group=locums)
+    make_entry(busy, day=MON, part="AM", session_type=make_session_type("Routine"))
+    html = admin_client.get(URL).content.decode()
+    assert 'title="Busy Locum"' in html

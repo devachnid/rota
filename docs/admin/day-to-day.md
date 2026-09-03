@@ -111,6 +111,10 @@ A **booked** requirement is protected: it cannot be unbooked or rebooked out
 from under itself by a later fill. Requirements at the earlier three statuses can
 step back freely.
 
+Locums appear on the grid and the day view **only in a period where they hold
+a session**. An idle locum is neither a blank row nor a name on the "Not in"
+line. The booking form and the admin still list every locum.
+
 ## Leave
 
 Not managed here. Leave is requested and approved in BreatheHR and read into

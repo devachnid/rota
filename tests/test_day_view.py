@@ -491,3 +491,24 @@ def test_a_note_is_printed_under_the_chip(gp_client, gp_user):
     roster = _roster_tbody(_html(gp_client))
     assert "has-note" in roster
     assert 'class="day-note-text">Bring the laptop<' in roster
+
+
+def test_an_idle_locum_is_listed_nowhere_on_the_day(gp_client, gp_user):
+    """Many locums are defined and few are booked; the "Not in" line was
+    where they all piled up."""
+    from tests.factories import make_group
+    make_clinician("Viewer", user=gp_user)
+    locums = make_group("Locum", is_locum_group=True, display_order=99)
+    make_clinician("Idle Locum", group=locums)
+    html = _html(gp_client)
+    assert "Idle Locum" not in html
+
+
+def test_a_locum_with_a_session_is_on_the_roster(gp_client, gp_user):
+    from tests.factories import make_group
+    make_clinician("Viewer", user=gp_user)
+    locums = make_group("Locum", is_locum_group=True, display_order=99)
+    busy = make_clinician("Busy Locum", group=locums)
+    make_entry(busy, day=TUE, part="AM",
+               session_type=make_session_type("Routine", code="ROUT"))
+    assert "Busy Locum" in _roster_tbody(_html(gp_client))
