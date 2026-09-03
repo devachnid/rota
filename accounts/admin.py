@@ -26,9 +26,13 @@ class CustomUserAdmin(UserAdmin):
     )
 
     def get_fieldsets(self, request, obj=None):
-        if request.user.is_superuser:
-            return self.fieldsets
-        return self.fieldsets[:2]
+        fieldsets = super().get_fieldsets(request, obj)   # add_fieldsets when obj is None
+        if obj is None or request.user.is_superuser:
+            return fieldsets
+        # A rota admin: the account, the rota flag, and is_active alone — never
+        # is_staff / is_superuser (Task 2's boundary), but a manager must still
+        # be able to deactivate a leaver's login.
+        return (fieldsets[0], fieldsets[1], ("Status", {"fields": ("is_active",)}))
 
     def get_readonly_fields(self, request, obj=None):
         fields = super().get_readonly_fields(request, obj)

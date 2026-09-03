@@ -136,3 +136,58 @@ def test_a_rota_admin_cannot_touch_a_superusers_account(admin_client, staff_user
 def test_a_superuser_still_sees_the_permissions_fieldset(staff_client, gp_user):
     html = staff_client.get(f"/admin/accounts/user/{gp_user.pk}/change/").content.decode()
     assert 'name="is_superuser"' in html
+
+
+def test_a_rota_admin_can_create_a_login_account(admin_client):
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+
+    get_resp = admin_client.get("/admin/accounts/user/add/")
+    html = get_resp.content.decode()
+    assert get_resp.status_code == 200
+    assert 'name="password1"' in html
+    assert 'name="is_superuser"' not in html
+
+    resp = admin_client.post("/admin/accounts/user/add/", {
+        "email": "new@example.com",
+        "password1": "correct-horse-battery",
+        "password2": "correct-horse-battery",
+        "usable_password": "true",
+        "is_rota_admin": "on",
+    })
+    assert resp.status_code == 302, resp.content.decode()
+    user = User.objects.get(email="new@example.com")
+    assert user.is_rota_admin is True
+    assert user.is_superuser is False
+
+
+def test_a_superuser_can_create_a_login_account(staff_client):
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+
+    resp = staff_client.post("/admin/accounts/user/add/", {
+        "email": "new@example.com",
+        "password1": "correct-horse-battery",
+        "password2": "correct-horse-battery",
+        "usable_password": "true",
+        "is_rota_admin": "on",
+    })
+    assert resp.status_code == 302, resp.content.decode()
+    assert User.objects.filter(email="new@example.com").exists()
+
+
+def test_a_rota_admin_can_deactivate_a_login_but_not_promote_it(admin_client, gp_user):
+    url = f"/admin/accounts/user/{gp_user.pk}/change/"
+    html = admin_client.get(url).content.decode()
+    assert 'name="is_active"' in html
+    assert 'name="is_superuser"' not in html
+
+    resp = admin_client.post(url, {
+        "email": gp_user.email,
+        "is_active": "",
+        "is_rota_admin": "on" if gp_user.is_rota_admin else "",
+    })
+    assert resp.status_code == 302, resp.content.decode()
+    gp_user.refresh_from_db()
+    assert gp_user.is_active is False
+    assert gp_user.is_superuser is False
