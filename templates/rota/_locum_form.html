@@ -30,6 +30,14 @@
       </select>
     </div>
     <div class="field">
+      <label for="id_covering_id">Covering for</label>
+      <select name="covering_id" id="id_covering_id"><option value="">—</option>
+        {% for c in coverable %}
+        <option value="{{ c.id }}" {% if req.covering_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
       <label for="id_details">Details</label>
       <textarea name="details" id="id_details" rows="2">{{ req.details|default:'' }}</textarea>
     </div>

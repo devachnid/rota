@@ -153,3 +153,38 @@ def test_covering_is_an_optional_clinician_that_survives_deletion():
     assert field.remote_field.model.__name__ == "Clinician"
     from django.db import models
     assert field.remote_field.on_delete is models.SET_NULL
+
+
+def test_covering_is_saved_and_refuses_a_locum(admin_user):
+    st = make_session_type("Routine")
+    covered = make_clinician("Cara Covered")
+    req = locums.save_requirement(
+        admin_user, day=MON, part="AM", session_type=st,
+        status=LocumRequirement.Status.POSSIBLE, covering=covered,
+    )
+    assert req.covering == covered
+    locum_group = make_group("Locum", is_locum_group=True, display_order=99)
+    a_locum = make_clinician("Larry Locum", group=locum_group)
+    with pytest.raises(ValueError, match="outside the locum group"):
+        locums.save_requirement(
+            admin_user, pk=req.pk, day=MON, part="AM", session_type=st,
+            status=LocumRequirement.Status.POSSIBLE, covering=a_locum,
+        )
+
+
+def test_a_booking_note_names_who_is_covered(admin_user):
+    st = make_session_type("Routine")
+    covered = make_clinician("Cara Covered")
+    locum_group = make_group("Locum", is_locum_group=True, display_order=99)
+    locum = make_clinician("Larry Locum", group=locum_group)
+    locums.save_requirement(
+        admin_user, day=MON, part="AM", session_type=st,
+        status=LocumRequirement.Status.BOOKED, clinician=locum,
+        covering=covered, details="£700",
+    )
+    assert RotaEntry.objects.get().note == "Covering Cara Covered. £700"
+
+
+def test_a_booking_without_covering_keeps_the_plain_note(admin_user):
+    st, locum, req = _book(admin_user)
+    assert RotaEntry.objects.get().note == "£700"

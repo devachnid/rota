@@ -76,7 +76,7 @@
     {% for r in cell.reqs %}
     <span class="badge {{ r.status }}"
           {% if is_admin %}hx-get="/rota/locum/{{ r.id }}/form/" hx-target="#modal"{% endif %}
-          title="{{ r.details }}">{{ r.get_status_display }}</span>
+          title="{% if r.covering %}Covering {{ r.covering.name }}{% if r.details %} — {% endif %}{% endif %}{{ r.details }}">{{ r.get_status_display }}</span>
     {% endfor %}
     {% if is_admin %}
     <span class="badge" hx-get="/rota/locum/new/?day={{ cell.day_str }}&part={{ cell.part }}"

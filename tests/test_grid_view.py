@@ -102,3 +102,16 @@ def test_swap_link_shown_with_clinician_profile(gp_client, gp_user):
     make_clinician(user=gp_user)
     html = gp_client.get(URL).content.decode()
     assert "Propose swap" in html
+
+
+def test_the_badge_tooltip_says_who_is_covered(admin_client):
+    PracticeSettings.load()
+    make_group("Locum", is_locum_group=True, display_order=99)
+    covered = make_clinician("Cara Covered")
+    LocumRequirement.objects.create(
+        day=MON, part="AM", session_type=make_session_type("Routine"),
+        status=LocumRequirement.Status.ADVERTISED, covering=covered,
+        details="agency emailed",
+    )
+    html = admin_client.get(URL).content.decode()
+    assert 'title="Covering Cara Covered — agency emailed"' in html

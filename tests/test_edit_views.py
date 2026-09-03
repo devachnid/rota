@@ -148,3 +148,23 @@ def test_the_locum_form_lists_the_four_statuses_in_order(admin_client):
     labels = ["Possibly needed", "Need approved", "Advertised", "Booked"]
     positions = [html.index(label) for label in labels]
     assert positions == sorted(positions), labels
+
+
+def test_locum_save_records_covering(admin_client):
+    st = make_session_type()
+    covered = make_clinician("Cara Covered")
+    admin_client.post("/rota/locum/save/", {
+        "day": MON.isoformat(), "part": "AM", "session_type_id": st.id,
+        "status": "APPROVED", "covering_id": covered.id})
+    assert LocumRequirement.objects.get().covering == covered
+
+
+def test_the_covering_dropdown_offers_no_locums(admin_client):
+    make_session_type()
+    make_clinician("Cara Covered")
+    locum_group = make_group("Locum", is_locum_group=True, display_order=99)
+    make_clinician("Larry Locum", group=locum_group)
+    html = admin_client.get(f"/rota/locum/new/?day={MON.isoformat()}&part=AM").content.decode()
+    covering = html[html.index('id="id_covering_id"'):html.index("</select>", html.index('id="id_covering_id"'))]
+    assert "Cara Covered" in covering
+    assert "Larry Locum" not in covering

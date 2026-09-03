@@ -105,7 +105,7 @@ def grid(request):
         if rows or group.is_locum_group:
             sections.append({"group": group, "rows": rows})
 
-    reqs = LocumRequirement.objects.filter(day__in=days).select_related("session_type")
+    reqs = LocumRequirement.objects.filter(day__in=days).select_related("session_type", "covering")
     req_map = {}
     for r in reqs:
         req_map.setdefault((r.day, r.part), []).append(r)

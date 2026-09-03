@@ -102,6 +102,9 @@ badge and appends to the matching coverage warning, so the grid distinguishes
 
 - **Details** — free text: which agency, what rate, who you called.
 - **Clinician** — set when a specific locum is booked.
+- **Covering for** — optional: the clinician the locum stands in for. Shown
+  on the badge's tooltip, and written into the booked session's note
+  ("Covering Tom Hodges. Agency X") so the grid cell says it too.
 - **Rota entry** — the entry created when the booking is confirmed.
 
 A **booked** requirement is protected: it cannot be unbooked or rebooked out
