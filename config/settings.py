@@ -128,6 +128,20 @@ UNFOLD = {
         "show_all_applications": False,
         "navigation": "rota.admin_site.navigation",
     },
+    "COLORS": {
+        "primary": "rota.admin_theme.primary",
+        "base": "rota.admin_theme.base",
+        "font": {
+            "subtle-light": "var(--color-base-500)",
+            "subtle-dark": "var(--color-base-400)",
+            "default-light": "var(--color-base-700)",
+            "default-dark": "var(--color-base-300)",
+            "important-light": "var(--color-base-900)",
+            "important-dark": "var(--color-base-100)",
+        },
+    },
+    "STYLES": ["rota.admin_site.style_fonts", "rota.admin_site.style_admin"],
+    "SCRIPTS": ["rota.admin_site.script_theme_bridge"],
 }
 
 LANGUAGE_CODE = "en-gb"

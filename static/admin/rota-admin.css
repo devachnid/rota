@@ -1,0 +1,6 @@
+/* The admin's font is the app's. No colour lives here: the admin's scales
+   come from settings.UNFOLD["COLORS"], derived from tokens.css by
+   rota/admin_theme.py, and unfold writes them as --color-* variables. */
+:root {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+}
