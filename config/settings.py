@@ -38,7 +38,10 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 INSTALLED_APPS = [
-    "django.contrib.admin",
+    "unfold.apps.BasicAppConfig",   # the theme; Basic, so it does not replace admin.site
+    "unfold.contrib.filters",
+    "unfold.contrib.forms",
+    "config.apps.RotaAdminConfig",  # django.contrib.admin with our site class
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
@@ -103,6 +106,29 @@ AUTH_PASSWORD_VALIDATORS = [
 LOGIN_URL = "/accounts/login/"
 LOGIN_REDIRECT_URL = "/rota/"
 LOGOUT_REDIRECT_URL = "/accounts/login/"
+
+# The admin's chrome. Plain values and dotted paths only — unfold resolves
+# the paths per request, so rota.admin_site is never imported here.
+UNFOLD = {
+    "SITE_TITLE": "Rota",
+    "SITE_HEADER": "Practice Rota",
+    "SITE_URL": "/rota/",
+    "SITE_SYMBOL": "calendar_month",
+    "SITE_FAVICONS": [
+        {"rel": "icon", "sizes": "32x32", "type": "image/png",
+         "href": "rota.admin_site.favicon_32"},
+        {"rel": "apple-touch-icon", "sizes": "180x180", "type": "image/png",
+         "href": "rota.admin_site.apple_touch_icon"},
+    ],
+    "SHOW_HISTORY": True,
+    "SHOW_VIEW_ON_SITE": False,
+    "COMMAND": {"search_models": True, "show_history": False},
+    "SIDEBAR": {
+        "show_search": False,
+        "show_all_applications": False,
+        "navigation": "rota.admin_site.navigation",
+    },
+}
 
 LANGUAGE_CODE = "en-gb"
 TIME_ZONE = "Europe/London"
