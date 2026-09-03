@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 
 from django.db import transaction
 
@@ -111,3 +112,46 @@ def publish_range(actor, start, end):
     ).update(is_published=True)
     _log(actor, start, "", "", "published", f"{start}..{end} ({n} entries)")
     return n
+
+
+def drafts(start=None, end=None, *, include_manual):
+    """Every unpublished entry in scope — the one definition, used by the
+    preview and the deletion so they cannot disagree. Bounded by
+    `day__range` when both dates are given; otherwise every date.
+    `include_manual=False` is the fill engine's rule: its own drafts only,
+    never one an admin placed by hand."""
+    qs = RotaEntry.objects.filter(is_published=False)
+    if start is not None and end is not None:
+        qs = qs.filter(day__range=(start, end))
+    if not include_manual:
+        qs = qs.filter(manually_set=False)
+    return qs
+
+
+@transaction.atomic
+def delete_drafts(actor, start=None, end=None, *, include_manual):
+    """Delete the drafts in scope. Returns (deleted, hand_placed).
+
+    Un-groups survivors: a published entry whose allocation_group or
+    companion_group was shared with a deleted draft has that field set to
+    None, as clear() does cell by cell — a pair with one half gone is not
+    a pair. One log row for the whole operation.
+    """
+    qs = drafts(start, end, include_manual=include_manual)
+    hand_placed = qs.filter(manually_set=True).count()
+    allocation = set(qs.exclude(allocation_group=None)
+                     .values_list("allocation_group", flat=True))
+    companion = set(qs.exclude(companion_group=None)
+                    .values_list("companion_group", flat=True))
+    _, by_model = qs.delete()
+    deleted = by_model.get("rota.RotaEntry", 0)
+    if allocation:
+        RotaEntry.objects.filter(allocation_group__in=allocation).update(
+            allocation_group=None)
+    if companion:
+        RotaEntry.objects.filter(companion_group__in=companion).update(
+            companion_group=None)
+    span = f"{start}..{end}" if start is not None and end is not None else "all dates"
+    _log(actor, start or date.today(), "", "", "deleted drafts",
+         f"{span} ({deleted} entries, {hand_placed} hand-placed)")
+    return deleted, hand_placed

@@ -1,6 +1,5 @@
 from django.db import transaction
 
-from rota.models import RotaEntry
 from rota.services import entries
 
 from . import commitments, coverage, mentoring, trainees
@@ -12,9 +11,10 @@ __all__ = ["run_fill", "FillResult", "UnfilledSlot"]
 
 @transaction.atomic
 def run_fill(actor, start, end, fill_default=False):
-    RotaEntry.objects.filter(
-        day__range=(start, end), is_published=False, manually_set=False
-    ).delete()
+    # Its own previous drafts, never a published entry or one an admin
+    # placed by hand — the same rule the Delete-drafts card offers as
+    # "fill drafts only", and the same function, so there is one rule.
+    entries.delete_drafts(actor, start, end, include_manual=False)
 
     result = FillResult()
     ctx = FillContext(start, end)
