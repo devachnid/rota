@@ -140,3 +140,40 @@ def test_locum_error_rerender_preserves_pk(admin_client, admin_user):
     assert b"Already booked" in resp.content
     assert f'value="{req.pk}"'.encode() in resp.content
     assert LocumRequirement.objects.count() == 1
+
+
+def test_the_locum_form_lists_the_four_statuses_in_order(admin_client):
+    make_session_type()
+    html = admin_client.get(f"/rota/locum/new/?day={MON.isoformat()}&part=AM").content.decode()
+    labels = ["Possibly needed", "Need approved", "Advertised", "Booked"]
+    positions = [html.index(label) for label in labels]
+    assert positions == sorted(positions), labels
+
+
+def test_locum_save_records_covering(admin_client):
+    st = make_session_type()
+    covered = make_clinician("Cara Covered")
+    admin_client.post("/rota/locum/save/", {
+        "day": MON.isoformat(), "part": "AM", "session_type_id": st.id,
+        "status": "APPROVED", "covering_id": covered.id})
+    assert LocumRequirement.objects.get().covering == covered
+
+
+def test_an_inactive_covering_id_is_not_stored(admin_client):
+    st = make_session_type()
+    inactive = make_clinician("Ivy Inactive", active=False)
+    admin_client.post("/rota/locum/save/", {
+        "day": MON.isoformat(), "part": "AM", "session_type_id": st.id,
+        "status": "ADVERTISED", "covering_id": inactive.id})
+    assert LocumRequirement.objects.get().covering is None
+
+
+def test_the_covering_dropdown_offers_no_locums(admin_client):
+    make_session_type()
+    make_clinician("Cara Covered")
+    locum_group = make_group("Locum", is_locum_group=True, display_order=99)
+    make_clinician("Larry Locum", group=locum_group)
+    html = admin_client.get(f"/rota/locum/new/?day={MON.isoformat()}&part=AM").content.decode()
+    covering = html[html.index('id="id_covering_id"'):html.index("</select>", html.index('id="id_covering_id"'))]
+    assert "Cara Covered" in covering
+    assert "Larry Locum" not in covering

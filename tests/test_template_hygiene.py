@@ -59,6 +59,7 @@ LEAKED = ["{#", "#}", "{% comment", "{%comment", "endcomment",
 @pytest.mark.parametrize("url", ["/rota/", "/me/", "/requests/", "/rota/fill/",
                                  "/reports/fairness/",
                                  "/reports/staffing/", "/reports/trainees/",
+                                 "/reports/locums/",
                                  "/me/swap/new/"])
 def test_no_developer_notes_reach_the_rendered_page(admin_client, url):
     from rota.models import PracticeSettings

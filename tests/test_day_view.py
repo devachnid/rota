@@ -130,7 +130,7 @@ def test_a_clinician_on_breathe_leave_all_day_shows_the_chip_in_the_leave_group(
     make_absence(c, TUE)
     html = _html(gp_client)
     assert "Beatrice Okafor" in _on_leave_tbody(html)
-    assert 'title="From Breathe"' in _on_leave_tbody(html)
+    assert "from Breathe" in _on_leave_tbody(html)
 
 
 def test_half_a_day_of_leave_keeps_the_clinician_in_the_roster(gp_client, gp_user):
@@ -184,7 +184,7 @@ def test_a_clinician_with_no_pattern_and_approved_leave_is_a_ghost_in_the_roster
     make_absence(c, TUE)
     html = _html(gp_client)
     assert "Locum Newcomer" in _roster_tbody(html)
-    assert 'title="From Breathe"' in _roster_tbody(html)
+    assert "from Breathe" in _roster_tbody(html)
     not_in_line = html[html.index('class="day-not-in"'):]
     assert "Locum Newcomer" not in not_in_line
 
@@ -461,3 +461,54 @@ def test_the_stepper_terminates_when_the_practice_has_no_open_weekdays(
     s.save()
     resp = gp_client.get(f"/rota/day/{TUE.isoformat()}/")
     assert resp.status_code == 200
+
+
+def test_a_clash_files_under_on_leave_with_the_marker(gp_client, gp_user):
+    """Breathe says they are off, so the section says so; the ringed chip
+    is what makes the session the visible anomaly."""
+    make_clinician("Viewer", user=gp_user)
+    c = make_clinician("Cara Clash")
+    make_pattern(c)
+    rout = make_session_type("Routine", code="ROUT")
+    make_entry(c, day=TUE, part="AM", session_type=rout)
+    make_entry(c, day=TUE, part="PM", session_type=rout)
+    make_absence(c, TUE)
+    html = _html(gp_client)
+    leave = _on_leave_tbody(html)
+    assert "Cara Clash" in leave
+    assert "is-clash" in leave
+    assert "On Breathe leave: Holiday" in leave
+    assert "0 in &middot; 1 on leave" in html
+
+
+def test_a_note_is_printed_under_the_chip(gp_client, gp_user):
+    """No hover on a phone, and the day view is the phone screen."""
+    make_clinician("Viewer", user=gp_user)
+    c = make_clinician("Nora Note")
+    make_pattern(c)
+    make_entry(c, day=TUE, part="AM", note="Bring the laptop",
+               session_type=make_session_type("Routine", code="ROUT"))
+    roster = _roster_tbody(_html(gp_client))
+    assert "has-note" in roster
+    assert 'class="day-note-text">Bring the laptop<' in roster
+
+
+def test_an_idle_locum_is_listed_nowhere_on_the_day(gp_client, gp_user):
+    """Many locums are defined and few are booked; the "Not in" line was
+    where they all piled up."""
+    from tests.factories import make_group
+    make_clinician("Viewer", user=gp_user)
+    locums = make_group("Locum", is_locum_group=True, display_order=99)
+    make_clinician("Idle Locum", group=locums)
+    html = _html(gp_client)
+    assert "Idle Locum" not in html
+
+
+def test_a_locum_with_a_session_is_on_the_roster(gp_client, gp_user):
+    from tests.factories import make_group
+    make_clinician("Viewer", user=gp_user)
+    locums = make_group("Locum", is_locum_group=True, display_order=99)
+    busy = make_clinician("Busy Locum", group=locums)
+    make_entry(busy, day=TUE, part="AM",
+               session_type=make_session_type("Routine", code="ROUT"))
+    assert "Busy Locum" in _roster_tbody(_html(gp_client))

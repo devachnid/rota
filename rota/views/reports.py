@@ -3,10 +3,14 @@ from datetime import date, timedelta
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 
-from rota.models import (Clinician, CoverageRule, PracticeSettings, RotaEntry,
-                         SessionType, TraineeProfile, TraineeStageRule)
+from rota.models import (BreatheAbsence, BreatheLeaveMapping, Clinician,
+                         CoverageRule, LocumRequirement, PatternSlot,
+                         PracticeSettings, RotaEntry, SessionType,
+                         TraineeProfile, TraineeStageRule)
 from rota.services import fairness as fairness_svc
+from rota.services.availability import AvailabilityResolver
 from rota.services.calendar import is_open
+from rota.services.cells import cell_state
 from rota.services.fill.accrual import (due_through, epoch_for, week_monday,
                                         weekly_rate)
 from rota.services.fill.trainees import _anchor as trainee_anchor
@@ -60,6 +64,8 @@ def report_staffing(request):
         if not is_open(d):
             continue
         warnings = day_warnings(d, include_drafts=include_drafts)
+        if not request.user.is_rota_admin:
+            warnings = [w for w in warnings if w.code != "breathe"]
         if warnings:
             days.append({"day": d, "warnings": warnings})
     return render(request, "rota/report_staffing.html",
@@ -166,3 +172,85 @@ def report_trainees(request):
         rows.append({"profile": profile, "reqs": reqs})
 
     return render(request, "rota/report_trainees.html", {"rows": rows})
+
+
+def _locum_absence_label(cell):
+    """What the covered clinician was off for, in the report's words.
+
+    Breathe first (the label never goes through the mapping), then an
+    absence-category entry standing on the cell (a hand-placed AL, or
+    history from before the overlay), then nothing we know about.
+    """
+    if cell["on_leave"]:
+        return cell["leave_label"]
+    entry = cell["entry"]
+    if entry is not None and entry.session_type.category == SessionType.Category.ABSENCE:
+        return entry.session_type.name
+    return "No absence recorded"
+
+
+def _locum_rows(bookings, start, end, include_drafts):
+    """One row per booking, with the covered clinician's absence decided by
+    cell_state so this report can never disagree with the grid. One
+    resolver and one entry fetch for all rows — no per-row queries."""
+    covered = {b.covering_id: b.covering for b in bookings if b.covering_id}
+    entries = RotaEntry.objects.filter(
+        clinician_id__in=covered, day__range=(start, end)
+    ).select_related("session_type")
+    if not include_drafts:
+        entries = entries.filter(is_published=True)
+    entry_at = {(e.clinician_id, e.day, e.part): e for e in entries}
+    resolver = AvailabilityResolver(
+        PatternSlot.objects.filter(clinician_id__in=covered),
+        covered.values(),
+        BreatheAbsence.objects.filter(clinician_id__in=covered,
+                                      start_date__lte=end, end_date__gte=start),
+        BreatheLeaveMapping.as_dict(),
+    )
+    rows = []
+    for b in bookings:
+        if b.covering_id:
+            cell = cell_state(b.covering_id, b.day, b.part,
+                              entry=entry_at.get((b.covering_id, b.day, b.part)),
+                              resolver=resolver, closed=False)
+            absence = _locum_absence_label(cell)
+        else:
+            absence = "—"
+        rows.append({"booking": b, "absence": absence,
+                     "cleared": b.rota_entry_id is None})
+    return rows
+
+
+@login_required
+def report_locums(request):
+    start, end = _range(request, days_back=30)
+    bookings = list(
+        LocumRequirement.objects.filter(
+            status=LocumRequirement.Status.BOOKED, day__range=(start, end)
+        ).select_related("clinician", "covering", "session_type")
+        .order_by("day", "part", "clinician__name")
+    )
+    rows = _locum_rows(bookings, start, end,
+                       include_drafts=request.user.is_rota_admin)
+    absence_options = sorted({r["absence"] for r in rows})
+
+    locum_id = request.GET.get("locum") or None
+    covering_id = request.GET.get("covering") or None
+    absence = request.GET.get("absence") or None
+    if locum_id:
+        rows = [r for r in rows if str(r["booking"].clinician_id) == locum_id]
+    if covering_id:
+        rows = [r for r in rows if str(r["booking"].covering_id) == covering_id]
+    if absence:
+        rows = [r for r in rows if r["absence"] == absence]
+
+    return render(request, "rota/report_locums.html", {
+        "rows": rows, "start": start, "end": end,
+        "locums": Clinician.objects.filter(group__is_locum_group=True).order_by("name"),
+        "coverable": Clinician.objects.filter(
+            pk__in=LocumRequirement.objects.filter(
+                status=LocumRequirement.Status.BOOKED, covering__isnull=False
+            ).values("covering")).order_by("name"),
+        "absence_options": absence_options,
+        "locum_id": locum_id, "covering_id": covering_id, "absence": absence,
+    })

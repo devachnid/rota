@@ -7,6 +7,9 @@ from .catalog import Part
 class LocumRequirement(models.Model):
     class Status(models.TextChoices):
         POSSIBLE = "POSSIBLE", "Possibly needed"
+        # Approval to seek a locum, before advertising — Tom, 2026-09-03.
+        # The value stays inside max_length=10.
+        APPROVED = "APPROVED", "Need approved"
         ADVERTISED = "ADVERTISED", "Advertised"
         BOOKED = "BOOKED", "Booked"
 
@@ -22,6 +25,11 @@ class LocumRequirement(models.Model):
     clinician = models.ForeignKey(
         "rota.Clinician", null=True, blank=True, on_delete=models.SET_NULL,
         related_name="locum_bookings",
+    )
+    covering = models.ForeignKey(
+        "rota.Clinician", null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="+",
+        help_text="The clinician this locum stands in for.",
     )
     rota_entry = models.OneToOneField(
         "rota.RotaEntry", null=True, blank=True, on_delete=models.SET_NULL,

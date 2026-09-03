@@ -9,14 +9,14 @@ The two guards on "showable" are the subtle part and cost three review
 rounds in the previous phase, so each gets its own test here.
 """
 
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 
 from rota.models import BreatheLeaveMapping, PatternSlot
 from rota.services import availability
 from rota.services.cells import cell_state
-from tests.factories import make_absence, make_clinician, make_entry
+from tests.factories import make_absence, make_clinician, make_entry, make_session_type
 
 pytestmark = pytest.mark.django_db
 
@@ -99,3 +99,124 @@ def test_the_partner_is_carried_through():
     cell = cell_state(c.id, TUE, "AM", entry=None, resolver=_resolver([c]),
                       closed=False, partner="Dr Trainer")
     assert cell["partner"] == "Dr Trainer"
+
+
+# ------------------------------------------------ leave under an entry ---
+#
+# A published week, then leave approved in Breathe: the entry still stands
+# (an entry beats leave for what the cell SHOWS, by design) but the cell
+# must know it is standing on leave, or nothing can mark it. `on_leave`
+# used to be forced False whenever an entry existed. It is not any more.
+
+from rota.services.cells import leave_label
+
+
+def test_leave_label_per_kind():
+    assert leave_label("holiday", "") == "Holiday"
+    assert leave_label("holiday", "Annual") == "Holiday"
+    assert leave_label("sickness", "") == "Sick"
+    assert leave_label("other", "Jury service") == "Other leave: Jury service"
+    assert leave_label("other", "") == "Other leave"
+    assert leave_label("study", "") == "Study"
+
+
+def test_covering_is_public_and_names_the_absence():
+    c = make_clinician()
+    _works(c)
+    absences = [make_absence(c, TUE, kind="other", reason="Jury service")]
+    r = _resolver([c], absences)
+    assert r.covering(c.id, TUE, "AM") == ("other", "Jury service")
+    assert r.covering(c.id, TUE + timedelta(days=1), "AM") is None
+    assert not hasattr(r, "_covering"), "the private name was renamed, not duplicated"
+
+
+def test_an_entry_over_breathe_leave_is_a_clash():
+    c = make_clinician()
+    _works(c)
+    e = make_entry(c, day=TUE, part="AM")
+    cell = cell_state(c.id, TUE, "AM", entry=e,
+                      resolver=_resolver([c], [make_absence(c, TUE)]),
+                      closed=False)
+    assert cell["entry"] is e
+    assert cell["on_leave"] is True
+    assert cell["clash"] is True
+    assert cell["leave_label"] == "Holiday"
+    assert cell["absence"] is None, "the chip shown is still the entry's"
+
+
+def test_an_absence_entry_over_breathe_leave_agrees_and_is_not_a_clash():
+    """An admin marking someone AL by hand when Breathe also says off is
+    agreement, not a rostered session on a day off."""
+    c = make_clinician()
+    _works(c)
+    al = make_session_type("Annual Leave", code="AL", category="ABSENCE")
+    e = make_entry(c, day=TUE, part="AM", session_type=al)
+    cell = cell_state(c.id, TUE, "AM", entry=e,
+                      resolver=_resolver([c], [make_absence(c, TUE)]),
+                      closed=False)
+    assert cell["on_leave"] is True
+    assert cell["clash"] is False
+    assert cell["leave_label"] == "Holiday"
+
+
+def test_an_entry_with_no_leave_is_not_a_clash():
+    c = make_clinician()
+    _works(c)
+    e = make_entry(c, day=TUE, part="AM")
+    cell = cell_state(c.id, TUE, "AM", entry=e, resolver=_resolver([c]),
+                      closed=False)
+    assert cell["on_leave"] is False
+    assert cell["clash"] is False
+    assert cell["leave_label"] is None
+
+
+def test_leave_with_no_entry_labels_but_is_not_a_clash():
+    c = make_clinician()
+    _works(c)
+    cell = cell_state(c.id, TUE, "AM", entry=None,
+                      resolver=_resolver([c], [make_absence(c, TUE)]),
+                      closed=False)
+    assert cell["on_leave"] is True
+    assert cell["clash"] is False
+    assert cell["leave_label"] == "Holiday"
+    assert cell["absence"] is not None
+
+
+def test_an_unmapped_kind_still_labels():
+    """The label never goes through the mapping. Deleting a mapping row
+    empties the chip; it must not empty the tooltip or the warning."""
+    BreatheLeaveMapping.objects.filter(kind="sickness").delete()
+    c = make_clinician()
+    _works(c)
+    cell = cell_state(c.id, TUE, "AM", entry=None,
+                      resolver=_resolver([c], [make_absence(c, TUE, kind="sickness")]),
+                      closed=False)
+    assert cell["absence"] is None
+    assert cell["on_leave"] is True
+    assert cell["leave_label"] == "Sick"
+
+
+def test_a_clash_ignores_the_closed_flag():
+    """An entry means someone is rostered, closed day or not."""
+    c = make_clinician()
+    _works(c)
+    e = make_entry(c, day=TUE, part="AM")
+    cell = cell_state(c.id, TUE, "AM", entry=e,
+                      resolver=_resolver([c], [make_absence(c, TUE)]),
+                      closed=True)
+    assert cell["clash"] is True
+
+
+# ------------------------------------------------------------- locums ---
+
+from rota.services.cells import shows_on_roster
+
+
+@pytest.mark.parametrize("is_locum,has_entry,shown", [
+    (False, False, True),
+    (False, True, True),
+    (True, False, False),
+    (True, True, True),
+])
+def test_only_an_idle_locum_is_hidden(is_locum, has_entry, shown):
+    assert shows_on_roster(is_locum=is_locum, has_entry=has_entry) is shown

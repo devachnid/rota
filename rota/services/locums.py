@@ -6,7 +6,9 @@ from rota.services import entries
 
 @transaction.atomic
 def save_requirement(actor, *, pk=None, day, part, session_type, status,
-                     details="", clinician=None):
+                     details="", clinician=None, covering=None):
+    if covering is not None and covering.group.is_locum_group:
+        raise ValueError("Covering must be a clinician outside the locum group.")
     if pk:
         req = LocumRequirement.objects.get(pk=pk)
         if req.status == LocumRequirement.Status.BOOKED and req.rota_entry_id is not None and (
@@ -25,14 +27,20 @@ def save_requirement(actor, *, pk=None, day, part, session_type, status,
     req.day, req.part = day, part
     req.session_type = session_type
     req.details = details
+    req.covering = covering
     if (status == LocumRequirement.Status.BOOKED
             and (req.status != LocumRequirement.Status.BOOKED
                  or req.rota_entry_id is None)):
         if clinician is None or not clinician.group.is_locum_group:
             raise ValueError("Booking requires a clinician in the locum group.")
+        # The note is what the grid cell shows on hover and what lights the
+        # note marker, so it says who the locum stands in for.
+        note = details
+        if covering is not None:
+            note = f"Covering {covering.name}. {details}".rstrip()
         entry = entries.assign(
             actor, clinician, day, part, session_type,
-            note=details[:200], published=True, manually_set=True,
+            note=note[:200], published=True, manually_set=True,
         )
         req.clinician = clinician
         req.rota_entry = entry

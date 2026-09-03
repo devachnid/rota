@@ -17,6 +17,7 @@ urlpatterns = [
     path("rota/locum/<int:pk>/form/", edit.locum_form, name="locum-form"),
     path("rota/locum/save/", edit.locum_save, name="locum-save"),
     path("rota/fill/", fill.fill, name="fill"),
+    path("rota/drafts/delete/", fill.delete_drafts, name="drafts-delete"),
     path("me/", my_schedule.my_schedule, name="my-schedule"),
     path("requests/", requests_views.inbox, name="inbox"),
     path("me/swap/new/", requests_views.swap_new, name="swap-new"),
@@ -30,4 +31,5 @@ urlpatterns = [
     path("reports/fairness/", reports.report_fairness, name="report-fairness"),
     path("reports/staffing/", reports.report_staffing, name="report-staffing"),
     path("reports/trainees/", reports.report_trainees, name="report-trainees"),
+    path("reports/locums/", reports.report_locums, name="report-locums"),
 ]

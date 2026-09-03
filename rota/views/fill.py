@@ -1,8 +1,11 @@
 from datetime import date, timedelta
 
-from django.shortcuts import render
+from django.contrib import messages
+from django.shortcuts import redirect, render
+from django.views.decorators.http import require_POST
 
 from rota.models import PracticeSettings
+from rota.services import entries as entries_svc
 from rota.services.fill import run_fill
 from rota.views.decorators import admin_required, parse_errors_as_400
 
@@ -46,17 +49,21 @@ def _group_unfilled(unfilled):
     return rows
 
 
-@admin_required
-@parse_errors_as_400
-def fill(request):
+def _base_context():
     today = date.today()
     next_monday = today + timedelta(days=(7 - today.weekday()) % 7 or 7)
-    context = {
+    return {
         "start": next_monday,
         "end": next_monday + timedelta(days=27),
         "result": None,
         "default_type": PracticeSettings.load().default_fill_session_type,
     }
+
+
+@admin_required
+@parse_errors_as_400
+def fill(request):
+    context = _base_context()
     if request.method == "POST":
         start = date.fromisoformat(request.POST["start"])
         end = date.fromisoformat(request.POST["end"])
@@ -68,3 +75,54 @@ def fill(request):
             "unfilled_groups": _group_unfilled(result.unfilled),
         })
     return render(request, "rota/fill.html", context)
+
+
+def _delete_scope(post):
+    """(start, end, include_manual) from the card's fields. A range whose
+    end precedes its start is refused rather than silently matching
+    nothing: the preview would say "0 drafts" about a typo. An unrecognised
+    scope or range is refused too, rather than falling through to the
+    broadest reading: this view is destructive, and garbage input should
+    fail closed."""
+    scope = post.get("scope", "all")
+    range_ = post.get("range", "all")
+    if scope not in ("all", "fill"):
+        raise ValueError(f"Unknown scope: {scope!r}")
+    if range_ not in ("all", "dates"):
+        raise ValueError(f"Unknown range: {range_!r}")
+    include_manual = scope != "fill"
+    if range_ == "dates":
+        start = date.fromisoformat(post["start"])
+        end = date.fromisoformat(post["end"])
+        if end < start:
+            raise ValueError("The end date is before the start date.")
+    else:
+        start = end = None
+    return start, end, include_manual
+
+
+@admin_required
+@parse_errors_as_400
+@require_POST
+def delete_drafts(request):
+    """Two POSTs. The first renders a preview — how many, how many placed by
+    hand, which dates — and deletes nothing. The second, carrying `confirm`,
+    deletes. The fill re-run's no-confirmation exemption does not apply: this
+    button can remove work an admin placed by hand."""
+    start, end, include_manual = _delete_scope(request.POST)
+    if not request.POST.get("confirm"):
+        qs = entries_svc.drafts(start, end, include_manual=include_manual)
+        context = _base_context()
+        context["delete_preview"] = {
+            "count": qs.count(),
+            "hand_placed": qs.filter(manually_set=True).count(),
+            "start": start, "end": end,
+            "scope": request.POST.get("scope", "all"),
+            "range": request.POST.get("range", "all"),
+            "include_manual": include_manual,
+        }
+        return render(request, "rota/fill.html", context)
+    deleted, _ = entries_svc.delete_drafts(
+        request.user, start, end, include_manual=include_manual)
+    messages.success(request, f"Deleted {deleted} draft{'' if deleted == 1 else 's'}.")
+    return redirect("/rota/fill/")

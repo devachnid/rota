@@ -2,29 +2,56 @@
 
     entry exists                -> the entry
     on leave and showable       -> the Breathe absence (`absence`, mapped)
-    on leave, mapped or not     -> `on_leave`, which nothing renders
+    on leave, mapped or not     -> `on_leave`, entry or no entry
+    entry AND on leave          -> `clash`, unless the entry is itself an absence
     works_on                    -> not off: here, nothing allocated
     otherwise                   -> off: not here
 
-The week grid and the day view both render cells, and a second copy of this
-would be a second answer to the question the availability consolidation
-existed to give one answer to.
+The week grid, the day view and My Schedule all render cells, and a second
+copy of this would be a second answer to the question the availability
+consolidation existed to give one answer to.
 """
+
+from rota.models import SessionType
+
+
+def leave_label(kind, reason):
+    """The words for a Breathe absence — a tooltip, a warning line.
+
+    Never goes through the mapping: an absence whose kind has lost its
+    mapping row renders no chip, but it is still leave and still says which.
+    Sickness carries no reason by construction (the type is health data and
+    is never stored), so "Sick" is all it can ever say.
+    """
+    if kind == "holiday":
+        return "Holiday"
+    if kind == "sickness":
+        return "Sick"
+    if kind == "other":
+        return f"Other leave: {reason}" if reason else "Other leave"
+    return kind.capitalize()
 
 
 def cell_state(clinician_id, day, part, *, entry, resolver, closed,
                partner=None):
     """One cell's state. Performs no queries — the caller prefetches."""
     works = resolver.works_on(clinician_id, day, part)
-    leave_type = resolver.leave_type(clinician_id, day, part) if entry is None else None
+    covering = resolver.covering(clinician_id, day, part)
     # Two different questions, and they must not be answered by one value:
-    # `absence` is what to *render* and goes through the mapping, so a kind
-    # with no mapping row is None; `on_leave` is whether Breathe says the
-    # clinician is off, and never touches the mapping. Every consumer that
-    # counts or files people — the day view's partition, My Schedule's week
-    # label — asks this one, or deleting a mapping row would turn a sick
-    # clinician back into "in".
-    on_leave = resolver.on_leave(clinician_id, day, part) if entry is None else False
+    # `absence` is what to *render* on an empty cell and goes through the
+    # mapping, so a kind with no mapping row is None; `on_leave` is whether
+    # Breathe says the clinician is off, never touches the mapping, and is
+    # answered whether or not an entry stands on the cell. It used to be
+    # forced False under an entry — which is exactly why a published
+    # session over later-approved leave could not be marked anywhere.
+    on_leave = covering is not None
+    leave_type = resolver.leave_type(clinician_id, day, part) if entry is None else None
+
+    # A rostered session on someone Breathe says is off. An absence-category
+    # entry (an admin marking AL by hand) over Breathe leave is agreement,
+    # not a clash.
+    clash = (entry is not None and on_leave
+             and entry.session_type.category != SessionType.Category.ABSENCE)
 
     # Show the absence only where it means something: on a session the
     # clinician works, or for a clinician with no pattern at all (nothing
@@ -50,6 +77,24 @@ def cell_state(clinician_id, day, part, *, entry, resolver, closed,
         "off": entry is None and not works,
         "absence": leave_type if showable else None,
         "on_leave": on_leave,
+        "leave_label": leave_label(*covering) if covering else None,
+        "clash": clash,
         "closed": closed,
         "partner": partner,
     }
+
+
+def shows_on_roster(*, is_locum, has_entry):
+    """Whether a clinician gets a row on a roster screen at all.
+
+    Many locums are defined and few are booked in any given week, so an
+    idle locum is a blank row on the grid and a name on the day view's
+    "Not in" line — noise, on every screen, for every locum, every day.
+    A locum is listed only while they hold a session in the period shown.
+    Everyone else is listed regardless: a salaried GP's empty week is
+    information (nothing allocated yet), a locum's is not.
+
+    The grid and the day view both ask this; admin dropdowns and the
+    booking form do not — they need every locum.
+    """
+    return has_entry or not is_locum

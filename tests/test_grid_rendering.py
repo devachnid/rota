@@ -55,13 +55,13 @@ def _chips(html):
     total is identical. This reads which class landed on which cell.
 
     An absence chip carries no modifier class of its own — the template
-    tells it apart from a real entry with title="From Breathe" — so a cell
-    with an empty class and that title is labelled "absence" here.
+    tells it apart from a real entry with a title ending "— from Breathe" —
+    so a cell with an empty class and that title is labelled "absence" here.
     """
     out = {}
     for m in _CELL_RE.finditer(html):
         classes = m["classes"].strip()
-        if not classes and 'title="From Breathe"' in m["rest"]:
+        if not classes and "from Breathe" in m["rest"]:
             classes = "absence"
         out[(int(m["cid"]), m["day"], m["part"])] = classes
     return out
@@ -114,7 +114,7 @@ def test_approved_leave_ghosts_on_a_session_the_clinician_works(admin_client):
     _pattern(c, 0, "AM")
     make_absence(c, MON)
     html = _cells(admin_client)
-    assert 'title="From Breathe"' in html
+    assert 'title="Holiday — from Breathe"' in html
     assert "AL" in html
 
 
@@ -128,7 +128,7 @@ def test_a_part_timer_gets_no_ghost_on_their_non_working_days(admin_client):
     _pattern(c, 0, "PM", works=False)
     make_absence(c, MON, MON + timedelta(days=4))
     html = _cells(admin_client)
-    n = html.count('title="From Breathe"')
+    n = html.count("from Breathe")
     assert n == 1, f"expected one absence chip (Monday AM), got {n}"
 
 
@@ -156,7 +156,7 @@ def test_a_clinician_with_no_pattern_at_all_gets_ghosts(admin_client):
     c = make_clinician("Nopattern", initials="NP")
     make_absence(c, MON)
     html = _cells(admin_client)
-    assert 'title="From Breathe"' in html
+    assert 'title="Holiday — from Breathe"' in html
 
 
 @pytest.mark.django_db
@@ -167,7 +167,13 @@ def test_a_real_entry_beats_a_ghost(admin_client):
     make_entry(c, day=MON, part="AM", session_type=al, is_published=True)
     make_absence(c, MON)
     html = _cells(admin_client)
-    assert 'title="From Breathe"' not in html
+    chips = _chips(html)
+    assert chips[(c.id, _iso(0), "AM")] == "", (
+        "the AL entry renders as a plain published chip — not the Breathe "
+        "absence chip, and not ringed as a clash: an absence entry over "
+        "Breathe leave is agreement"
+    )
+    assert "On Breathe leave" not in html
 
 
 @pytest.mark.django_db
@@ -246,7 +252,7 @@ def test_a_clinician_with_no_pattern_gets_no_ghosts_outside_their_window(
                        start_date=MON + timedelta(days=30))
     make_absence(c, MON, MON + timedelta(days=4))
     html = _cells(admin_client)
-    n = html.count('title="From Breathe"')
+    n = html.count("from Breathe")
     assert n == 0, f"showed {n} absence chips before the clinician's start date"
     assert set(_chips(html).values()) == {"is-off"}
 
@@ -341,7 +347,7 @@ def test_the_grid_query_count_does_not_grow_with_clinicians_or_leave(
     add(2, "a")
     queries()               # warm up: session and template lookups
     baseline = queries()
-    assert 'title="From Breathe"' in admin_client.get(
+    assert "from Breathe" in admin_client.get(
         f"/rota/?week={MON.isoformat()}").content.decode(), (
         "the absence chips must actually be rendering for this to measure them"
     )
@@ -351,3 +357,72 @@ def test_the_grid_query_count_does_not_grow_with_clinicians_or_leave(
         "the grid issues more queries with more clinicians and more leave — "
         "something is asking per row or per cell"
     )
+
+
+# ------------------------------------------------------------- clashes ---
+
+
+def _rostered_on_leave(name, initials, **absence_kw):
+    c = make_clinician(name, initials=initials)
+    _pattern(c, 0, "AM")
+    make_entry(c, day=MON, part="AM",
+               session_type=make_session_type("Routine", code="ROUT"),
+               **{k: v for k, v in absence_kw.items() if k == "is_published"})
+    make_absence(c, MON, **{k: v for k, v in absence_kw.items() if k != "is_published"})
+    return c
+
+
+@pytest.mark.django_db
+def test_a_rostered_session_over_breathe_leave_is_ringed_for_everyone(
+        admin_client, gp_client):
+    """Tom's decision: the marker and the kind of leave are for every user
+    who can see the cell. The header line stays admin-only."""
+    c = _rostered_on_leave("Clash", "CL")
+    for client in (admin_client, gp_client):
+        html = _cells(client)
+        assert "is-clash" in _chips(html)[(c.id, _iso(0), "AM")] if client is admin_client \
+            else 'class="chip is-clash"' in html
+        assert "On Breathe leave: Holiday" in html
+
+
+@pytest.mark.django_db
+def test_a_draft_clash_is_invisible_to_a_gp(admin_client, gp_client):
+    c = _rostered_on_leave("Draft", "DR", is_published=False)
+    assert "is-clash" in _chips(_cells(admin_client))[(c.id, _iso(0), "AM")]
+    gp_html = _cells(gp_client)
+    assert "is-clash" not in gp_html
+    assert "On Breathe leave" not in gp_html
+
+
+@pytest.mark.django_db
+def test_the_absence_tooltip_names_the_kind_and_reason(admin_client):
+    for name, initials, kw in (
+            ("Holly Day", "HD", {}),
+            ("Sid Sick", "SS", {"kind": "sickness"}),
+            ("Jo Jury", "JJ", {"kind": "other", "reason": "Jury service"})):
+        c = make_clinician(name, initials=initials)
+        _pattern(c, 0, "AM")
+        make_absence(c, MON, **kw)
+    html = _cells(admin_client)
+    assert 'title="Holiday — from Breathe"' in html
+    assert 'title="Sick — from Breathe"' in html
+    assert 'title="Other leave: Jury service — from Breathe"' in html
+
+
+# --------------------------------------------------------------- notes ---
+
+
+@pytest.mark.django_db
+def test_a_note_marks_its_chip_and_a_fill_reason_alone_does_not(admin_client):
+    """A note is something a person wrote; fill_reason is the engine's
+    diagnostic. Only the first earns a dot."""
+    rout = make_session_type("Routine", code="ROUT")
+    noted = make_clinician("Noted", initials="NT")
+    _pattern(noted, 0, "AM")
+    make_entry(noted, day=MON, part="AM", session_type=rout, note="Bring the laptop")
+    plain = make_clinician("Plain", initials="PL")
+    _pattern(plain, 0, "AM")
+    make_entry(plain, day=MON, part="AM", session_type=rout, fill_reason="default fill")
+    chips = _chips(_cells(admin_client))
+    assert "has-note" in chips[(noted.id, _iso(0), "AM")]
+    assert "has-note" not in chips[(plain.id, _iso(0), "AM")]

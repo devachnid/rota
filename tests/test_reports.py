@@ -3,8 +3,9 @@ from datetime import date, timedelta
 import pytest
 
 from rota.models import CoverageRule, PracticeSettings
-from tests.factories import (make_clinician, make_entry, make_pattern,
-                             make_session_type)
+from rota.services.calendar import is_open
+from tests.factories import (make_absence, make_clinician, make_entry,
+                             make_pattern, make_session_type)
 
 pytestmark = pytest.mark.django_db
 
@@ -37,6 +38,24 @@ def test_staffing_weeks_clamped(admin_client):
     assert b"next 26 weeks" in resp.content
     resp = admin_client.get("/reports/staffing/?weeks=0")
     assert b"next 1 weeks" in resp.content
+
+
+def test_staffing_report_hides_breathe_line_from_gps(gp_client, admin_client):
+    """The Breathe naming line is admin-only, even on a report every
+    clinician can otherwise read — see docs/admin/day-to-day.md."""
+    PracticeSettings.load()
+    rout = make_session_type("Routine", code="ROUT")
+    c = make_clinician("Ann Able")
+    make_pattern(c)
+    d = date.today()
+    while not is_open(d):
+        d += timedelta(days=1)
+    make_entry(c, day=d, part="AM", session_type=rout)
+    make_absence(c, d)
+    gp_html = gp_client.get("/reports/staffing/").content.decode()
+    admin_html = admin_client.get("/reports/staffing/").content.decode()
+    assert "On Breathe leave but rostered" not in gp_html
+    assert "On Breathe leave but rostered" in admin_html
 
 
 def test_fairness_report_hides_drafts_from_gps(gp_client, admin_client):

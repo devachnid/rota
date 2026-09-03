@@ -123,6 +123,8 @@ def _locum_form_context(req=None, day=None, part=None):
         "session_types": SessionType.objects.all(),
         "locums": Clinician.objects.filter(active=True,
                                            group__is_locum_group=True),
+        "coverable": Clinician.objects.filter(
+            active=True, group__is_locum_group=False).order_by("name"),
         "statuses": LocumRequirement.Status.choices,
     }
 
@@ -148,6 +150,8 @@ def locum_save(request):
     st = get_object_or_404(SessionType, pk=request.POST["session_type_id"])
     clinician = Clinician.objects.filter(
         pk=request.POST.get("clinician_id") or None).first()
+    covering = Clinician.objects.filter(
+        pk=request.POST.get("covering_id") or None, active=True).first()
     day = date.fromisoformat(request.POST["day"])
     part = _clean_part(request.POST["part"])
     try:
@@ -160,6 +164,7 @@ def locum_save(request):
             status=request.POST["status"],
             details=request.POST.get("details", ""),
             clinician=clinician,
+            covering=covering,
         )
     except ValueError as e:
         req = LocumRequirement.objects.filter(

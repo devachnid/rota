@@ -10,7 +10,10 @@ entries exist for correcting things and for looking at history.
 **What it does first:** deletes every entry in the range that is **unpublished
 and not manually set** — that is, its own previous drafts. It never touches a
 published entry or one an admin placed by hand, so re-running is safe and
-repeatable. That is also why there is no confirmation step.
+repeatable. That is also why the run itself has no confirmation step — the
+Delete drafts card below, which can remove hand-placed work, does. That
+clearing is written to the rota entry log as a "deleted drafts" line, even
+when there was nothing to clear, so every run leaves a trace.
 
 **Then it runs six passes in order:**
 
@@ -43,6 +46,23 @@ configuration:
 A long list of "no eligible clinician" across every rule almost always means
 pattern slots are missing rather than that the rules are wrong.
 
+## Delete drafts
+
+Also on `/rota/fill/`. Two choices, then a preview, then the deletion.
+
+- **Which drafts** — every unpublished session, or only the fill engine's own
+  (the rule the engine itself applies before a re-run: unpublished **and** not
+  placed by hand).
+- **Which dates** — every date, or a range.
+
+**Preview** shows how many drafts that is and how many were placed by hand.
+Nothing is deleted until you press **Delete** on that preview. Published
+sessions are never deleted; a booked locum's session is published when it is
+booked, so it is never deleted either. A published session that was paired
+with a deleted draft — the other half of a full day, or a companion in a
+paired session — keeps its own session but loses the pairing. One line goes
+to the rota entry log per deletion, naming the range and the counts.
+
 ## Rota entries
 
 `/admin/rota/rotaentry/` — the assignments themselves. Normally edited by
@@ -52,7 +72,9 @@ seeing the fields the grid hides.
 - **Day / Part / Clinician / Session type** — who is doing what, when.
 - **Site** — where. Auto-stamped from the commitment or the type's default site
   unless set by hand.
-- **Note** — free text on this one entry, shown on the cell.
+- **Note** — free text on this one entry. A dot in the chip's corner says
+  one exists; the grid shows it on hover, and the day view and My Schedule
+  print it under the session.
 - **Is published** — whether GPs can see it. Set in bulk by publishing a week
   from the grid.
 - **Manually set** — marks the entry as placed by a human. **Assisted fill will
@@ -67,7 +89,7 @@ seeing the fields the grid hides.
 
 ## Warnings on the grid
 
-The red strips in a day's header come from **three separate sources**, so if you
+The red strips in a day's header come from **four separate sources**, so if you
 want to silence one, you need to know which:
 
 1. **Coverage warnings** — "No Duty cover (AM)". From coverage rules with
@@ -79,6 +101,10 @@ want to silence one, you need to know which:
    clinical-category entries only.
 3. **Group warnings** — "Salaried: 2/3 in (AM)". From a group's [min per
    session](people.md#min-per-session), counting non-absence entries.
+4. **Breathe clashes** — "On Breathe leave but rostered (AM): TH (Holiday)".
+   A published or drafted session on someone Breathe says is off. The cell
+   itself is ringed for everyone; this header line is yours. See
+   [Leave from Breathe](breathe.md).
 
 Closed days generate no warnings at all.
 
@@ -89,9 +115,12 @@ from one you are already working on.
 ## Locum requirements
 
 `/admin/rota/locumrequirement/` — tracks a gap you are trying to fill
-externally, through three states:
+externally, through four states:
 
-**Possibly needed → Advertised → Booked.**
+**Possibly needed → Need approved → Advertised → Booked.**
+
+The badge colour follows: red, amber outline, amber, green. "Need approved"
+is approval to seek a locum, before anyone advertises.
 
 Add one from the "Need" row at the bottom of the grid. The status shows as a
 badge and appends to the matching coverage warning, so the grid distinguishes
@@ -99,11 +128,28 @@ badge and appends to the matching coverage warning, so the grid distinguishes
 
 - **Details** — free text: which agency, what rate, who you called.
 - **Clinician** — set when a specific locum is booked.
+- **Covering for** — optional: the clinician the locum stands in for. Shown
+  on the badge's tooltip, and written into the booked session's note
+  ("Covering Tom Hodges. Agency X") so the grid cell says it too.
 - **Rota entry** — the entry created when the booking is confirmed.
 
 A **booked** requirement is protected: it cannot be unbooked or rebooked out
-from under itself by a later fill. Requirements at the earlier two statuses can
+from under itself by a later fill. Requirements at the earlier three statuses can
 step back freely.
+
+Locums appear on the grid and the day view **only in a period where they hold
+a session**. An idle locum is neither a blank row nor a name on the "Not in"
+line. The booking form and the admin still list every locum. Because an idle
+locum has no row, there is no cell to click to give them a first session:
+book them through a locum requirement from the Need row, which creates and
+publishes the session.
+
+**Locum bookings report** — `/reports/locums/` lists every booked requirement
+in a date range (the last 30 days by default): the date and session, which
+locum, who they covered, and what the covered clinician was off for — Breathe's
+kind of leave where it has one, otherwise an absence session on the grid,
+otherwise "No absence recorded". Filter by locum, by who was covered, and by
+kind of absence. Visible to every clinician, like the other reports.
 
 ## Leave
 

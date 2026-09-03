@@ -7,7 +7,7 @@ from rota.models import (BreatheAbsence, BreatheLeaveMapping, Clinician,
                          ClosedDay, DayNote, PatternSlot, PracticeSettings,
                          RotaEntry, SessionType)
 from rota.services import availability
-from rota.services.cells import cell_state
+from rota.services.cells import cell_state, shows_on_roster
 
 _STEP_LIMIT = 14  # a fortnight: enough to clear Christmas, short enough to end
 
@@ -72,7 +72,8 @@ def day_view(request, day=None):
             partner[(a.clinician_id, a.part)] = b.clinician.name
             partner[(b.clinician_id, b.part)] = a.clinician.name
 
-    active = list(Clinician.objects.filter(active=True).order_by("name"))
+    active = list(Clinician.objects.filter(active=True)
+                 .select_related("group").order_by("name"))
     pattern_rows = list(PatternSlot.objects.filter(clinician__in=active))
     absences = BreatheAbsence.objects.filter(
         clinician__in=active,
@@ -94,6 +95,9 @@ def day_view(request, day=None):
 
     roster, on_leave, not_in = [], [], []
     for c in active:
+        if not shows_on_roster(is_locum=c.group.is_locum_group,
+                               has_entry=c.id in by_clinician):
+            continue
         if not resolver.in_service(c.id, target):
             continue
         mine = by_clinician.get(c.id, {})

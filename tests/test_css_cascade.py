@@ -446,3 +446,51 @@ def test_rules_are_numbered_in_document_order_across_a_media_block():
     rules, _ = _parse(css, "fake.css", 0)
     order = {r.selector: r.order for r in rules}
     assert order[".a"] < order[".b"] < order[".c"]
+
+
+def test_the_clash_ring_is_an_inset_danger_shadow():
+    """A ring rather than a background: the tint underneath and the draft
+    hatch both still have to read."""
+    rules = [r for r in RULES if r.selector == ".chip.is-clash" and r.media is None]
+    assert rules, ".chip.is-clash has no rule"
+    shadow = rules[-1].declarations.get("box-shadow", "")
+    assert "inset" in shadow and "var(--danger)" in shadow, shadow
+
+
+def test_the_note_marker_is_a_positioned_dot_in_the_chips_own_colour():
+    chip = [r for r in RULES if r.selector == ".chip" and r.media is None]
+    assert chip and chip[-1].declarations.get("position") == "relative", (
+        ".chip is not positioned, so the marker's absolute position is "
+        "relative to something else entirely"
+    )
+    dot = [r for r in RULES if r.selector == ".chip.has-note::after" and r.media is None]
+    assert dot, ".chip.has-note::after has no rule"
+    d = dot[-1].declarations
+    assert d.get("content") is not None
+    assert d.get("position") == "absolute"
+    assert "var(--chip-fg" in d.get("background", ""), (
+        "the dot must take the cell's own foreground so it holds on every tint"
+    )
+
+
+def test_the_today_box_wraps_so_a_note_can_take_its_own_line():
+    rules = [r for r in RULES if r.selector == ".ms-today-cells" and r.media is None]
+    assert any(r.declarations.get("flex-wrap") == "wrap" for r in rules)
+    note = [r for r in RULES if r.selector == ".ms-today-cells .ms-note" and r.media is None]
+    assert note and note[-1].declarations.get("color") == "var(--ink-soft)", (
+        "--muted fails AA on the today box's --accent-soft ground; the note "
+        "there needs its own foreground, as .ms-today-cells .ms-dash has"
+    )
+
+
+def test_the_approved_badge_is_an_amber_outline():
+    """Progress in one colour family: red = possibly needed, amber outline
+    = need approved, amber filled = advertised, green = booked. Not a
+    fourth hue, because --accent and --ok are the same green in dark mode
+    and any green-ish choice would read as booked."""
+    rules = [r for r in RULES if r.selector == ".badge.APPROVED" and r.media is None]
+    assert rules, ".badge.APPROVED has no rule"
+    d = rules[-1].declarations
+    assert d.get("background") == "transparent"
+    assert "var(--warning)" in d.get("box-shadow", "") and "inset" in d.get("box-shadow", "")
+    assert d.get("color") == "var(--warning)"

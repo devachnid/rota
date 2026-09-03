@@ -48,14 +48,14 @@
       class="{% if cell.entry and not cell.entry.is_published %}draft{% endif %}{% if cell.closed %} closed{% endif %}"
       {% if is_admin %}hx-get="/rota/cell/{{ row.clinician.id }}/{{ cell.day_str }}/{{ cell.part }}/"
       hx-target="#modal"{% endif %}
-      title="{{ cell.entry.fill_reason|default:'' }} {{ cell.entry.note|default:'' }}{% if cell.partner %} with {{ cell.partner }}{% endif %}">
+      title="{{ cell.entry.fill_reason|default:'' }} {{ cell.entry.note|default:'' }}{% if cell.partner %} with {{ cell.partner }}{% endif %}{% if cell.clash %}{% if cell.entry.fill_reason or cell.entry.note or cell.partner %} — {% endif %}On Breathe leave: {{ cell.leave_label }}{% endif %}">
     {% if cell.entry %}
-      <span class="chip{% if not cell.entry.is_published %} is-draft{% endif %}"
+      <span class="chip{% if not cell.entry.is_published %} is-draft{% endif %}{% if cell.clash %} is-clash{% endif %}{% if cell.entry.note %} has-note{% endif %}"
             style="--chip-bg: var(--tint-{{ cell.entry.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ cell.entry.session_type.tint.key }}-fg);">
         {{ cell.entry.session_type.code }}{% if cell.entry.site %}<span class="site-marker">{{ cell.entry.site.name|slice:":1" }}</span>{% endif %}
       </span>
     {% elif cell.absence %}
-      <span class="chip" title="From Breathe"
+      <span class="chip" title="{{ cell.leave_label }} — from Breathe"
             style="--chip-bg: var(--tint-{{ cell.absence.tint.key }}-bg); --chip-fg: var(--tint-{{ cell.absence.tint.key }}-fg);">
         {{ cell.absence.code }}
       </span>
@@ -76,7 +76,7 @@
     {% for r in cell.reqs %}
     <span class="badge {{ r.status }}"
           {% if is_admin %}hx-get="/rota/locum/{{ r.id }}/form/" hx-target="#modal"{% endif %}
-          title="{{ r.details }}">{{ r.get_status_display }}</span>
+          title="{% if r.covering %}Covering {{ r.covering.name }}{% if r.details %} — {% endif %}{% endif %}{{ r.details }}">{{ r.get_status_display }}</span>
     {% endfor %}
     {% if is_admin %}
     <span class="badge" hx-get="/rota/locum/new/?day={{ cell.day_str }}&part={{ cell.part }}"
