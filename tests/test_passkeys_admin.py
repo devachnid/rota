@@ -59,3 +59,15 @@ def test_a_rota_admin_cannot_touch_a_superusers_passkeys(admin_client, staff_cli
 
 def test_the_add_page_has_no_passkey_inline(admin_client):
     assert "passkeys-TOTAL_FORMS" not in admin_client.get("/admin/accounts/user/add/").content.decode()
+
+
+def test_a_crafted_extra_row_cannot_add_a_passkey(admin_client, gp_user):
+    """The inline never adds: has_add_permission is False, so an extra form
+    row smuggled into the change-form POST creates nothing."""
+    admin_client.post(_change(gp_user), {
+        "email": gp_user.email, "is_rota_admin": "", "is_active": "on",
+        "passkeys-TOTAL_FORMS": "1", "passkeys-INITIAL_FORMS": "0",
+        "passkeys-MIN_NUM_FORMS": "0", "passkeys-MAX_NUM_FORMS": "0",
+        "passkeys-0-user": str(gp_user.pk),
+    })
+    assert not Passkey.objects.exists()
