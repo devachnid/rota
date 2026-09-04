@@ -594,61 +594,42 @@ class BreatheLeaveMappingAdmin(ModelAdmin):
         return super().has_delete_permission(request, obj)
 
 
-def _unmapped_absence_count():
-    """Stored BreatheAbsence rows whose (kind, reason) has no mapping row
-    and whose (kind, "") default also has no row — i.e. absences the
-    resolver currently renders as empty cells, findable nowhere else."""
-    mapping = BreatheLeaveMapping.as_dict()
-    return sum(
-        1 for kind, reason in BreatheAbsence.objects.values_list("kind", "reason")
-        if (kind, reason) not in mapping and (kind, "") not in mapping
-    )
-
-
 @admin.register(BreatheSyncRun)
 class BreatheSyncRunAdmin(ModelAdmin):
     list_display = ("started", "ok", "n_deduped", "n_unlinked", "error")
     readonly_fields = [f.name for f in BreatheSyncRun._meta.fields]
-    change_list_template = "admin/rota/breathesyncrun/change_list.html"
 
     def has_add_permission(self, request):
         return False
 
     def get_urls(self):
-        return [path("refresh/", self.admin_site.admin_view(self.refresh),
-                     name="rota_breathesyncrun_refresh")] + super().get_urls()
-
-    def changelist_view(self, request, extra_context=None):
-        last_ok = BreatheSyncRun.objects.filter(ok=True).first()
-        last = BreatheSyncRun.objects.first()
-        extra = {
-            "last_ok": last_ok,
-            "last_error": last if (last and not last.ok) else None,
-            "unlinked": Clinician.objects.filter(active=True, breathe_employee_id=None).order_by("name"),
-            "configured": breathe_client.from_settings() is not None,
-            "unmapped_count": _unmapped_absence_count(),
-        }
-        extra.update(extra_context or {})
-        return super().changelist_view(request, extra_context=extra)
+        from .admin_pages import BreatheStatusView
+        return [
+            path("status/",
+                 self.admin_site.admin_view(BreatheStatusView.as_view(model_admin=self)),
+                 name="rota_breathesyncrun_status"),
+            path("refresh/", self.admin_site.admin_view(self.refresh),
+                 name="rota_breathesyncrun_refresh"),
+        ] + super().get_urls()
 
     def refresh(self, request):
         if request.method != "POST":
-            return redirect("admin:rota_breathesyncrun_changelist")
+            return redirect("admin:rota_breathesyncrun_status")
         recent = BreatheSyncRun.objects.filter(
             started__gte=timezone.now() - timedelta(seconds=60)).exists()
         if recent:
             messages.warning(request, "A sync ran less than a minute ago; not running another.")
-            return redirect("admin:rota_breathesyncrun_changelist")
+            return redirect("admin:rota_breathesyncrun_status")
         client = breathe_client.from_settings()
         if client is None:
             messages.error(request, "Breathe is not configured (BREATHE_API_KEY unset).")
-            return redirect("admin:rota_breathesyncrun_changelist")
+            return redirect("admin:rota_breathesyncrun_status")
         run = breathe_sync.run(client)
         if run.ok:
             messages.success(request, f"Synced: {run.n_deduped} absences, {run.n_unlinked} for unlinked employees.")
         else:
             messages.error(request, f"Sync failed: {run.error}")
-        return redirect("admin:rota_breathesyncrun_changelist")
+        return redirect("admin:rota_breathesyncrun_status")
 
 
 from . import admin_system  # noqa: E402,F401 — re-registers the System tables on unfold

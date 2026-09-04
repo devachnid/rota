@@ -6,14 +6,17 @@ The pattern editor's behaviour is the old bulk_view's, moved not changed:
 every guard in it was paid for.
 """
 
-from datetime import date
+from datetime import date, timedelta
 
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect
+from django.utils import timezone
 from django.views.generic import TemplateView
 from unfold.views import UnfoldModelAdminViewMixin
 
-from rota.models import Clinician, Part, PatternSlot
+from rota.models import (BreatheAbsence, BreatheLeaveMapping, BreatheSyncRun,
+                         Clinician, Part, PatternSlot)
+from rota.services.breathe import client as breathe_client
 from rota.services.patterns import bulk_set_pattern, current_pattern
 
 WEEKDAY_LABELS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday",
@@ -126,3 +129,31 @@ class PatternEditorView(UnfoldModelAdminViewMixin, TemplateView):
             clinicians=clinicians, clinician=clinician, effective_from=effective_from,
             date_error=date_error, grid=grid, history=history, missing=missing)
         return self.render_to_response(context)
+
+
+def unmapped_absence_count():
+    """Stored BreatheAbsence rows whose (kind, reason) has no mapping row
+    and whose (kind, "") default also has no row — i.e. absences the
+    resolver currently renders as empty cells, findable nowhere else."""
+    mapping = BreatheLeaveMapping.as_dict()
+    return sum(1 for kind, reason in BreatheAbsence.objects.values_list("kind", "reason")
+               if (kind, reason) not in mapping and (kind, "") not in mapping)
+
+
+class BreatheStatusView(UnfoldModelAdminViewMixin, TemplateView):
+    title = "Sync status"
+    permission_required = ("rota.view_breathesyncrun",)
+    template_name = "admin/rota/breathesyncrun/status.html"
+
+    def get_context_data(self, **kwargs):
+        last_ok = BreatheSyncRun.objects.filter(ok=True).first()
+        last = BreatheSyncRun.objects.first()
+        return super().get_context_data(
+            configured=breathe_client.from_settings() is not None,
+            last_ok=last_ok,
+            last_error=last if (last and not last.ok) else None,
+            unlinked=Clinician.objects.filter(active=True, breathe_employee_id=None)
+                                      .order_by("name"),
+            unmapped_count=unmapped_absence_count(),
+            runs=BreatheSyncRun.objects.all()[:20],
+            **kwargs)

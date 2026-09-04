@@ -21,7 +21,7 @@ def _run(ok=True, minutes_ago=30, **kw):
 def test_the_status_page_shows_the_last_good_run_and_unlinked_clinicians(staff_client):
     _run(n_deduped=12, n_unlinked=3)
     make_clinician("Nobody Linked")
-    html = staff_client.get("/admin/rota/breathesyncrun/").content.decode()
+    html = staff_client.get("/admin/rota/breathesyncrun/status/").content.decode()
     assert "12" in html and "Last successful sync" in html
     assert "Nobody Linked" in html
 
@@ -29,7 +29,7 @@ def test_the_status_page_shows_the_last_good_run_and_unlinked_clinicians(staff_c
 def test_the_status_page_shows_the_last_error(staff_client):
     _run(ok=True, minutes_ago=60)
     _run(ok=False, minutes_ago=5, error="Breathe returned 429 for /absences")
-    html = staff_client.get("/admin/rota/breathesyncrun/").content.decode()
+    html = staff_client.get("/admin/rota/breathesyncrun/status/").content.decode()
     assert "429" in html
 
 
@@ -120,9 +120,26 @@ def test_status_page_shows_unmapped_absence_count(staff_client):
         kind="other", reason="X")
 
     default.delete()
-    html = staff_client.get("/admin/rota/breathesyncrun/").content.decode()
+    html = staff_client.get("/admin/rota/breathesyncrun/status/").content.decode()
     assert "1 absence" in html and "no mapping" in html
 
     BreatheLeaveMapping.objects.create(kind="other", reason="", session_type=default_session_type)
-    html = staff_client.get("/admin/rota/breathesyncrun/").content.decode()
+    html = staff_client.get("/admin/rota/breathesyncrun/status/").content.decode()
     assert "no mapping" not in html
+
+
+def test_the_status_page_lists_recent_runs_and_the_changelist_is_plain(staff_client):
+    from django.utils import timezone
+    from rota.models import BreatheSyncRun
+    BreatheSyncRun.objects.create(started=timezone.now(), finished=timezone.now(), ok=True,
+                                  n_requests=1, n_absences=2, n_sicknesses=0,
+                                  n_deduped=3, n_unlinked=0)
+    html = staff_client.get("/admin/rota/breathesyncrun/status/").content.decode()
+    assert "Refresh now" in html and "Recent runs" in html
+    plain = staff_client.get("/admin/rota/breathesyncrun/").content.decode()
+    assert "Last successful sync" not in plain
+
+
+def test_the_sidebar_links_the_status_page(staff_client):
+    html = staff_client.get("/admin/").content.decode()
+    assert "/admin/rota/breathesyncrun/status/" in html

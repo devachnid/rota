@@ -1,0 +1,50 @@
+{% extends "admin/base.html" %}
+{% load i18n unfold %}
+
+{% block breadcrumbs %}{% endblock %}
+{% block title %}{{ title }} | {{ site_title }}{% endblock %}
+{% block branding %}{% include "unfold/helpers/site_branding.html" %}{% endblock %}
+
+{% block content %}
+{% component "unfold/components/container.html" %}
+  {% component "unfold/components/title.html" %}{{ title }}{% endcomponent %}
+
+  {% component "unfold/components/card.html" with title="Breathe" class="mb-6" %}
+    {% if not configured %}
+      <p class="mb-2"><strong>Breathe is not configured.</strong> Set <code>BREATHE_API_KEY</code> in <code>/etc/rota.env</code> and restart. Until then no leave is read and every clinician is treated as available.</p>
+    {% endif %}
+    {% if last_ok %}
+      <p class="mb-2"><strong>Last successful sync:</strong> {{ last_ok.started|date:"D j M H:i" }} — {{ last_ok.n_deduped }} absence{{ last_ok.n_deduped|pluralize }} from {{ last_ok.n_requests }} request{{ last_ok.n_requests|pluralize }}, {{ last_ok.n_absences }} absence record{{ last_ok.n_absences|pluralize }} and {{ last_ok.n_sicknesses }} sickness{{ last_ok.n_sicknesses|pluralize:"es" }}; {{ last_ok.n_unlinked }} for unlinked employees.</p>
+    {% elif configured %}
+      <p class="mb-2"><strong>No successful sync yet.</strong></p>
+    {% endif %}
+    {% if last_error %}
+      <p class="mb-2 text-red-600 dark:text-red-500"><strong>Most recent run failed</strong> ({{ last_error.started|date:"D j M H:i" }}): {{ last_error.error }}</p>
+    {% endif %}
+    {% if unmapped_count %}
+      <p class="mb-2 text-red-600 dark:text-red-500">{{ unmapped_count }} absence{{ unmapped_count|pluralize }} have no mapping and render as empty cells — <a href="{% url 'admin:rota_breatheleavemapping_changelist' %}" class="underline">add a mapping</a>.</p>
+    {% endif %}
+    {% if unlinked %}
+      <p class="mb-2"><strong>Not linked to Breathe</strong> — no leave is read for these, so they are always available:
+      {% for c in unlinked %}<a class="underline" href="{% url 'admin:rota_clinician_change' c.pk %}">{{ c.name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+    {% endif %}
+    <form method="post" action="{% url 'admin:rota_breathesyncrun_refresh' %}" class="mt-4">
+      {% csrf_token %}
+      <button type="submit" class="bg-primary-600 text-white rounded-default px-4 py-2 font-semibold{% if not configured %} opacity-50{% endif %}"{% if not configured %} disabled title="BREATHE_API_KEY is not set"{% endif %}>Refresh now</button>
+    </form>
+  {% endcomponent %}
+
+  {% component "unfold/components/card.html" with title="Recent runs" %}
+    <table class="border-collapse w-full">
+      <thead><tr><th class="text-left py-1">Started</th><th class="text-left py-1">OK</th><th class="text-left py-1">Absences</th><th class="text-left py-1">Unlinked</th><th class="text-left py-1">Error</th></tr></thead>
+      <tbody>
+      {% for r in runs %}
+      <tr class="border-t border-base-200 dark:border-base-800"><td class="py-2">{{ r.started|date:"D j M H:i" }}</td><td class="py-2">{{ r.ok|yesno:"yes,no" }}</td><td class="py-2">{{ r.n_deduped }}</td><td class="py-2">{{ r.n_unlinked }}</td><td class="py-2">{{ r.error }}</td></tr>
+      {% empty %}
+      <tr><td colspan="5" class="py-2">No runs yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% endcomponent %}
+{% endcomponent %}
+{% endblock %}

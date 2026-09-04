@@ -132,7 +132,7 @@ def navigation(request):
             _item("Trainee stage rules", "menu_book", rl("admin:rota_traineestagerule_changelist")),
             _item("Sites", "location_on", rl("admin:rota_site_changelist"))]},
         {"title": "Leave from Breathe", "separator": True, "items": [
-            _item("Sync status", "sync", rl("admin:rota_breathesyncrun_changelist")),
+            _item("Sync status", "sync", rl("admin:rota_breathesyncrun_status")),
             _item("Leave mapping", "swap_horiz", rl("admin:rota_breatheleavemapping_changelist")),
             _item("Absences", "sick", rl("admin:rota_breatheabsence_changelist"))]},
         {"title": "Practice settings", "separator": True, "items": [
