@@ -10,6 +10,7 @@ from datetime import date
 
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse
 from django.views.generic import TemplateView
 from unfold.views import UnfoldModelAdminViewMixin
 
@@ -100,7 +101,11 @@ class PatternEditorView(UnfoldModelAdminViewMixin, TemplateView):
                 else:
                     text += " Everyone has a pattern now."
             messages.success(request, text)
-            return redirect(f"{request.path}{query}")
+            # reverse(), not request.path: the route is fixed and we
+            # already know it, so the redirect target never depends on
+            # the incoming request. Same string, and CodeQL's
+            # py/url-redirection has nothing to trace.
+            return redirect(f"{reverse('admin:rota_patternslot_bulk')}{query}")
 
         grid, history = None, []
         if clinician:
