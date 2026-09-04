@@ -202,3 +202,18 @@ def test_changing_the_password_keeps_you_signed_in_and_says_so(gp_client, gp_use
 
 def test_the_old_change_done_route_is_gone(gp_client):
     assert gp_client.get("/accounts/password_change/done/").status_code == 404
+
+
+def test_a_relay_failure_on_the_public_form_is_not_a_500_and_the_next_try_sends(
+        client, configured, monkeypatch, gp_user):
+    from django.core.mail import EmailMessage
+
+    def refuse(self, fail_silently=False):
+        raise ValueError("Invalid address")
+    monkeypatch.setattr(EmailMessage, "send", refuse)
+    resp = client.post(RESET, {"email": gp_user.email})
+    assert resp.status_code == 302 and resp["Location"] == DONE
+    assert mail.outbox == []
+    monkeypatch.undo()
+    client.post(RESET, {"email": gp_user.email})
+    assert len(mail.outbox) == 1

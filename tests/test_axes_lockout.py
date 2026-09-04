@@ -165,3 +165,20 @@ def test_attempts_are_recorded_against_the_email_for_both_ways_in(gp_user):
                      REMOTE_ADDR=TUNNEL, HTTP_CF_CONNECTING_IP=HOME)
     assert resp.status_code == 400
     assert list(AccessAttempt.objects.values_list("username", flat=True)) == ["gp@example.com"]
+
+
+@pytest.mark.django_db
+@axes_on
+def test_the_failure_log_outlives_the_counter_reset():
+    """AccessAttempt is a counter: a later successful login from the same
+    address clears it (AXES_RESET_ON_SUCCESS), which is what left "Access
+    attempts" empty on staging after real failures. AccessFailureLog is the
+    permanent record, and it stays."""
+    from axes.models import AccessAttempt, AccessFailureLog
+    gp, other = _make(2)
+    _login(SURGERY, gp.email, "wrong")
+    assert AccessAttempt.objects.filter(username=gp.email).count() == 1
+    assert AccessFailureLog.objects.filter(username=gp.email).count() == 1
+    assert _login(SURGERY, other.email, PW).status_code == 302     # someone else, same address
+    assert not AccessAttempt.objects.filter(username=gp.email).exists()
+    assert AccessFailureLog.objects.filter(username=gp.email).count() == 1
