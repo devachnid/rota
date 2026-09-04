@@ -34,7 +34,7 @@
         <span class="font-semibold text-sm">Effective from</span>
         <input type="date" name="effective_from" value="{{ effective_from|date:'Y-m-d' }}" class="border border-base-200 rounded-default px-3 py-2 dark:border-base-700 dark:bg-base-900">
       </label>
-      {% component "unfold/components/button.html" with submit=1 name="action" value="load" %}Load{% endcomponent %}
+      {% component "unfold/components/button.html" with submit=1 name="action" value="load" variant="default" %}Load{% endcomponent %}
     </div>
 
     {% if date_error %}<p class="text-red-600 dark:text-red-500 font-semibold mb-4">{{ date_error }}</p>{% endif %}
@@ -53,7 +53,7 @@
         {% endfor %}
       </tbody>
     </table>
-    {% component "unfold/components/button.html" with submit=1 name="action" value="save" variant="primary" %}Save pattern{% endcomponent %}
+    {% component "unfold/components/button.html" with submit=1 name="action" value="save" %}Save pattern{% endcomponent %}
     {% endif %}
   </form>
   {% endcomponent %}

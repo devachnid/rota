@@ -11,6 +11,7 @@ live pattern.
 These test at the form level, which is where the gap was.
 """
 
+import re
 from datetime import date, timedelta
 
 import pytest
@@ -274,7 +275,14 @@ def test_missing_preselects_the_first_clinician_without_a_pattern_and_lists_the_
     make_clinician("Idle Locum", group=locums)   # locums are never "missing"
     html = staff_client.get(URL, {"missing": "1"}).content.decode()
     assert f'<option value="{a.pk}" selected' in html
-    assert "Beth Empty" in html and "Idle Locum" not in html.split("<form")[0]
+    # The first "<form" in the document is unfold's sidebar logout form,
+    # rendered before {% block content %} — slicing on it says nothing about
+    # the page. Anchor on the missing-clinicians card itself instead.
+    card = html[html.index("Clinicians without a pattern"):]
+    card = card[:card.index("</ul>")]
+    assert "Beth Empty" in card
+    assert "Idle Locum" not in card
+    assert "Done Already" not in card
 
 
 @pytest.mark.django_db
@@ -294,3 +302,8 @@ def test_saving_with_missing_set_offers_the_next_clinician(staff_client):
 def test_the_editor_wears_the_admin_chrome(staff_client, clinician):
     html = staff_client.get(URL, {"clinician_id": clinician.pk}).content.decode()
     assert "Practice Rota" in html and "Pattern editor" in html
+    # Load and Save must not look identical: Save is the primary action.
+    load = re.search(r'<button[^>]*name="action" value="load"[^>]*class="([^"]*)"', html)
+    save = re.search(r'<button[^>]*name="action" value="save"[^>]*class="([^"]*)"', html)
+    assert load and save
+    assert load.group(1) != save.group(1)
