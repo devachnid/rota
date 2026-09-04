@@ -6,6 +6,8 @@ away at the door — to the app's own login if anonymous, with a 403 if
 signed in as a GP.
 """
 
+import re
+
 import pytest
 from django.contrib import admin
 
@@ -191,3 +193,47 @@ def test_a_rota_admin_can_deactivate_a_login_but_not_promote_it(admin_client, gp
     gp_user.refresh_from_db()
     assert gp_user.is_active is False
     assert gp_user.is_superuser is False
+
+
+GROUPS = ["People", "Working patterns", "Calendar", "Sessions & rules",
+          "Leave from Breathe", "Practice settings", "Records"]
+
+
+SYSTEM_HEADING = re.compile(r"<h2[^>]*>\s*System\s*<")
+
+
+def test_a_rota_admin_sees_the_eight_groups_and_not_system(admin_client):
+    from django.utils.html import escape
+    from rota.models import PracticeSettings
+    PracticeSettings.load()
+    html = admin_client.get("/admin/").content.decode()
+    for group in GROUPS:
+        # Django auto-escapes the rendered title, so "Sessions & rules"
+        # comes back as "Sessions &amp; rules" — check for what the
+        # template actually emits, not the raw group name.
+        assert escape(group) in html, group
+    assert "Login accounts" in html and "Audit log" in html
+    # A bare "System" also names unfold's light/dark/system theme option,
+    # present on every page regardless of permission — so check for the
+    # sidebar group's own heading, not just the substring.
+    assert not SYSTEM_HEADING.search(html) and "Access attempts" not in html
+
+
+def test_a_superuser_sees_system_too(staff_client):
+    from rota.models import PracticeSettings
+    PracticeSettings.load()
+    html = staff_client.get("/admin/").content.decode()
+    assert "System" in html and "Access attempts" in html and "Auth groups" in html
+
+
+def test_every_sidebar_link_resolves(staff_client, rf, staff_user):
+    from rota.admin_site import navigation
+    from rota.models import PracticeSettings
+    PracticeSettings.load()
+    request = rf.get("/admin/")
+    request.user = staff_user
+    for group in navigation(request):
+        for item in group["items"]:
+            link = item["link"]
+            url = link(request) if callable(link) else str(link)
+            assert staff_client.get(url).status_code == 200, (group["title"], item["title"], url)

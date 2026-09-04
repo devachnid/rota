@@ -427,6 +427,14 @@ class TraineeStageRuleAdmin(admin.ModelAdmin):
         return False
 
 
+@admin.register(TraineeProfile)
+class TraineeProfileAdmin(admin.ModelAdmin):
+    list_display = ("clinician", "stage", "wte_percent", "trainer",
+                    "placement_start", "placement_end")
+    list_filter = ("stage",)
+    search_fields = ("clinician__name",)
+
+
 @admin.register(RecurringCommitment)
 class RecurringCommitmentAdmin(admin.ModelAdmin):
     list_display = ("clinician", "weekday", "part", "session_type", "site",
