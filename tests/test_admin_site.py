@@ -15,6 +15,12 @@ from rota.admin_site import RotaAdminSite
 
 pytestmark = pytest.mark.django_db
 
+# The login-account change form carries a Passkey inline, so every POST to
+# it needs the inline's management form — with no rows, when the test is
+# not about passkeys.
+MANAGEMENT = {"passkeys-TOTAL_FORMS": "0", "passkeys-INITIAL_FORMS": "0",
+              "passkeys-MIN_NUM_FORMS": "0", "passkeys-MAX_NUM_FORMS": "1000"}
+
 
 def test_the_admin_site_is_ours():
     assert isinstance(admin.site, RotaAdminSite)
@@ -145,17 +151,19 @@ def test_a_malformed_perm_string_is_never_granted(admin_user):
 def test_a_rota_admin_cannot_make_anyone_a_superuser(admin_client, gp_user):
     url = f"/admin/accounts/user/{gp_user.pk}/change/"
     resp = admin_client.post(url, {
+        **MANAGEMENT,
         "email": gp_user.email,
         "is_superuser": "on",
         "is_staff": "on",
         "is_rota_admin": "on",
         "is_active": "on",
     })
-    assert resp.status_code in (200, 302), resp.content.decode()
+    assert resp.status_code == 302, resp.content.decode()
     gp_user.refresh_from_db()
+    assert gp_user.is_rota_admin            # the save happened …
     # is_staff follows admin status now (User.save), so it is no longer a
     # flag anyone can smuggle; superuser is the one that must not move.
-    assert not gp_user.is_superuser
+    assert not gp_user.is_superuser         # … and this flag did not
     assert 'name="is_superuser"' not in admin_client.get(url).content.decode()
 
 
@@ -233,13 +241,10 @@ def test_a_rota_admin_can_deactivate_a_login_but_not_promote_it(admin_client, gp
     assert 'name="is_superuser"' not in html
 
     resp = admin_client.post(url, {
+        **MANAGEMENT,
         "email": gp_user.email,
         "is_active": "",
         "is_rota_admin": "on" if gp_user.is_rota_admin else "",
-        # The PasskeyInline's management form — required on every POST to
-        # this page, whether or not gp_user has any passkeys.
-        "passkeys-TOTAL_FORMS": "0", "passkeys-INITIAL_FORMS": "0",
-        "passkeys-MIN_NUM_FORMS": "0", "passkeys-MAX_NUM_FORMS": "1000",
     })
     assert resp.status_code == 302, resp.content.decode()
     gp_user.refresh_from_db()
