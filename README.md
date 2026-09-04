@@ -57,6 +57,37 @@ Then:
 Point the Cloudflare tunnel ingress at `http://127.0.0.1:8321`.
 Backups land in `backups/`, kept 30 days.
 
+### Outgoing email
+
+Invitations and password-reset links go by email. Without a relay the app
+still works — an admin is shown each link to copy into an email — and the
+dashboard's *Outgoing email* step and `manage.py check --deploy` both say
+so.
+
+Mailjet is plain authenticated SMTP. In Mailjet: validate the sender (the
+whole domain, adding the SPF and DKIM records it gives you in Cloudflare
+DNS), create an API key, and under account settings turn **click tracking**
+and **open tracking** off — the app also asks for that on every message,
+but a rewritten link is the one thing that must not happen to a password
+link. Then:
+
+    cat >> /etc/rota.env <<'EOF'
+    EMAIL_HOST=in-v3.mailjet.com
+    EMAIL_PORT=587
+    EMAIL_HOST_USER=MAILJET_API_KEY_HERE
+    EMAIL_HOST_PASSWORD=MAILJET_SECRET_KEY_HERE
+    DEFAULT_FROM_EMAIL="Practice Rota <rota@rota.example.org>"
+    EOF
+    systemctl restart rota
+
+The quotes matter: the file is sourced by a shell as well as read by
+systemd, and an unquoted `<` is a redirection. No trailing comments — an
+env file has no comment syntax after a value.
+
+`EMAIL_USE_TLS` defaults on (STARTTLS on 587); set `EMAIL_USE_TLS=0` only
+for a relay that has no TLS at all. Links last seven days. With `DEBUG=1`
+and no `EMAIL_HOST`, mail prints to the console instead.
+
 ### Redeploying
 
 **`collectstatic` is not optional on a redeploy.** With `DEBUG=0` every

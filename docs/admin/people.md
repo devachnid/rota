@@ -64,9 +64,27 @@ Optional. Leave it blank for someone who is on the rota but does not use the
 app — the rota still works, they simply cannot log in. Locums often sit like
 this.
 
-Create the account first at `/admin/accounts/user/`. Tick **is rota admin** on
-anyone who should be able to run fills, publish weeks and approve requests.
-(`is staff` is separate and controls access to `/admin/` itself.)
+Create the account first under **People › Login accounts › Add**: their
+email, and whether they are a rota admin. That is all — there is no password
+to type. Saving sends them an invitation with a link to choose their own;
+their page then reads *Invited …, link expires …* until they have, and *Set
+up* after. Links last seven days and work once.
+
+- Link expired, or never arrived? Open the account and press **Send
+  invitation again**.
+- Forgotten their password? They can use *Forgotten your password?* on the
+  login page themselves, or you can press **Send password-reset link** on
+  their account.
+- A whole practice at once: tick the accounts on the list and choose **Send
+  invitation or reset link**.
+
+If outgoing email is not set up (the dashboard's *Outgoing email* step says
+so), each of those shows you the link instead, once, to copy into an email
+yourself. Nobody — not even you — ever sees anyone's password; only a
+superuser keeps a form that sets one directly.
+
+Tick **is rota admin** on anyone who should run fills, publish weeks and
+approve requests; it is also what lets them into this admin.
 
 ### Active
 
