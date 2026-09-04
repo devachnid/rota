@@ -236,6 +236,10 @@ def test_a_rota_admin_can_deactivate_a_login_but_not_promote_it(admin_client, gp
         "email": gp_user.email,
         "is_active": "",
         "is_rota_admin": "on" if gp_user.is_rota_admin else "",
+        # The PasskeyInline's management form — required on every POST to
+        # this page, whether or not gp_user has any passkeys.
+        "passkeys-TOTAL_FORMS": "0", "passkeys-INITIAL_FORMS": "0",
+        "passkeys-MIN_NUM_FORMS": "0", "passkeys-MAX_NUM_FORMS": "1000",
     })
     assert resp.status_code == 302, resp.content.decode()
     gp_user.refresh_from_db()

@@ -88,6 +88,13 @@ env file has no comment syntax after a value.
 relay that has no TLS at all. Links last seven days. With no `EMAIL_HOST`, a
 dev box behaves exactly like production: the admin gets each link on screen.
 
+### Passkeys and the domain
+
+Passkeys are bound to the host the app is served from (`ALLOWED_HOSTS`, the
+tunnel's hostname). Changing that domain invalidates every passkey — people
+sign in with their password and enrol again. The new static file
+`js/passkeys.js` must be collected (`collectstatic` is in every redeploy).
+
 ### Redeploying
 
 **`collectstatic` is not optional on a redeploy.** With `DEBUG=0` every

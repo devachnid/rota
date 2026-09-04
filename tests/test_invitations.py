@@ -26,12 +26,16 @@ def _change(user):
 def _form(user, **extra):
     """A change-form POST that leaves the account as it is. The System
     flags are only on a superuser's form; a rota admin's form ignores the
-    extra keys (test_admin_site proves that)."""
+    extra keys (test_admin_site proves that). The passkeys-* fields are
+    the PasskeyInline's management form — the change view needs them on
+    every POST regardless of whether this user has any passkeys."""
     data = {"email": user.email,
             "is_rota_admin": "on" if user.is_rota_admin else "",
             "is_active": "on",
             "is_staff": "on" if user.is_staff else "",
-            "is_superuser": "on" if user.is_superuser else ""}
+            "is_superuser": "on" if user.is_superuser else "",
+            "passkeys-TOTAL_FORMS": "0", "passkeys-INITIAL_FORMS": "0",
+            "passkeys-MIN_NUM_FORMS": "0", "passkeys-MAX_NUM_FORMS": "1000"}
     data.update(extra)
     return data
 

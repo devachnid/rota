@@ -351,3 +351,6 @@ sending mail asynchronously; SMS.
   command palette, which previously never appeared for an invited rota
   admin, and Django's own help text under the toggle claimed it controlled
   admin login, which in this app it never did.
+- §8's passkeys-and-domain paragraph lives in README › Deploy (where a
+  domain change is done) and docs/admin/people.md, not in
+  upgrading-unfold.md — that page is about unfold.

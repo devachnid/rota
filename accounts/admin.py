@@ -5,12 +5,12 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
-from unfold.admin import ModelAdmin
+from unfold.admin import ModelAdmin, TabularInline
 from unfold.decorators import action
 from unfold.forms import AdminPasswordChangeForm, UserChangeForm
 
 from .mail import link_expires, send_password_link
-from .models import User
+from .models import Passkey, User
 
 
 class InviteForm(forms.ModelForm):
@@ -36,6 +36,23 @@ def _report(request, user, result, *, invite):
         messages.error(request, format_html(
             "Sending to {} failed ({}) — copy this link and send it yourself: "
             '<a href="{}">{}</a>', user.email, result.reason, result.link, result.link))
+
+
+class PasskeyInline(TabularInline):
+    """Show and delete, never add: a passkey can only be made by the
+    browser that holds its key. This is where a rota admin revokes a lost
+    phone. It inherits the account page's guards — a rota admin never
+    reaches a superuser's page at all."""
+
+    model = Passkey
+    extra = 0
+    fields = ("name", "aaguid", "created_at", "last_used_at")
+    readonly_fields = fields
+    can_delete = True
+    verbose_name_plural = "Passkeys"
+
+    def has_add_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(User)
@@ -66,6 +83,13 @@ class CustomUserAdmin(UserAdmin, ModelAdmin):
     )
     actions = ("send_links",)
     actions_submit_line = ("send_invitation", "send_reset_link")
+
+    inlines = (PasskeyInline,)
+
+    def get_inline_instances(self, request, obj=None):
+        # Nothing to list on the add page, and the inline's formset would
+        # otherwise render an empty "Passkeys" block there.
+        return [] if obj is None else super().get_inline_instances(request, obj)
 
     def get_queryset(self, request):
         """The changelist a rota admin sees excludes superuser rows
