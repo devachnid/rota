@@ -98,15 +98,15 @@ def test_the_dashboard_and_custom_pages_render(admin_client, rows, url):
         assert frag not in html, (url, frag)
 
 
-def test_further_admin_pages_render_too(admin_client, rows, gp_user):
+def test_further_admin_pages_render_too(admin_client, rows):
     """The other pages a rota admin actually reaches: a row's history and
-    delete confirmation, another (non-superuser) account's password page,
-    the shared password-change form, and the header search endpoint."""
+    delete confirmation, the shared password-change form, and the header
+    search endpoint. The direct set-password page for another account is
+    a superuser's tool now (test_invitations.py) — not one of these."""
     clinician = rows["clinician"]
     urls = [
         f"/admin/rota/clinician/{clinician.pk}/history/",
         f"/admin/rota/clinician/{clinician.pk}/delete/",
-        f"/admin/accounts/user/{gp_user.pk}/password/",
         "/admin/password_change/",
         "/admin/search/?s=x",
     ]

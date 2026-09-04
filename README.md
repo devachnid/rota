@@ -20,14 +20,14 @@ is the reference for what the settings actually mean.
 ## First-time setup
 
 1. `python manage.py createsuperuser`
-2. Sign in and open **Admin**. The dashboard's **Setup** card lists eight
+2. Sign in and open **Admin**. The dashboard's **Setup** card lists nine
    steps, each detected from the database and linked to where it is done;
    follow it until it reads "Setup complete". The **Health** card beside it
    is what to glance at afterwards.
 
 The sequence the checklist walks, for reference: practice settings → sites →
 clinician groups → session types → coverage rules → clinicians → working
-patterns → Breathe. Trainees, recurring commitments and locum bookings are
+patterns → Breathe → outgoing email. Trainees, recurring commitments and locum bookings are
 day-to-day work, not setup — see [docs/admin/](docs/admin/README.md).
 
 ## Deploy (LXC + Cloudflare tunnel)
@@ -56,6 +56,37 @@ Then:
 
 Point the Cloudflare tunnel ingress at `http://127.0.0.1:8321`.
 Backups land in `backups/`, kept 30 days.
+
+### Outgoing email
+
+Invitations and password-reset links go by email. Without a relay the app
+still works — an admin is shown each link to copy into an email — and the
+dashboard's *Outgoing email* step and `manage.py check --deploy` both say
+so.
+
+Mailjet is plain authenticated SMTP. In Mailjet: validate the sender (the
+whole domain, adding the SPF and DKIM records it gives you in Cloudflare
+DNS), create an API key, and under account settings turn **click tracking**
+and **open tracking** off — the app also asks for that on every message,
+but a rewritten link is the one thing that must not happen to a password
+link. Then:
+
+    cat >> /etc/rota.env <<'EOF'
+    EMAIL_HOST=in-v3.mailjet.com
+    EMAIL_PORT=587
+    EMAIL_HOST_USER=MAILJET_API_KEY_HERE
+    EMAIL_HOST_PASSWORD=MAILJET_SECRET_KEY_HERE
+    DEFAULT_FROM_EMAIL="Practice Rota <rota@rota.example.org>"
+    EOF
+    systemctl restart rota
+
+The quotes matter: the file is sourced by a shell as well as read by
+systemd, and an unquoted `<` is a redirection. No trailing comments — an
+env file has no comment syntax after a value.
+
+`EMAIL_USE_TLS` defaults on (STARTTLS on 587); set `EMAIL_USE_TLS=0` only for a
+relay that has no TLS at all. Links last seven days. With no `EMAIL_HOST`, a
+dev box behaves exactly like production: the admin gets each link on screen.
 
 ### Redeploying
 
@@ -125,12 +156,14 @@ Step 1 is `createsuperuser`, above. The rest, in the order the dashboard walks t
 7. Add closed days (bank holidays) as they come.
 8. Link each clinician to their Breathe employee — see
    docs/admin/breathe.md.
+9. Set up outgoing email so invitations and password resets are sent — see
+   Deploy › Outgoing email. Until then the admin copies each link by hand.
 
 #### v2: trainees, commitments, and demand-driven clinics
 
-9. Mark trainers: tick `is_trainer` on any Clinician who can supervise a
-   mentoring session (Clinician admin).
-10. Create a trainee profile for each trainee: on the Clinician admin page,
+10. Mark trainers: tick `is_trainer` on any Clinician who can supervise a
+    mentoring session (Clinician admin).
+11. Create a trainee profile for each trainee: on the Clinician admin page,
     fill in the inline TraineeProfile — stage (FY2/ST1/ST2/ST3), WTE percent,
     trainer (optional; leave blank to always substitute), placement start/end.
     If the trainee's placement is already in progress, also set
@@ -138,13 +171,13 @@ Step 1 is `createsuperuser`, above. The rest, in the order the dashboard walks t
     them. Left blank, accrual anchors at `placement_start` and the engine
     treats every week since then as owed — for a trainee already partway
     through their placement, that shows up as a large phantom backlog.
-11. Review the seeded TraineeStageRule table (one row per stage, editable):
+12. Review the seeded TraineeStageRule table (one row per stage, editable):
     FY2 defaults to 0 VTS / 2 SDL / 1 mentoring per week (no anchored VTS
     day); ST1/ST2/ST3 default to 1 VTS / 1 SDL / 1 mentoring per week, VTS
     anchored to Tuesday AM (ST1/ST2) or Tuesday PM (ST3). Rates scale by the
     trainee's WTE percent; adjust the seeds if your deanery's entitlement
     differs.
-12. In Practice settings, point `vts_session_type`, `sdl_session_type`, and
+13. In Practice settings, point `vts_session_type`, `sdl_session_type`, and
     `mentoring_session_type` at the relevant SessionTypes (create them first,
     category Non-clinical, if they don't already exist). Leaving any of the
     three blank simply skips that trainee pass — no error.

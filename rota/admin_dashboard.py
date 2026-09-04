@@ -8,6 +8,7 @@ from django.conf import settings
 from django.urls import reverse
 from django.utils import timezone
 
+from accounts.mail import email_is_configured
 from rota.admin_pages import clinicians_without_a_pattern, unmapped_absence_count
 from rota.models import (BreatheSyncRun, Clinician, ClinicianGroup, CoverageRule,
                          LocumRequirement, PracticeSettings, SessionType, Site,
@@ -35,6 +36,7 @@ def setup_steps():
     any_active = Clinician.objects.filter(active=True).exists()
     has_key = bool(settings.BREATHE_API_KEY)
     synced = BreatheSyncRun.objects.filter(ok=True).exists()
+    email_ok = email_is_configured()
     if not has_key:
         breathe_detail = "BREATHE_API_KEY is not set"
     elif not synced:
@@ -79,6 +81,11 @@ def setup_steps():
                      group__is_locum_group__exact=0)
                  if has_key and synced
                  else reverse("admin:rota_breathesyncrun_status"))},
+        # Server configuration, not a database row, so nothing to link to.
+        {"title": "Outgoing email", "done": email_ok,
+         "detail": ("invitations and password resets go by email" if email_ok
+                    else "EMAIL_HOST is not set — invitations show as links to copy"),
+         "url": None},
     ]
     done = sum(s["done"] for s in steps)
     nxt = next((s for s in steps if not s["done"]), None)

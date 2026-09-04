@@ -118,3 +118,46 @@ def test_the_check_never_blocks_the_command_that_fixes_it():
         "tagged 'staticfiles', which is the exact tag collectstatic runs — "
         "the check would block the command it tells you to run"
     )
+
+
+# --------------------------------------------------------------------------
+# Outgoing email. Optional — without a relay every invitation becomes a
+# link for the admin to copy — but a deployment that meant to send and
+# cannot should hear it here, not from a GP whose invitation never came.
+# --------------------------------------------------------------------------
+
+from django.core.checks import Warning as CheckWarning
+
+
+def _email():
+    return checks.outgoing_email_is_configured(None)
+
+
+def test_the_email_check_is_quiet_in_debug(settings):
+    settings.DEBUG = True
+    settings.EMAIL_HOST = ""
+    assert _email() == []
+
+
+def test_no_relay_is_a_warning_naming_the_keys(settings):
+    settings.DEBUG = False
+    settings.EMAIL_HOST = ""
+    found = _email()
+    assert [f.id for f in found] == ["rota.W001"]
+    assert isinstance(found[0], CheckWarning)
+    assert "EMAIL_HOST" in found[0].hint and "/etc/rota.env" in found[0].hint
+
+
+def test_a_relay_with_the_placeholder_sender_is_an_error(settings):
+    settings.DEBUG = False
+    settings.EMAIL_HOST = "smtp.example"
+    settings.DEFAULT_FROM_EMAIL = "webmaster@localhost"
+    found = _email()
+    assert [f.id for f in found] == ["rota.E004"] and isinstance(found[0], Error)
+
+
+def test_a_relay_and_a_real_sender_pass(settings):
+    settings.DEBUG = False
+    settings.EMAIL_HOST = "smtp.example"
+    settings.DEFAULT_FROM_EMAIL = "Practice Rota <rota@example.org>"
+    assert _email() == []

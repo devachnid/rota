@@ -190,6 +190,25 @@ TRUSTED_PROXY_IPS = frozenset(
 BREATHE_API_KEY = os.environ.get("BREATHE_API_KEY", "")
 BREATHE_API_URL = os.environ.get("BREATHE_API_URL", "https://api.breathehr.com/v1")
 
+# Outgoing mail: invitations and password-reset links, and nothing else.
+# Standard Django keys, every one from /etc/rota.env. EMAIL_HOST being set
+# is what "email is configured" means (accounts/mail.py): without it every
+# send becomes a link for the admin to copy, the dashboard says so, and
+# `check --deploy` warns. Mailjet is plain authenticated SMTP, so nothing
+# here names it. EMAIL_TIMEOUT keeps a stalled relay from holding an
+# admin's save past gunicorn's worker timeout.
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "1") == "1"
+EMAIL_TIMEOUT = 10
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "webmaster@localhost")
+
+# Links are minted ahead of a start date, so a week rather than Django's
+# three days. One setting covers invitations and resets alike.
+PASSWORD_RESET_TIMEOUT = 60 * 60 * 24 * 7
+
 # Without this axes uses REMOTE_ADDR, which behind the tunnel is always
 # 127.0.0.1 — one key for every user in the world. django-ipware would also do
 # it, but that is a new dependency and this project does not take those.

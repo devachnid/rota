@@ -6,7 +6,7 @@ is set incorrectly.
 
 The admin now explains itself: every field carries a sentence, every page a
 short description, and the dashboard's Setup card walks a new practice
-through the eight steps in order. This guide is the reference for the
+through the nine steps in order. This guide is the reference for the
 "why" — read it when a setting does not do what you expected.
 
 The `README.md` in the project root has the *sequence* for a first-time setup.

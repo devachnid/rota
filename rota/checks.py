@@ -14,7 +14,7 @@ import re
 from pathlib import Path
 
 from django.conf import settings
-from django.core.checks import Error, register
+from django.core.checks import Error, Warning as CheckWarning, register
 
 # {% static 'x' %} / {% static "x" %}, literal paths only. A tag whose argument
 # is a variable cannot be resolved without rendering, and is skipped rather
@@ -109,5 +109,34 @@ def static_manifest_covers_templates(app_configs, **kwargs):
             hint="An asset was added or renamed since the last collectstatic. "
                  "Run: python manage.py collectstatic --noinput",
             id="rota.E003",
+        )]
+    return []
+
+
+# Email is optional — without a relay every invitation and reset becomes a
+# link for the admin to copy, and the dashboard says so — but a deployment
+# that meant to send and cannot should hear about it here, not from a GP
+# whose invitation never came. Quiet in DEBUG, where nobody is deploying and
+# the admin gets each link on screen anyway.
+@register(deploy=True)
+def outgoing_email_is_configured(app_configs, **kwargs):
+    if settings.DEBUG:
+        return []
+    if not settings.EMAIL_HOST:
+        return [CheckWarning(
+            "EMAIL_HOST is not set, so invitations and password resets will "
+            "show as links for the admin to copy rather than being emailed.",
+            hint="Set EMAIL_HOST, EMAIL_HOST_USER, EMAIL_HOST_PASSWORD and "
+                 "DEFAULT_FROM_EMAIL in /etc/rota.env — see README › Deploy › "
+                 "Outgoing email.",
+            id="rota.W001",
+        )]
+    if settings.DEFAULT_FROM_EMAIL == "webmaster@localhost":
+        return [Error(
+            "EMAIL_HOST is set but DEFAULT_FROM_EMAIL is Django's placeholder "
+            "webmaster@localhost, which the relay will refuse to send as.",
+            hint="Set DEFAULT_FROM_EMAIL in /etc/rota.env to a sender the relay "
+                 "has validated.",
+            id="rota.E004",
         )]
     return []

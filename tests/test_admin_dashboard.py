@@ -86,10 +86,11 @@ def test_breathe_step_needs_key_sync_and_links(settings):
     assert "breathe=unlinked" in _step("Breathe")["url"]
 
 
-def test_the_headline_counts_and_names_the_next_step():
+def test_the_headline_counts_and_names_the_next_step(settings):
+    settings.EMAIL_HOST = ""
     Site.objects.create(name="Main")
     steps = setup_steps()
-    assert steps["done"] == 1 and steps["total"] == 8
+    assert steps["done"] == 1 and steps["total"] == 9
     assert steps["next"]["title"] == "Practice settings"
     assert not steps["complete"]
 
@@ -145,7 +146,7 @@ def test_the_breathe_health_line_uses_local_time_not_utc(settings):
 def test_the_dashboard_renders_both_cards(admin_client):
     PracticeSettings.load()
     html = admin_client.get("/admin/").content.decode()
-    assert "Setup" in html and "Health" in html and "of 8" in html
+    assert "Setup" in html and "Health" in html and "of 9" in html
 
 
 def test_the_dashboard_collapses_when_setup_is_complete(admin_client, settings):
@@ -160,6 +161,7 @@ def test_the_dashboard_collapses_when_setup_is_complete(admin_client, settings):
     c = make_clinician("Ann Able", breathe_employee_id=1)
     make_pattern(c)
     settings.BREATHE_API_KEY = "set"
+    settings.EMAIL_HOST = "smtp.example"
     BreatheSyncRun.objects.create(started=timezone.now(), finished=timezone.now(), ok=True)
 
     html = admin_client.get("/admin/").content.decode()
@@ -192,3 +194,13 @@ def test_the_dashboard_does_not_query_per_clinician(admin_client):
     with CaptureQueriesContext(connection) as ctx:
         admin_client.get("/admin/")
     assert len(ctx) == baseline
+
+
+def test_the_email_step_follows_email_host(settings, admin_client):
+    settings.EMAIL_HOST = ""
+    step = _step("Outgoing email")
+    assert not step["done"] and "EMAIL_HOST" in step["detail"] and step["url"] is None
+    html = admin_client.get("/admin/").content.decode()
+    assert "Outgoing email" in html
+    settings.EMAIL_HOST = "smtp.example"
+    assert _step("Outgoing email")["done"]
