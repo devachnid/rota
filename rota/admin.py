@@ -12,7 +12,6 @@ from django.utils.text import capfirst
 
 from unfold.admin import ModelAdmin, StackedInline, TabularInline
 from unfold.contrib.filters.admin import RangeDateFilter
-from unfold.decorators import display
 
 from .models import (BreatheAbsence, BreatheLeaveMapping, BreatheSyncRun,
                      Clinician, ClinicianGroup, ClosedDay, CoverageRule,
@@ -147,6 +146,19 @@ class ClinicianAdmin(ModelAdmin):
         }),
     )
 
+    def lookup_allowed(self, lookup, value, request=None):
+        # `group` is a one-hop FK entry in list_filter, which licenses
+        # lookups on `group` itself (group__exact etc.) but not a second
+        # hop into a field on the related ClinicianGroup — Django's own
+        # lookup_allowed only matches a relation path it finds verbatim in
+        # list_filter. The dashboard's "not linked" links narrow by
+        # group__is_locum_group as well as breathe/active, so that lookup
+        # needs allowing explicitly rather than adding a whole extra
+        # sidebar filter box just to license it.
+        if lookup == "group__is_locum_group__exact":
+            return True
+        return super().lookup_allowed(lookup, value, request)
+
     def get_queryset(self, request):
         return super().get_queryset(request).select_related("group", "user") \
             .prefetch_related("pattern_slots")
@@ -155,7 +167,8 @@ class ClinicianAdmin(ModelAdmin):
     def pattern_column(self, obj):
         text = pattern_text(obj.pattern_slots.all(), date.today())
         if text == "No pattern yet":
-            return format_html('<span style="color: var(--color-primary-700)">{}</span>', text)
+            return format_html(
+                '<span class="text-red-600 dark:text-red-500">{}</span>', text)
         return text
 
     @admin.display(description="Working pattern")
@@ -218,7 +231,7 @@ class ClinicianAdmin(ModelAdmin):
     def breathe_link(self, obj):
         if obj.breathe_employee_id is None:
             return format_html(
-                '<span style="color: var(--muted, #6b7280)">{}</span>', "not linked")
+                '<span style="color: var(--color-base-500)">{}</span>', "not linked")
         employees = breathe_employees() or []
         e = next((x for x in employees if x["id"] == obj.breathe_employee_id), None)
         return employee_label(e) if e else f"#{obj.breathe_employee_id}"
@@ -600,6 +613,9 @@ class BreatheSyncRunAdmin(ModelAdmin):
     readonly_fields = [f.name for f in BreatheSyncRun._meta.fields]
 
     def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
         return False
 
     def get_urls(self):

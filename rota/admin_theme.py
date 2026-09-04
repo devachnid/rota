@@ -12,6 +12,7 @@ ground, so the dark-theme text roles reference the light scale's dark
 end rather than a second scale (a narrowing of the spec, recorded here).
 """
 
+import functools
 import re
 from pathlib import Path
 
@@ -20,6 +21,7 @@ from rota import palette
 TOKENS = Path(__file__).resolve().parents[1] / "static" / "css" / "tokens.css"
 
 
+@functools.lru_cache(maxsize=None)
 def token(name):
     """A hex custom property from the light :root block of tokens.css."""
     css = TOKENS.read_text()

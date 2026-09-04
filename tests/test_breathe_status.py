@@ -26,6 +26,21 @@ def test_the_status_page_shows_the_last_good_run_and_unlinked_clinicians(staff_c
     assert "Nobody Linked" in html
 
 
+def test_the_status_pages_not_linked_list_excludes_locums(staff_client):
+    """The dashboard's count of clinicians not linked to Breathe is of
+    active non-locums (locums genuinely are treated as always available,
+    Breathe link or not) — the status page's "Not linked" list must name
+    the same set, not every active unlinked clinician."""
+    from rota.models import ClinicianGroup
+    locum_group = ClinicianGroup.objects.create(
+        name="Locum", is_locum_group=True, display_order=99)
+    make_clinician("Loose Locum", group=locum_group)
+    make_clinician("Nobody Linked")
+    html = staff_client.get("/admin/rota/breathesyncrun/status/").content.decode()
+    assert "Nobody Linked" in html
+    assert "Loose Locum" not in html
+
+
 def test_the_status_page_shows_the_last_error(staff_client):
     _run(ok=True, minutes_ago=60)
     _run(ok=False, minutes_ago=5, error="Breathe returned 429 for /absences")

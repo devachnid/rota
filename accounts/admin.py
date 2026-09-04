@@ -1,5 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
+from django.core.exceptions import ValidationError
+from django.urls import reverse
 from django.utils.html import format_html
 from unfold.admin import ModelAdmin
 from unfold.forms import (AdminPasswordChangeForm, UserChangeForm,
@@ -26,9 +28,33 @@ class CustomUserAdmin(UserAdmin, ModelAdmin):
     list_filter = ("is_rota_admin", "is_active")
     search_fields = ("email",)
     readonly_fields = ("clinician_name",)
+    list_select_related = ("clinician",)
     add_fieldsets = (
         (None, {"fields": ("email", "password1", "password2", "is_rota_admin")}),
     )
+
+    def get_queryset(self, request):
+        """The changelist a rota admin sees excludes superuser rows
+        entirely — see the docstring above. get_object() below does NOT
+        go through this filtered queryset: a pk lookup (change/delete/
+        password views) must still find a superuser's row so has_view_
+        permission/has_change_permission/has_delete_permission can turn
+        it away with their own 403, rather than this filter making
+        Django treat the row as not existing (a redirect instead)."""
+        qs = super().get_queryset(request)
+        if not request.user.is_superuser:
+            qs = qs.filter(is_superuser=False)
+        return qs
+
+    def get_object(self, request, object_id, from_field=None):
+        queryset = admin.ModelAdmin.get_queryset(self, request)
+        model = queryset.model
+        field = model._meta.pk if from_field is None else model._meta.get_field(from_field)
+        try:
+            object_id = field.to_python(object_id)
+            return queryset.get(**{field.name: object_id})
+        except (model.DoesNotExist, ValidationError, ValueError):
+            return None
 
     def get_fieldsets(self, request, obj=None):
         if obj is None:
@@ -78,5 +104,5 @@ class CustomUserAdmin(UserAdmin, ModelAdmin):
         clinician = getattr(obj, "clinician", None)
         if clinician is None:
             return "—"
-        return format_html('<a href="/admin/rota/clinician/{}/change/">{}</a>',
-                           clinician.pk, clinician.name)
+        url = reverse("admin:rota_clinician_change", args=[clinician.pk])
+        return format_html('<a href="{}">{}</a>', url, clinician.name)

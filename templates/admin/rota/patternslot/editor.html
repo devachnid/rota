@@ -12,7 +12,7 @@
   {% if missing %}
   {% component "unfold/components/card.html" with title="Clinicians without a pattern" class="mb-6" %}
     <p class="mb-2">The fill engine can place nobody it does not know the working days of. Set each in turn — Save moves on to the next.</p>
-    <ul class="list-disc pl-5">{% for c in missing %}<li>{{ c.name }}</li>{% endfor %}</ul>
+    <ul class="rota-list-disc pl-5">{% for c in missing %}<li>{{ c.name }}</li>{% endfor %}</ul>
   {% endcomponent %}
   {% endif %}
 
@@ -20,7 +20,7 @@
   {# One form, deliberately: the date you can see is the date that posts. #}
   <form method="post">
     {% csrf_token %}
-    <div class="flex flex-wrap items-end gap-4 mb-6">
+    <div class="flex flex-wrap rota-items-end gap-4 mb-6">
       <label class="flex flex-col gap-1">
         <span class="font-semibold text-sm">Clinician</span>
         <select name="clinician_id" class="border border-base-200 rounded-default px-3 py-2 dark:border-base-700 dark:bg-base-900">

@@ -58,6 +58,7 @@ class RotaAdminSite(UnfoldAdminSite):
             return HttpResponseForbidden("This account is not a rota admin.")
         return redirect_to_login(self._safe_next(request), settings.LOGIN_URL)
 
+    @method_decorator(never_cache)
     def logout(self, request, extra_context=None):
         if request.method != "POST":
             return HttpResponseNotAllowed(["POST"])

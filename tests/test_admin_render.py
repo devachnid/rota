@@ -23,7 +23,7 @@ LEAKED = ["{#", "#}", "{%", "TODO:", "FIXME:", "XXX:", "vestigial"]
 @pytest.fixture
 def rows(admin_user):
     """One row per rota/accounts model."""
-    from rota.models import (BreatheAbsence, BreatheLeaveMapping, BreatheSyncRun,
+    from rota.models import (BreatheLeaveMapping, BreatheSyncRun,
                              ClosedDay, CoverageRule, DayNote, LocumRequirement,
                              PatternSlot, PracticeSettings, RotaEntryLog, SwapRequest,
                              TraineeStageRule)
@@ -96,3 +96,23 @@ def test_the_dashboard_and_custom_pages_render(admin_client, rows, url):
     html = resp.content.decode()
     for frag in LEAKED:
         assert frag not in html, (url, frag)
+
+
+def test_further_admin_pages_render_too(admin_client, rows, gp_user):
+    """The other pages a rota admin actually reaches: a row's history and
+    delete confirmation, another (non-superuser) account's password page,
+    the shared password-change form, and the header search endpoint."""
+    clinician = rows["clinician"]
+    urls = [
+        f"/admin/rota/clinician/{clinician.pk}/history/",
+        f"/admin/rota/clinician/{clinician.pk}/delete/",
+        f"/admin/accounts/user/{gp_user.pk}/password/",
+        "/admin/password_change/",
+        "/admin/search/?s=x",
+    ]
+    for url in urls:
+        resp = admin_client.get(url)
+        assert resp.status_code == 200, url
+        html = resp.content.decode()
+        for frag in LEAKED:
+            assert frag not in html, (url, frag)

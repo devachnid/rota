@@ -56,7 +56,6 @@ def test_has_changed_compares_against_the_stored_string():
 
 @pytest.mark.django_db
 def test_the_coverage_rule_form_round_trips_through_the_model():
-    from rota.models import CoverageRule
     from tests.factories import make_session_type
     st = make_session_type("Duty")
     f = CoverageRuleForm({"session_type": st.pk, "unit": "SESSION", "frequency": "WEEK",

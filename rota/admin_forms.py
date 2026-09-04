@@ -23,6 +23,10 @@ class OrderedCheckboxSelect(forms.CheckboxSelectMultiple):
     whose stored order is significant (preferred_weekdays: "3,1" means
     Thursday first, then Tuesday). Submits `<name>` for the ticks and
     `<name>_order_<value>` for the numbers; the field sorts by number."""
+    # Lives under rota/templates/, not templates/ at the project root:
+    # Django's default form renderer resolves a widget template by
+    # searching each installed app's own template directory, not
+    # settings.TEMPLATES["DIRS"].
     template_name = "admin/rota/widgets/ordered_checkboxes.html"
 
     def value_from_datadict(self, data, files, name):

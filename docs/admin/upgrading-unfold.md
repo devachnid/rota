@@ -14,11 +14,24 @@ documented hooks and nothing else:
 - `{% component %}` with `unfold/components/card.html`, `container.html`,
   `title.html`, `button.html` — in `templates/admin/index.html` and the two
   page templates. `admin/index.html` is the only unfold template overridden.
+- `unfold/helpers/site_branding.html` — included by all three of the
+  project's own admin templates (`admin/index.html` and the two custom
+  page templates) for the `{% block branding %}` block.
+- Tailwind utility classes those same three templates borrow straight from
+  unfold's compiled `styles.css` (e.g. `lg:w-1/2`, `text-red-600`,
+  `dark:text-red-500`) rather than from a stylesheet of our own — guarded
+  by `tests/test_admin_css_classes.py`.
+- The font override in `static/admin/rota-admin.css` sets `--font-sans` on
+  a bare `:root`, unlayered, so it wins over unfold's own declaration only
+  because unfold declares `--font-sans` *inside* an `@layer theme` block
+  (lower cascade precedence than an unlayered rule) — guarded by
+  `tests/test_admin_theme.py`.
 
 To upgrade: bump the pin, `pip install -r requirements.txt`, run the suite.
 `tests/test_admin_render.py` renders every page as a rota admin;
 `tests/test_admin_theme.py` checks the colour variables still reach the
-page; the pattern-editor and Breathe tests check the custom pages. Then
-open the dashboard and one change form in both themes and look. If a
-component template's parameters changed, the two page templates are where
-it shows.
+page; `tests/test_admin_css_classes.py` checks the borrowed Tailwind classes
+still exist in unfold's compiled CSS; the pattern-editor and Breathe tests
+check the custom pages. Then open the dashboard and one change form in both
+themes and look. If a component template's parameters changed, the two page
+templates are where it shows.

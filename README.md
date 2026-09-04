@@ -112,6 +112,8 @@ The first must show `Strict-Transport-Security` and a `csrftoken` cookie marked
 
 ### Appendix: the setup steps in detail
 
+Step 1 is `createsuperuser`, above. The rest, in the order the dashboard walks them:
+
 2. Create clinician groups (e.g. Partner, Salaried, GPST, and a Locum group
    with "is locum group" ticked). Set display order and any per-session minimums.
 3. Create session types: Duty (fairness tracked), Routine, Visits, Admin, CPD,

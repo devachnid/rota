@@ -10,12 +10,15 @@ import re
 from pathlib import Path
 
 import pytest
+import unfold
 
 from rota import palette
 from rota.admin_theme import base, primary, token
 
 ROOT = Path(__file__).resolve().parents[1]
 WEIGHTS = ["50", "100", "200", "300", "400", "500", "600", "700", "800", "900", "950"]
+UNFOLD_CSS = (Path(unfold.__file__).resolve().parent
+             / "static" / "unfold" / "css" / "styles.css")
 
 
 def test_primary_600_is_the_accent():
@@ -60,6 +63,33 @@ def test_the_theme_bridge_names_both_keys_and_guards_storage():
     js = (ROOT / "static" / "admin" / "theme-bridge.js").read_text()
     assert '"rota-theme"' in js and '"adminTheme"' in js
     assert "try" in js and "catch" in js
+
+
+def test_unfold_declares_font_sans_inside_at_layer_theme():
+    """rota-admin.css overrides --font-sans on a bare, unlayered :root —
+    that only wins the cascade because unfold's own declaration sits
+    inside an @layer theme block, which Tailwind gives lower precedence
+    than unlayered rules regardless of source order or specificity. If a
+    future unfold build moves --font-sans out of @layer theme (or drops
+    the layer), our override would stop winning silently — no page
+    errors, the font just reverts. A simple brace-depth scan finds
+    @layer theme's own extent and checks --font-sans is declared inside
+    it, at the same nesting depth (not inside some nested block)."""
+    css = UNFOLD_CSS.read_text()
+    start = css.index("@layer theme")
+    brace_start = css.index("{", start)
+    depth = 0
+    end = None
+    for i in range(brace_start, len(css)):
+        if css[i] == "{":
+            depth += 1
+        elif css[i] == "}":
+            depth -= 1
+            if depth == 0:
+                end = i
+                break
+    assert end is not None, "could not find the closing brace of @layer theme"
+    assert "--font-sans:" in css[brace_start:end]
 
 
 @pytest.mark.django_db

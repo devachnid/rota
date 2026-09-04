@@ -151,7 +151,8 @@ class BreatheStatusView(UnfoldModelAdminViewMixin, TemplateView):
             configured=breathe_client.from_settings() is not None,
             last_ok=last_ok,
             last_error=last if (last and not last.ok) else None,
-            unlinked=Clinician.objects.filter(active=True, breathe_employee_id=None)
+            unlinked=Clinician.objects.filter(active=True, group__is_locum_group=False,
+                                              breathe_employee_id=None)
                                       .order_by("name"),
             unmapped_count=unmapped_absence_count(),
             runs=BreatheSyncRun.objects.all()[:20],

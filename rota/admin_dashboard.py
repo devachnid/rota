@@ -6,6 +6,7 @@ from datetime import date, timedelta
 
 from django.conf import settings
 from django.urls import reverse
+from django.utils import timezone
 
 from rota.admin_pages import clinicians_without_a_pattern, unmapped_absence_count
 from rota.models import (BreatheSyncRun, Clinician, ClinicianGroup, CoverageRule,
@@ -74,7 +75,9 @@ def setup_steps():
         {"title": "Breathe",
          "done": has_key and synced and unlinked == 0,
          "detail": breathe_detail,
-         "url": (_cl("clinician", breathe="unlinked", active__exact=1) if unlinked
+         "url": (_cl("clinician", breathe="unlinked", active__exact=1,
+                     group__is_locum_group__exact=0)
+                 if has_key and synced
                  else reverse("admin:rota_breathesyncrun_status"))},
     ]
     done = sum(s["done"] for s in steps)
@@ -98,7 +101,8 @@ def health():
     elif last_ok is None:
         breathe = ("no successful sync yet", "warn")
     else:
-        breathe = (f"last good sync {last_ok.started:%a %-d %b %H:%M}", "ok")
+        local_started = timezone.localtime(last_ok.started)
+        breathe = (f"last good sync {local_started:%a %-d %b %H:%M}", "ok")
 
     ps = PracticeSettings.load()
     trainee_gap = (TraineeProfile.objects.exists()
@@ -109,7 +113,8 @@ def health():
          "count": clinicians_without_a_pattern().count(),
          "url": reverse("admin:rota_patternslot_bulk") + "?missing=1", "level": "warn"},
         {"label": "Clinicians not linked to Breathe", "count": _unlinked().count(),
-         "url": _cl("clinician", breathe="unlinked", active__exact=1), "level": "warn"},
+         "url": _cl("clinician", breathe="unlinked", active__exact=1,
+                    group__is_locum_group__exact=0), "level": "warn"},
         {"label": "Breathe sync", "count": None, "detail": breathe[0],
          "url": reverse("admin:rota_breathesyncrun_status"), "level": breathe[1]},
         {"label": "Absences with no mapping", "count": unmapped_absence_count(),
