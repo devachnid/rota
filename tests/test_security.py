@@ -5,7 +5,6 @@ deployment on 2026-08-26. Configuration weaknesses are silent by nature — the
 app serves happily either way — so each one gets a test rather than a comment.
 """
 
-import os
 from urllib.parse import quote
 
 import pytest
@@ -218,7 +217,6 @@ def test_every_rota_view_declares_an_authorisation_decorator():
     """A view added without a gate is the failure this catches — it would work
     perfectly and be open to the internet."""
     import re
-    from pathlib import Path
 
     ungated = []
     for path in sorted((settings.BASE_DIR / "rota" / "views").glob("*.py")):

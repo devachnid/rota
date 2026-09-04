@@ -13,7 +13,7 @@ import pytest
 from rota.models import BreatheAbsence, BreatheLeaveMapping, PatternSlot
 from rota.services import availability
 from rota.services.availability import AvailabilityResolver
-from tests.factories import make_absence, make_clinician, make_pattern, make_session_type
+from tests.factories import make_absence, make_clinician, make_pattern
 
 MON = date(2026, 9, 7)
 LONG_AGO = date(2025, 1, 1)

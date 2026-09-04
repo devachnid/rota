@@ -84,7 +84,7 @@ def test_closed_day_styled(admin_client):
 
 def test_own_row_highlighted(gp_client, gp_user):
     PracticeSettings.load()
-    c = make_clinician(user=gp_user)
+    make_clinician(user=gp_user)
     html = gp_client.get(URL).content.decode()
     assert "mine" in html
 

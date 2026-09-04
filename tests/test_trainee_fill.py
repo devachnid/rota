@@ -287,7 +287,7 @@ def test_trainer_field_only_offers_clinicians_flagged_as_trainers(db):
     trainee's trainer. Only clinicians with is_trainer=True are offered."""
     from django.forms import modelform_factory
 
-    from rota.models import Clinician, TraineeProfile
+    from rota.models import TraineeProfile
 
     trainer = make_clinician("Tessa Trainer", initials="TT")
     trainer.is_trainer = True

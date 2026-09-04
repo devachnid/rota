@@ -5,7 +5,7 @@ is nothing to recover and any "repair" would be inventing data. This shows the
 damage so it can be re-entered by hand through the fixed editor.
 """
 
-from datetime import date, timedelta
+from datetime import date
 from io import StringIO
 
 import pytest

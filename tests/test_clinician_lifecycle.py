@@ -130,7 +130,6 @@ def test_a_published_entry_blocks_deletion_and_says_how_many(staff_client):
 
 @pytest.mark.django_db
 def test_the_deactivate_action_exists_and_works(staff_client):
-    from rota.models import Clinician
 
     c = make_clinician("Deactivateme", initials="DM")
     staff_client.post("/admin/rota/clinician/", {
