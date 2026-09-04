@@ -102,6 +102,11 @@ site's address; if the rota ever moves to a different domain, everyone
 enrols again. Someone locked out after too many wrong passwords can still
 sign in with their passkey.
 
+Passkeys are for personal devices. Do not enrol one on a shared surgery PC:
+the login page offers every passkey enrolled on that machine to whoever
+clicks the email field, and where colleagues share a Windows login they
+share its PIN too, so the passkey would let any of them in.
+
 ### Active
 
 **Untick instead of deleting.** An inactive clinician:

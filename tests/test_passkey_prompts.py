@@ -28,6 +28,7 @@ def test_a_signed_in_page_carries_the_nudge_hidden_until_the_script_decides(gp_c
     PracticeSettings.load()
     html = gp_client.get("/rota/").content.decode()
     assert 'id="passkey-nudge" style="display:none"' in html
+    assert '<div class="flash" role="status">' in html         # the success line is announced
     assert 'id="passkey-nudge-add"' in html and 'id="passkey-later"' in html
     assert 'data-options-url="/accounts/passkeys/register/options/"' in html
     assert 'data-register-url="/accounts/passkeys/register/"' in html
@@ -39,6 +40,7 @@ def test_the_login_page_has_no_nudge_and_keeps_what_the_script_needs(client):
     html = client.get("/accounts/login/").content.decode()
     assert "passkey-nudge" not in html
     assert 'id="passkey-login"' in html and 'name="username"' in html
+    assert '<form method="post" id="login-form">' in html   # the script reads the token from it
 
 
 def test_the_account_page_keeps_its_ids_distinct_from_the_nudge(gp_client):

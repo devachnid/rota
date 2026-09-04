@@ -110,6 +110,8 @@
   // --- enrolling ------------------------------------------------------------
 
   function enrol(button, form, errorEl, onDone) {
+    if (button.disabled) { return; }          // one ceremony at a time
+    button.disabled = true;
     show(errorEl, "");
     var token = csrfToken(form);
     var nameInput = form.querySelector("[name=name]");
@@ -123,7 +125,13 @@
     }).then(function (data) {
       store(MARK, "1");
       onDone(data);
-    }).catch(function (e) { show(errorEl, explain(e)); });
+    }).catch(function (e) {
+      // "Already has a passkey here" is proof this device is enrolled —
+      // remember it, or the card would keep coming back after site data
+      // was cleared.
+      if (e.name === "InvalidStateError") { store(MARK, "1"); }
+      show(errorEl, explain(e));
+    }).then(function () { button.disabled = false; });
   }
 
   var add = document.getElementById("passkey-add");
@@ -160,10 +168,11 @@
 
   var signIn = document.getElementById("passkey-login");
   if (signIn) {
-    var loginForm = document.querySelector(".auth-card form");
+    var loginForm = document.getElementById("login-form") || document.querySelector(".auth-card form");
     var loginError = document.getElementById("passkey-error");
-    var pending = null;   // the conditional request's AbortController
-    var rearm = null;     // the timer that refreshes it
+    var conditionalOK = false;   // the browser can offer a passkey in the autofill
+    var pending = null;          // AbortController for the armed conditional request
+    var rearm = null;            // the timer that refreshes it while the tab is visible
     signIn.style.display = "";
 
     function finish(cred, token) {
@@ -182,40 +191,60 @@
     }
 
     // Conditional mediation: the browser offers the passkey in the email
-    // field's autofill and shows nothing to anyone without one. The
-    // server's challenge lives as long as the options' `timeout` says, and
-    // a login tab can sit open longer, so the request is re-armed with a
-    // fresh challenge a minute before the old one would expire. Only one
-    // WebAuthn request may be pending at a time — the button aborts this
-    // one before starting its own.
+    // field's autofill and shows nothing to anyone without one.
+    //
+    // Only one WebAuthn request may be pending at a time, and the server
+    // keeps one challenge per session — the newest mint wins. So: the
+    // controller exists from the moment arming starts (a click or a tab
+    // switch during the options round-trip cancels it too, and an arm
+    // cancelled while fetching goes no further); the request is re-armed
+    // with a fresh challenge well inside the options' `timeout`, and again
+    // whenever the tab becomes visible or comes back from the bfcache, so
+    // the tab the person is looking at is the one holding the session's
+    // challenge; and a hidden tab holds nothing.
+    //
+    // Arming is nobody's action, so an arming failure stays quiet and the
+    // button remains. Once the person has picked a passkey, a refusal is
+    // shown — and the offer comes back.
     function armConditional() {
+      cancelConditional();
+      if (!conditionalOK || document.visibilityState === "hidden") { return; }
       var email = loginForm.querySelector("input[name=username]");
       if (email) { email.setAttribute("autocomplete", "username webauthn"); }
+      var controller = new AbortController();
+      pending = controller;
       var token = csrfToken(loginForm);
       post(signIn.dataset.optionsUrl, token).then(function (opts) {
-        pending = new AbortController();
-        rearm = setTimeout(function () { cancelConditional(); armConditional(); },
-                           Math.max((opts.timeout || 60000) - 60000, 30000));
-        return navigator.credentials.get({
-          publicKey: requestOptions(opts), mediation: "conditional", signal: pending.signal
+        if (controller.signal.aborted) { return; }
+        rearm = setTimeout(armConditional, Math.max((opts.timeout || 60000) * 0.6, 30000));
+        navigator.credentials.get({
+          publicKey: requestOptions(opts), mediation: "conditional", signal: controller.signal
+        }).then(function (cred) {
+          if (controller.signal.aborted) { return; }
+          cancelConditional();
+          return finish(cred, token);
+        }).catch(function (e) {
+          if (e.name === "AbortError" || controller.signal.aborted) { return; }
+          show(loginError, explain(e));
+          armConditional();
         });
-      }).then(function (cred) {
-        cancelConditional();
-        return finish(cred, csrfToken(loginForm));
-      }).catch(function (e) {
-        if (e.name === "AbortError") { return; }   // our own cancel
-        cancelConditional();
-        show(loginError, explain(e));
-      });
+      }).catch(function () { /* arming failed: quiet; the button is the way in */ });
     }
 
     if (PublicKeyCredential.isConditionalMediationAvailable) {
       PublicKeyCredential.isConditionalMediationAvailable().then(function (available) {
-        if (available) { armConditional(); }
-      });
+        conditionalOK = !!available;
+        armConditional();
+      }).catch(function () {});
     }
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "visible") { armConditional(); } else { cancelConditional(); }
+    });
+    window.addEventListener("pageshow", function (ev) { if (ev.persisted) { armConditional(); } });
 
     signIn.addEventListener("click", function () {
+      if (signIn.disabled) { return; }
+      signIn.disabled = true;
       show(loginError, "");
       cancelConditional();
       var token = csrfToken(loginForm);
@@ -223,7 +252,12 @@
         return navigator.credentials.get({ publicKey: requestOptions(opts) });
       }).then(function (cred) {
         return finish(cred, token);
-      }).catch(function (e) { show(loginError, explain(e)); });
+      }).catch(function (e) {
+        show(loginError, explain(e));
+      }).then(function () {
+        signIn.disabled = false;
+        armConditional();   // the offer comes back after a cancelled or refused prompt
+      });
     });
   }
 })();
