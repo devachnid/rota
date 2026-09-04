@@ -113,7 +113,7 @@ def test_saving_with_a_blank_date_is_refused(staff_client, clinician):
 def test_saving_with_the_date_field_absent_entirely_is_refused(
     staff_client, clinician
 ):
-    r = staff_client.post(URL, {
+    staff_client.post(URL, {
         "action": "save", "clinician_id": clinician.pk, "d2_AM": "on",
     })
     assert PatternSlot.objects.filter(clinician=clinician).count() == 2
@@ -270,7 +270,7 @@ def test_missing_preselects_the_first_clinician_without_a_pattern_and_lists_the_
     done = make_clinician("Done Already")
     make_pattern(done)
     a = make_clinician("Alan Empty")
-    b = make_clinician("Beth Empty")
+    make_clinician("Beth Empty")
     locums = make_group("Locum", is_locum_group=True, display_order=99)
     make_clinician("Idle Locum", group=locums)   # locums are never "missing"
     html = staff_client.get(URL, {"missing": "1"}).content.decode()

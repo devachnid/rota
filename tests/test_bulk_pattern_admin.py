@@ -22,7 +22,7 @@ def test_anonymous_redirected(client):
 
 
 def test_get_without_clinician_shows_select(staff_client):
-    c = make_clinician("Alice Adams")
+    make_clinician("Alice Adams")
     resp = staff_client.get(URL)
     assert resp.status_code == 200
     assert b"Alice Adams" in resp.content

@@ -8,7 +8,6 @@ Three states, not two: a two-way toggle would strand the prefers-color-scheme
 path that currently works for everyone who has not chosen.
 """
 
-from pathlib import Path
 
 import pytest
 from django.conf import settings

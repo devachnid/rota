@@ -10,6 +10,11 @@ commitments, demand-driven clinics, PMC branch cover).
     python manage.py migrate && python manage.py runserver
     pytest
 
+CI (`.github/workflows/tests.yml`) runs `ruff check .` (pyflakes only — see
+`ruff.toml`), `makemigrations --check`, the suite, and `collectstatic` +
+`check --deploy` against a throwaway environment; the master ruleset requires
+it green and up to date. Locally: `pip install ruff==0.16.6 && ruff check .`.
+
 ## Admin guide
 
 Every admin setting is documented in [docs/admin/](docs/admin/README.md) — one

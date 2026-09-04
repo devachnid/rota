@@ -9,7 +9,6 @@ from datetime import date
 from pathlib import Path
 
 import pytest
-from django.utils import timezone
 
 from rota.models import BreatheAbsence, BreatheSyncRun
 from rota.services.breathe import sync
@@ -122,7 +121,7 @@ def test_a_broken_record_records_a_failed_run_and_keeps_the_overlay():
 
 
 def test_sickness_type_never_reaches_the_row():
-    by_id = _link_everyone()
+    _link_everyone()
     sync.run(FakeClient())
     sick = BreatheAbsence.objects.get(kind="sickness")
     assert sick.reason == ""
@@ -177,7 +176,7 @@ def test_dry_run_writes_nothing_but_reports_counts():
 def test_contradictory_single_day_flags_are_logged_and_kept(caplog):
     """The row is stored — parts_off yields nothing for it, so it has no
     effect — and the run notes it, so someone can fix it in Breathe."""
-    by_id = _link_everyone()
+    _link_everyone()
     client = FakeClient()
     bad = dict(client.data["leave_requests"][0])
     bad.update({"id": 999, "start_date": "2026-12-01", "end_date": "2026-12-01",

@@ -23,7 +23,6 @@ selector that provably fails to match both real button ids fails.
 """
 
 import re
-from pathlib import Path
 
 import pytest
 from django.conf import settings

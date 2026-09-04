@@ -9,7 +9,7 @@ from datetime import date
 
 import pytest
 
-from rota.models import PatternSlot, PracticeSettings
+from rota.models import PracticeSettings
 from tests.factories import (make_absence, make_clinician, make_entry,
                              make_pattern, make_session_type, make_site)
 

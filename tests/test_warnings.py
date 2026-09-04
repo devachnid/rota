@@ -46,7 +46,7 @@ def test_min_staffing_counts_clinical_entries():
 
 def test_group_minimum():
     PracticeSettings.objects.update_or_create(pk=1, defaults={"min_clinical_per_session": 0})
-    partners = make_group("Partner", min_per_session=1, display_order=1)
+    make_group("Partner", min_per_session=1, display_order=1)
     warnings = [w for w in day_warnings(MON) if w.code == "group"]
     assert any("Partner" in w.message for w in warnings)
 

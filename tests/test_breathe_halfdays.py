@@ -7,7 +7,6 @@ tested exhaustively here rather than through a screen.
 
 from datetime import date
 
-import pytest
 
 from rota.services.breathe.halfdays import Span, parts_off
 

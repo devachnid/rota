@@ -5,7 +5,7 @@ from datetime import date
 import pytest
 from django.db import IntegrityError
 
-from rota.models import BreatheAbsence, BreatheLeaveMapping, Clinician, SessionType
+from rota.models import BreatheAbsence, BreatheLeaveMapping, SessionType
 from tests.factories import make_clinician, make_session_type
 
 pytestmark = pytest.mark.django_db
@@ -73,7 +73,7 @@ def test_mapping_session_type_must_be_an_absence_type():
 
 
 def test_breathe_employee_id_is_unique_but_optional():
-    a = make_clinician("A", breathe_employee_id=100)
+    make_clinician("A", breathe_employee_id=100)
     make_clinician("B")  # unlinked is fine
     make_clinician("C")  # two unlinked are fine (NULLs do not collide)
     with pytest.raises(IntegrityError):
