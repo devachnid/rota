@@ -48,12 +48,13 @@
     return form.querySelector("[name=csrfmiddlewaretoken]").value;
   }
 
-  function post(url, token, body) {
+  function post(url, token, body, signal) {
     return fetch(url, {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json", "X-CSRFToken": token },
-      body: JSON.stringify(body || {})
+      body: JSON.stringify(body || {}),
+      signal: signal
     }).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (data) {
         if (!r.ok) {
@@ -113,9 +114,12 @@
     if (button.disabled) { return; }          // one ceremony at a time
     button.disabled = true;
     show(errorEl, "");
-    var token = csrfToken(form);
+    var token;
     var nameInput = form.querySelector("[name=name]");
-    post(button.dataset.optionsUrl, token).then(function (opts) {
+    Promise.resolve().then(function () {      // so a throw here lands in the catch, not on the console
+      token = csrfToken(form);
+      return post(button.dataset.optionsUrl, token);
+    }).then(function (opts) {
       return navigator.credentials.create({ publicKey: creationOptions(opts) });
     }).then(function (cred) {
       return post(button.dataset.registerUrl, token, {
@@ -173,6 +177,7 @@
     var conditionalOK = false;   // the browser can offer a passkey in the autofill
     var pending = null;          // AbortController for the armed conditional request
     var rearm = null;            // the timer that refreshes it while the tab is visible
+    var busy = false;            // a ceremony is in flight: the person's own, or a pick being finished
     signIn.style.display = "";
 
     function finish(cred, token) {
@@ -195,38 +200,45 @@
     //
     // Only one WebAuthn request may be pending at a time, and the server
     // keeps one challenge per session — the newest mint wins. So: the
-    // controller exists from the moment arming starts (a click or a tab
-    // switch during the options round-trip cancels it too, and an arm
-    // cancelled while fetching goes no further); the request is re-armed
-    // with a fresh challenge well inside the options' `timeout`, and again
-    // whenever the tab becomes visible or comes back from the bfcache, so
-    // the tab the person is looking at is the one holding the session's
-    // challenge; and a hidden tab holds nothing.
+    // controller exists from the moment arming starts and covers the
+    // options fetch as well as get(), so a click or a tab switch during
+    // the round-trip cancels the whole arm; nothing arms while a ceremony
+    // is in flight (`busy`); the request is re-armed with a fresh
+    // challenge well inside the options' `timeout`, and again whenever the
+    // tab becomes visible or returns from the bfcache, so the tab the
+    // person is looking at holds the session's challenge; a hidden tab
+    // holds nothing.
     //
     // Arming is nobody's action, so an arming failure stays quiet and the
-    // button remains. Once the person has picked a passkey, a refusal is
-    // shown — and the offer comes back.
+    // button remains. Once the person has picked, the refresh timer stops
+    // (a new challenge would invalidate the pick) but the controller is
+    // left alone — it is what tells a get() rejection apart from our own
+    // cancel. A refusal after a pick is shown, and the offer comes back.
     function armConditional() {
       cancelConditional();
-      if (!conditionalOK || document.visibilityState === "hidden") { return; }
+      if (!conditionalOK || busy || document.visibilityState === "hidden") { return; }
       var email = loginForm.querySelector("input[name=username]");
       if (email) { email.setAttribute("autocomplete", "username webauthn"); }
       var controller = new AbortController();
       pending = controller;
       var token = csrfToken(loginForm);
-      post(signIn.dataset.optionsUrl, token).then(function (opts) {
+      post(signIn.dataset.optionsUrl, token, null, controller.signal).then(function (opts) {
         if (controller.signal.aborted) { return; }
         rearm = setTimeout(armConditional, Math.max((opts.timeout || 60000) * 0.6, 30000));
         navigator.credentials.get({
           publicKey: requestOptions(opts), mediation: "conditional", signal: controller.signal
         }).then(function (cred) {
-          if (controller.signal.aborted) { return; }
-          cancelConditional();
-          return finish(cred, token);
-        }).catch(function (e) {
+          if (rearm) { clearTimeout(rearm); rearm = null; }
+          pending = null;
+          busy = true;
+          return finish(cred, token).catch(function (e) {
+            busy = false;
+            show(loginError, explain(e));
+            armConditional();
+          });
+        }, function (e) {
           if (e.name === "AbortError" || controller.signal.aborted) { return; }
-          show(loginError, explain(e));
-          armConditional();
+          show(loginError, explain(e));   // the authenticator refused before we had a credential
         });
       }).catch(function () { /* arming failed: quiet; the button is the way in */ });
     }
@@ -243,20 +255,24 @@
     window.addEventListener("pageshow", function (ev) { if (ev.persisted) { armConditional(); } });
 
     signIn.addEventListener("click", function () {
-      if (signIn.disabled) { return; }
+      if (busy || signIn.disabled) { return; }
+      busy = true;
       signIn.disabled = true;
       show(loginError, "");
       cancelConditional();
-      var token = csrfToken(loginForm);
-      post(signIn.dataset.optionsUrl, token).then(function (opts) {
+      var token;
+      Promise.resolve().then(function () {
+        token = csrfToken(loginForm);
+        return post(signIn.dataset.optionsUrl, token);
+      }).then(function (opts) {
         return navigator.credentials.get({ publicKey: requestOptions(opts) });
       }).then(function (cred) {
-        return finish(cred, token);
+        return finish(cred, token);          // on success the page is navigating away
       }).catch(function (e) {
         show(loginError, explain(e));
-      }).then(function () {
+        busy = false;
         signIn.disabled = false;
-        armConditional();   // the offer comes back after a cancelled or refused prompt
+        armConditional();                    // the offer comes back after a cancelled or refused prompt
       });
     });
   }
