@@ -50,6 +50,10 @@ class TraineeProfile(models.Model):
                   "in-progress placement. Blank means accrue from placement "
                   "start.")
 
+    class Meta:
+        verbose_name = "trainee profile"
+        verbose_name_plural = "trainee profiles"
+
     def stage_rule(self, rules=None):
         """The seeded TraineeStageRule for this trainee's stage, or None if
         an admin has deleted the row (the four rows are reference data,

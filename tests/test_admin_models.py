@@ -116,3 +116,27 @@ def test_an_account_can_be_added_through_unfolds_form(admin_client):
     assert resp.status_code == 200
     from accounts.models import User
     assert User.objects.get(email="new@example.com").is_rota_admin
+
+
+# ------------------------------------------------------ help text & names ---
+
+def test_the_models_read_as_a_manager_would_say_them():
+    from accounts.models import User
+    from rota.models import PracticeSettings, RotaEntry, RotaEntryLog, TraineeProfile
+    assert str(PracticeSettings._meta.verbose_name_plural) == "practice settings"
+    assert str(RotaEntry._meta.verbose_name_plural) == "rota entries"
+    assert str(RotaEntryLog._meta.verbose_name_plural) == "audit log"
+    assert str(TraineeProfile._meta.verbose_name_plural) == "trainee profiles"
+    assert str(User._meta.verbose_name_plural) == "login accounts"
+
+
+@pytest.mark.parametrize("model,field", [
+    ("Clinician", "initials"), ("Clinician", "active"), ("ClinicianGroup", "is_locum_group"),
+    ("SessionType", "code"), ("SessionType", "category"), ("SessionType", "fairness_tracked"),
+    ("CoverageRule", "count"), ("CoverageRule", "weekdays"),
+    ("PracticeSettings", "min_clinical_per_session"), ("PracticeSettings", "default_fill_session_type"),
+    ("ClosedDay", "reason"), ("DayNote", "text"),
+])
+def test_every_field_a_manager_meets_explains_itself(model, field):
+    from rota import models
+    assert getattr(models, model)._meta.get_field(field).help_text, f"{model}.{field}"

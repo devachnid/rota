@@ -182,6 +182,9 @@ undo an agreed swap.
 
 `/admin/rota/rotaentrylog/` — **read-only**, every field.
 
+Every change to a rota entry writes an audit log entry: who, when, which cell,
+and what changed.
+
 One row per change: what day and part, which clinician, who did it, what action,
 and a free-text detail such as `ROUT -> DUTY`.
 

@@ -23,9 +23,19 @@ class SessionType(models.Model):
         NON_CLINICAL = "NON_CLINICAL", "Non-clinical"
         ABSENCE = "ABSENCE", "Absence"
 
-    name = models.CharField(max_length=100, unique=True)
-    code = models.CharField(max_length=8)
-    category = models.CharField(max_length=16, choices=Category.choices)
+    name = models.CharField(
+        max_length=100, unique=True,
+        help_text="Shown in dropdowns and on the day view.",
+    )
+    code = models.CharField(
+        max_length=8,
+        help_text="What the grid cell shows. Keep it short and unique.",
+    )
+    category = models.CharField(
+        max_length=16, choices=Category.choices,
+        help_text="Clinical counts toward minimum staffing; Absence marks "
+                  "someone as off.",
+    )
     colour = models.CharField(
         max_length=32, choices=palette.TINT_CHOICES, default=palette.DEFAULT_TINT,
         help_text="Session tint shown on the grid. All tints are contrast-checked.",
@@ -35,7 +45,11 @@ class SessionType(models.Model):
         help_text="The free-form hex this type used before the palette migration. "
                   "Kept for one release in case a mapping looks wrong.",
     )
-    fairness_tracked = models.BooleanField(default=False)
+    fairness_tracked = models.BooleanField(
+        default=False,
+        help_text="Shared out pro-rata to contracted sessions and reported "
+                  "on the fairness report.",
+    )
     pin_on_day_view = models.BooleanField(
         default=False,
         help_text="Show this type in its own block at the top of the day view. "
@@ -80,8 +94,15 @@ class SessionType(models.Model):
 
 
 class ClosedDay(models.Model):
-    day = models.DateField(unique=True)
-    reason = models.CharField(max_length=100, blank=True)
+    day = models.DateField(
+        unique=True,
+        help_text="A bank holiday or closure. No sessions are expected "
+                  "and no warnings raised.",
+    )
+    reason = models.CharField(
+        max_length=100, blank=True,
+        help_text="Shown on the grid header.",
+    )
 
     def __str__(self):
         return f"{self.day} {self.reason}"
@@ -89,29 +110,42 @@ class ClosedDay(models.Model):
 
 class DayNote(models.Model):
     day = models.DateField(unique=True)
-    text = models.CharField(max_length=300)
+    text = models.CharField(
+        max_length=300,
+        help_text="Shown on the grid header and the day view, to everyone.",
+    )
 
     def __str__(self):
         return f"{self.day}: {self.text}"
 
 
 class PracticeSettings(models.Model):
-    min_clinical_per_session = models.PositiveIntegerField(default=2)
+    min_clinical_per_session = models.PositiveIntegerField(
+        default=2,
+        help_text="Warn on the grid when fewer clinical GPs are in for a session.",
+    )
     default_fill_session_type = models.ForeignKey(
-        SessionType, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+        SessionType, null=True, blank=True, on_delete=models.SET_NULL, related_name="+",
+        help_text="What assisted fill puts in any cell still empty after "
+                  "the rules, when you tick that box.",
     )
     open_weekdays = models.CharField(
-        max_length=20, default="0,1,2,3,4", help_text="Comma-separated, Monday=0"
+        max_length=20, default="0,1,2,3,4",
+        help_text="The days the surgery is open. The grid shows only these.",
     )
     vts_session_type = models.ForeignKey(
         SessionType, null=True, blank=True, on_delete=models.SET_NULL,
-        related_name="+")
+        related_name="+", help_text="Leave blank to skip this trainee pass.")
     sdl_session_type = models.ForeignKey(
         SessionType, null=True, blank=True, on_delete=models.SET_NULL,
-        related_name="+")
+        related_name="+", help_text="Leave blank to skip this trainee pass.")
     mentoring_session_type = models.ForeignKey(
         SessionType, null=True, blank=True, on_delete=models.SET_NULL,
-        related_name="+")
+        related_name="+", help_text="Leave blank to skip this trainee pass.")
+
+    class Meta:
+        verbose_name = "practice settings"
+        verbose_name_plural = "practice settings"
 
     @classmethod
     def load(cls):
@@ -138,19 +172,32 @@ class CoverageRule(models.Model):
         PER_MONTH = "MONTH", "Per month (average)"
 
     session_type = models.ForeignKey(
-        SessionType, on_delete=models.CASCADE, related_name="coverage_rules"
+        SessionType, on_delete=models.CASCADE, related_name="coverage_rules",
+        help_text="What must be covered.",
     )
-    unit = models.CharField(max_length=8, choices=Unit.choices, default=Unit.PER_SESSION)
+    unit = models.CharField(
+        max_length=8, choices=Unit.choices, default=Unit.PER_SESSION,
+        help_text="The shape of one placement: a session, a full day, or a "
+                  "full day if someone is free for both halves.",
+    )
     parts = models.CharField(
         max_length=4, default="BOTH",
         choices=[("AM", "AM"), ("PM", "PM"), ("BOTH", "Both")],
         help_text="Per-session rules only; ignored for full-day rules.",
     )
-    weekdays = models.CharField(max_length=20, default="0,1,2,3,4")
-    count = models.PositiveIntegerField(default=1)
+    weekdays = models.CharField(
+        max_length=20, default="0,1,2,3,4",
+        help_text="Days this rule applies on.",
+    )
+    count = models.PositiveIntegerField(
+        default=1,
+        help_text="How many placements per unit and frequency.",
+    )
     priority = models.PositiveIntegerField(default=100, help_text="Lower fills first")
     frequency = models.CharField(
-        max_length=6, choices=Frequency.choices, default=Frequency.PER_SLOT
+        max_length=6, choices=Frequency.choices, default=Frequency.PER_SLOT,
+        help_text="Per slot checks every session; per week and per month "
+                  "are quotas the fill engine spreads out.",
     )
     months = models.CharField(
         max_length=40, blank=True, default="",

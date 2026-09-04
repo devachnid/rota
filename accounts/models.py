@@ -32,5 +32,9 @@ class User(AbstractUser):
     REQUIRED_FIELDS = []
     objects = UserManager()
 
+    class Meta(AbstractUser.Meta):
+        verbose_name = "login account"
+        verbose_name_plural = "login accounts"
+
     def __str__(self):
         return self.email
