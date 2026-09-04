@@ -9,6 +9,9 @@ from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.text import capfirst
 
+from unfold.admin import ModelAdmin, StackedInline, TabularInline
+from unfold.decorators import display
+
 from .models import (BreatheAbsence, BreatheLeaveMapping, BreatheSyncRun,
                      Clinician, ClinicianGroup, ClosedDay, CoverageRule,
                      DayNote, LocumRequirement, Part,
@@ -22,16 +25,71 @@ from .admin_widgets import (BreatheEmployeeSelect, TintSwatchSelect,
 WEEKDAY_LABELS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday",
                   "Saturday", "Sunday"]
 
+WEEKDAY_ABBR = [d[:3] for d in WEEKDAY_LABELS]
+
+
+def pattern_text(rows, today):
+    """'Mon AM/PM · Tue AM — since 1 Sep 2025' from a clinician's pattern
+    rows, applying the in-force rule (latest effective_from on or before
+    today wins per weekday/part) in Python so a list page costs no query
+    per row. 'No pattern yet' when nothing is in force."""
+    in_force = {}
+    since = None
+    for row in rows:
+        if row.effective_from > today:
+            continue
+        key = (row.weekday, row.part)
+        if key not in in_force or row.effective_from >= in_force[key].effective_from:
+            in_force[key] = row
+        if since is None or row.effective_from > since:
+            since = row.effective_from
+    worked = {}
+    for (weekday, part), row in in_force.items():
+        if row.works:
+            worked.setdefault(weekday, []).append(part)
+    if not worked:
+        return "No pattern yet"
+    days = " · ".join(
+        f"{WEEKDAY_ABBR[wd]} {'/'.join(sorted(parts, key=('AM', 'PM').index))}"
+        for wd, parts in sorted(worked.items()))
+    return f"{days} — since {since.strftime('%-d %b %Y')}"
+
 
 @admin.register(ClinicianGroup)
-class ClinicianGroupAdmin(admin.ModelAdmin):
+class ClinicianGroupAdmin(ModelAdmin):
     list_display = ("name", "display_order", "min_per_session", "is_locum_group")
+    list_editable = ("display_order", "min_per_session")
+    search_fields = ("name",)
+    fieldsets = (
+        (None, {
+            "fields": ("name", "display_order"),
+            "description": "Groups order the grid and drive a staffing warning. "
+                           "Lower display order appears first.",
+        }),
+        ("Staffing", {
+            "fields": ("min_per_session", "is_locum_group"),
+            "description": "Set a minimum to warn when fewer of this group are in. "
+                           "Exactly one group is the locum group: its members appear "
+                           "on the grid only in weeks they hold a session.",
+        }),
+    )
 
 
-class TraineeProfileInline(admin.StackedInline):
+class TraineeProfileInline(StackedInline):
     model = TraineeProfile
     fk_name = "clinician"
     extra = 0
+    verbose_name = "Trainee profile"
+    verbose_name_plural = "Trainee profile"
+
+
+class RecurringCommitmentInline(TabularInline):
+    model = RecurringCommitment
+    fk_name = "clinician"
+    extra = 0
+    fields = ("session_type", "weekday", "part", "site", "active_from",
+              "active_until", "interval_weeks")
+    verbose_name_plural = "Recurring commitments"
 
 
 class BreatheLinkedFilter(admin.SimpleListFilter):
@@ -54,13 +112,53 @@ class BreatheLinkedFilter(admin.SimpleListFilter):
 
 
 @admin.register(Clinician)
-class ClinicianAdmin(admin.ModelAdmin):
+class ClinicianAdmin(ModelAdmin):
     list_display = ("name", "initials", "group", "active", "is_trainer",
-                    "start_date", "end_date",
-                    "pattern_link", "breathe_link")
-    list_filter = ("group", "active", BreatheLinkedFilter)
-    inlines = [TraineeProfileInline]
+                    "pattern_column", "breathe_link")
+    list_filter = ("group", "active", "is_trainer", BreatheLinkedFilter)
+    search_fields = ("name", "initials", "user__email")
+    inlines = [TraineeProfileInline, RecurringCommitmentInline]
     actions = ["deactivate_clinicians"]
+    readonly_fields = ("pattern_summary",)
+    fieldsets = (
+        ("Who", {
+            "fields": ("name", "initials", "group", "user"),
+            "description": "Initials are what the grid shows. Link the login "
+                           "account so this person sees their own schedule.",
+        }),
+        ("Availability", {
+            "fields": ("active", "start_date", "end_date", "pattern_summary"),
+            "description": "Untick Active to take someone out of every eligibility "
+                           "pool while keeping their history — the alternative to "
+                           "deleting. Dates bound when they can be scheduled.",
+        }),
+        ("Roles", {"fields": ("is_trainer",)}),
+        ("Leave from Breathe", {
+            "fields": ("breathe_employee_id",),
+            "description": "Leave is read from Breathe for linked clinicians only. "
+                           "An unlinked clinician is treated as always available.",
+        }),
+    )
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("group", "user") \
+            .prefetch_related("pattern_slots")
+
+    @admin.display(description="Pattern")
+    def pattern_column(self, obj):
+        text = pattern_text(obj.pattern_slots.all(), date.today())
+        if text == "No pattern yet":
+            return format_html('<span style="color: var(--color-primary-700)">{}</span>', text)
+        return text
+
+    @admin.display(description="Working pattern")
+    def pattern_summary(self, obj):
+        if obj.pk is None:
+            return "Save the clinician first, then set their pattern."
+        text = pattern_text(obj.pattern_slots.all(), date.today())
+        url = reverse("admin:rota_patternslot_bulk")
+        return format_html('{} &nbsp; <a href="{}?clinician_id={}">Edit pattern</a>',
+                           text, url, obj.pk)
 
     def formfield_for_dbfield(self, db_field, request, **kwargs):
         if db_field.name == "breathe_employee_id":
@@ -212,13 +310,6 @@ class ClinicianAdmin(admin.ModelAdmin):
         RotaEntry.objects.filter(
             clinician__in=queryset, is_published=False).delete()
         super().delete_queryset(request, queryset)
-
-    def pattern_link(self, obj):
-        url = reverse("admin:rota_patternslot_bulk")
-        return format_html(
-            '<a href="{}?clinician_id={}">Edit pattern</a>', url, obj.pk
-        )
-    pattern_link.short_description = "Pattern"
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
@@ -428,7 +519,7 @@ class TraineeStageRuleAdmin(admin.ModelAdmin):
 
 
 @admin.register(TraineeProfile)
-class TraineeProfileAdmin(admin.ModelAdmin):
+class TraineeProfileAdmin(ModelAdmin):
     list_display = ("clinician", "stage", "wte_percent", "trainer",
                     "placement_start", "placement_end")
     list_filter = ("stage",)

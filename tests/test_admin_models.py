@@ -1,0 +1,118 @@
+"""The model admins, rebuilt: fieldsets with the docs' sentences, search,
+inlines, and a clinician page that says what pattern someone works."""
+
+from datetime import date
+
+import pytest
+
+from rota.models import PatternSlot
+from tests.factories import (make_clinician, make_group, make_pattern,
+                             make_session_type)
+
+pytestmark = pytest.mark.django_db
+
+
+def _change(client, obj):
+    opts = obj._meta
+    return client.get(f"/admin/{opts.app_label}/{opts.model_name}/{obj.pk}/change/").content.decode()
+
+
+# ------------------------------------------------------------ clinicians ---
+
+def test_the_clinician_page_has_the_four_fieldsets_and_two_inlines(admin_client):
+    c = make_clinician("Ann Able")
+    html = _change(admin_client, c)
+    for title in ("Who", "Availability", "Roles", "Leave from Breathe"):
+        assert title in html, title
+    assert "Trainee profile" in html and "Recurring commitment" in html
+
+
+def test_the_clinician_page_summarises_the_pattern_in_force(admin_client):
+    c = make_clinician("Pat Tern")
+    make_pattern(c, weekdays=(0, 3), parts=("AM", "PM"), effective_from=date(2025, 9, 1))
+    PatternSlot.objects.create(clinician=c, weekday=1, part="AM", works=True,
+                               effective_from=date(2025, 9, 1))
+    html = _change(admin_client, c)
+    assert "Mon AM/PM · Tue AM · Thu AM/PM" in html
+    assert "since 1 Sep 2025" in html
+    assert "/admin/rota/patternslot/bulk/?clinician_id=" in html
+
+
+def test_a_clinician_without_a_pattern_says_so_in_the_list(admin_client):
+    make_clinician("No Pattern")
+    html = admin_client.get("/admin/rota/clinician/").content.decode()
+    assert "No pattern yet" in html
+
+
+def test_the_pattern_column_costs_no_query_per_clinician(admin_client):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    def add(n):
+        for i in range(n):
+            make_pattern(make_clinician(f"Doc {i}", initials=f"D{i}"))
+
+    add(2)
+    admin_client.get("/admin/rota/clinician/")
+    with CaptureQueriesContext(connection) as ctx:
+        admin_client.get("/admin/rota/clinician/")
+    baseline = len(ctx)
+    add(8)
+    with CaptureQueriesContext(connection) as ctx:
+        admin_client.get("/admin/rota/clinician/")
+    assert len(ctx) == baseline
+
+
+def test_clinician_search_finds_by_name_initials_and_email(admin_client, gp_user):
+    make_clinician("Alice Adams", user=gp_user)
+    make_clinician("Bob Baker")
+    for q in ("Alice", "AA", "gp@example.com"):
+        html = admin_client.get(f"/admin/rota/clinician/?q={q}").content.decode()
+        assert "Alice Adams" in html and "Bob Baker" not in html, q
+
+
+def test_the_deactivate_action_and_deletion_guard_survive(admin_client):
+    from tests.factories import make_entry
+    c = make_clinician("Guarded")
+    make_entry(c, is_published=True)
+    resp = admin_client.get(f"/admin/rota/clinician/{c.pk}/delete/")
+    assert "Deactivate this clinician instead" in resp.content.decode()
+    resp = admin_client.post("/admin/rota/clinician/", {
+        "action": "deactivate_clinicians", "_selected_action": [c.pk]}, follow=True)
+    c.refresh_from_db()
+    assert not c.active
+
+
+# ----------------------------------------------------- groups & trainees ---
+
+def test_group_order_and_minimum_are_editable_in_the_list(admin_client):
+    make_group("Partners")
+    html = admin_client.get("/admin/rota/cliniciangroup/").content.decode()
+    assert 'name="form-0-display_order"' in html and 'name="form-0-min_per_session"' in html
+
+
+def test_trainee_profiles_list_and_search(admin_client):
+    from tests.factories import make_trainee
+    t = make_trainee(make_clinician("Terry Trainee"))
+    html = admin_client.get("/admin/rota/traineeprofile/?q=Terry").content.decode()
+    assert "Terry Trainee" in html and t.stage in html
+
+
+# --------------------------------------------------------- login accounts ---
+
+def test_a_rota_admin_edits_accounts_without_the_system_fieldset(admin_client, gp_user, staff_client):
+    make_clinician("Gwen Peters", user=gp_user)
+    html = _change(admin_client, gp_user)
+    assert "Rota admin" in html or "is_rota_admin" in html
+    assert "Gwen Peters" in html, "the linked clinician is shown"
+    assert 'name="is_superuser"' not in html
+    assert 'name="is_superuser"' in _change(staff_client, gp_user)
+
+
+def test_an_account_can_be_added_through_unfolds_form(admin_client):
+    resp = admin_client.post("/admin/accounts/user/add/", {
+        "email": "new@example.com", "password1": "correct-horse-battery",
+        "password2": "correct-horse-battery", "is_rota_admin": "on"}, follow=True)
+    assert resp.status_code == 200
+    from accounts.models import User
+    assert User.objects.get(email="new@example.com").is_rota_admin
