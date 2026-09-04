@@ -83,6 +83,10 @@ link. Then:
 The quotes matter: the file is sourced by a shell as well as read by
 systemd, and an unquoted `<` is a redirection. No trailing comments — an
 env file has no comment syntax after a value.
+A display name containing an `@`, a comma or other punctuation must itself
+be quoted or Django cannot parse the sender — write
+`DEFAULT_FROM_EMAIL='"Rota @ Practice" <rota@example.org>'` — or keep it
+to plain words. `manage.py check --deploy` says so (`rota.E005`).
 
 `EMAIL_USE_TLS` defaults on (STARTTLS on 587); set `EMAIL_USE_TLS=0` only for a
 relay that has no TLS at all. Links last seven days. With no `EMAIL_HOST`, a

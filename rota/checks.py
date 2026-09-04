@@ -15,6 +15,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.core.checks import Error, Warning as CheckWarning, register
+from django.core.mail.message import sanitize_address
 
 # {% static 'x' %} / {% static "x" %}, literal paths only. A tag whose argument
 # is a variable cannot be resolved without rendering, and is skipped rather
@@ -138,5 +139,20 @@ def outgoing_email_is_configured(app_configs, **kwargs):
             hint="Set DEFAULT_FROM_EMAIL in /etc/rota.env to a sender the relay "
                  "has validated.",
             id="rota.E004",
+        )]
+    # Django parses the sender with the RFC 5322 rules, and a display name
+    # holding an @ or a comma must be quoted or the parse fails — at send
+    # time, as a 500 on the public reset form. Staging had
+    # "Rota @ Ashgrove Medical Group <rota@…>". Fail here instead.
+    try:
+        sanitize_address(settings.DEFAULT_FROM_EMAIL, "utf-8")
+    except ValueError as exc:
+        return [Error(
+            f"DEFAULT_FROM_EMAIL cannot be sent as written ({exc}).",
+            hint="A display name containing an @, a comma or other punctuation must "
+                 "be quoted — in /etc/rota.env: "
+                 "DEFAULT_FROM_EMAIL='\"Rota @ Practice\" <rota@example.org>' — "
+                 "or use plain words.",
+            id="rota.E005",
         )]
     return []
