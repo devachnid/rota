@@ -1,5 +1,7 @@
 # Day to day
 
+**Where:** sidebar › Records › Rota entries / Audit log / Locum requirements / Swap requests
+
 Most of this is done from the app itself rather than `/admin/`. The admin
 entries exist for correcting things and for looking at history.
 
@@ -181,6 +183,9 @@ undo an agreed swap.
 ## The audit log
 
 `/admin/rota/rotaentrylog/` — **read-only**, every field.
+
+Every change to a rota entry writes an audit log entry: who, when, which cell,
+and what changed.
 
 One row per change: what day and part, which clinician, who did it, what action,
 and a free-text detail such as `ROUT -> DUTY`.

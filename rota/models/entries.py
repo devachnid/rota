@@ -36,6 +36,8 @@ class RotaEntry(models.Model):
             )
         ]
         ordering = ["day", "part"]
+        verbose_name = "rota entry"
+        verbose_name_plural = "rota entries"
 
     def __str__(self):
         return f"{self.clinician.initials} {self.day} {self.part} {self.session_type.code}"
@@ -54,3 +56,5 @@ class RotaEntryLog(models.Model):
 
     class Meta:
         ordering = ["-at"]
+        verbose_name = "audit log entry"
+        verbose_name_plural = "audit log"

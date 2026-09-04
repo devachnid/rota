@@ -1,5 +1,7 @@
 # Coverage rules and trainee stage rules
 
+**Where:** sidebar › Sessions & rules › Coverage rules / Trainee stage rules
+
 ## Coverage rules
 
 `/admin/rota/coveragerule/` — what must be staffed. Each rule says "we need

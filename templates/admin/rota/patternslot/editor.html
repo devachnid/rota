@@ -1,0 +1,71 @@
+{% extends "admin/base.html" %}
+{% load i18n unfold %}
+
+{% block breadcrumbs %}{% endblock %}
+{% block title %}{{ title }} | {{ site_title }}{% endblock %}
+{% block branding %}{% include "unfold/helpers/site_branding.html" %}{% endblock %}
+
+{% block content %}
+{% component "unfold/components/container.html" %}
+  {% component "unfold/components/title.html" %}{{ title }}{% endcomponent %}
+
+  {% if missing %}
+  {% component "unfold/components/card.html" with title="Clinicians without a pattern" class="mb-6" %}
+    <p class="mb-2">The fill engine can place nobody it does not know the working days of. Set each in turn — Save moves on to the next.</p>
+    <ul class="rota-list-disc pl-5">{% for c in missing %}<li>{{ c.name }}</li>{% endfor %}</ul>
+  {% endcomponent %}
+  {% endif %}
+
+  {% component "unfold/components/card.html" %}
+  {# One form, deliberately: the date you can see is the date that posts. #}
+  <form method="post">
+    {% csrf_token %}
+    <div class="flex flex-wrap rota-items-end gap-4 mb-6">
+      <label class="flex flex-col gap-1">
+        <span class="font-semibold text-sm">Clinician</span>
+        <select name="clinician_id" class="border border-base-200 rounded-default px-3 py-2 dark:border-base-700 dark:bg-base-900">
+          <option value="">— choose —</option>
+          {% for c in clinicians %}
+          <option value="{{ c.id }}" {% if clinician.id == c.id %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="flex flex-col gap-1">
+        <span class="font-semibold text-sm">Effective from</span>
+        <input type="date" name="effective_from" value="{{ effective_from|date:'Y-m-d' }}" class="border border-base-200 rounded-default px-3 py-2 dark:border-base-700 dark:bg-base-900">
+      </label>
+      {% component "unfold/components/button.html" with submit=1 name="action" value="load" variant="default" %}Load{% endcomponent %}
+    </div>
+
+    {% if date_error %}<p class="text-red-600 dark:text-red-500 font-semibold mb-4">{{ date_error }}</p>{% endif %}
+
+    {% if clinician %}
+    <p class="mb-4">Ticked boxes are the sessions {{ clinician.name }} works on {{ effective_from }} — the pattern in force on that date, including any change already dated {{ effective_from }}. Save writes only the cells you change, dated {{ effective_from }}. A change dated today replaces today's pattern; date a future change on the day it starts.</p>
+    <table class="border-collapse mb-6">
+      <thead><tr><th class="text-left pr-6 py-1">Day</th><th class="px-4 py-1">AM</th><th class="px-4 py-1">PM</th></tr></thead>
+      <tbody>
+        {% for row in grid %}
+        <tr class="border-t border-base-200 dark:border-base-800">
+          <th class="text-left pr-6 py-2 font-medium">{{ row.label }}</th>
+          <td class="px-4 py-2 text-center"><input type="checkbox" name="d{{ row.weekday }}_AM"{% if row.am_checked %} checked{% endif %}></td>
+          <td class="px-4 py-2 text-center"><input type="checkbox" name="d{{ row.weekday }}_PM"{% if row.pm_checked %} checked{% endif %}></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% component "unfold/components/button.html" with submit=1 name="action" value="save" %}Save pattern{% endcomponent %}
+    {% endif %}
+  </form>
+  {% endcomponent %}
+
+  {% if history %}
+  {% component "unfold/components/card.html" with title="Pattern history" class="mt-6" %}
+    <p class="mb-3">Every date this clinician's pattern changes on.</p>
+    <table class="border-collapse">
+      <thead><tr><th class="text-left pr-6 py-1">Effective from</th><th class="text-left py-1">Sets</th></tr></thead>
+      <tbody>{% for h in history %}<tr class="border-t border-base-200 dark:border-base-800"><th class="text-left pr-6 py-2 font-medium">{{ h.effective_from }}</th><td class="py-2">{{ h.sessions }}</td></tr>{% endfor %}</tbody>
+    </table>
+  {% endcomponent %}
+  {% endif %}
+{% endcomponent %}
+{% endblock %}

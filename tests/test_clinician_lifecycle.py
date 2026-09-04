@@ -79,7 +79,8 @@ def test_saving_a_window_warns_about_entries_outside_it_but_deletes_nothing(
          "active": "on",
          "start_date": (MON + timedelta(days=365)).isoformat(),
          "end_date": "",
-         "trainee_profile-TOTAL_FORMS": "0", "trainee_profile-INITIAL_FORMS": "0"},
+         "trainee_profile-TOTAL_FORMS": "0", "trainee_profile-INITIAL_FORMS": "0",
+         "commitments-TOTAL_FORMS": "0", "commitments-INITIAL_FORMS": "0"},
         follow=True,
     )
     assert RotaEntry.objects.filter(clinician=c).count() == before, (

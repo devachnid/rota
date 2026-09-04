@@ -1,5 +1,7 @@
 # Practice settings and sites
 
+**Where:** sidebar › Practice settings; Sessions & rules › Sites
+
 ## Practice settings
 
 `/admin/rota/practicesettings/` — a **single row**. The admin refuses to create

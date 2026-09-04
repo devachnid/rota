@@ -19,30 +19,35 @@ from rota.services.breathe.client import BreatheError, from_settings
 
 
 class TintSwatchSelect(RadioSelect):
-    """Radio inputs painted in the tint each one selects."""
+    """Radio inputs painted in the tint each one selects, and the chosen one
+    shown large. Colours are inline because there are 42 of them and they
+    come from rota.palette, not from a stylesheet."""
 
     def render(self, name, value, attrs=None, renderer=None):
+        chosen = palette.TINTS.get(value)
+        preview = ""
+        if chosen:
+            preview = format_html(
+                '<div class="mb-3 inline-block rounded-default px-4 py-2 font-semibold" '
+                'style="background:{}; color:{}">{}</div>',
+                chosen.bg, chosen.fg, chosen.label)
         rows = format_html_join(
             "\n",
-            '<label style="display:inline-block; margin:2px; padding:4px 8px; '
-            'border-radius:6px; cursor:pointer; font-size:12px; '
-            'background:{}; color:{}; outline:{}">'
+            '<label class="inline-block cursor-pointer rounded-default px-2 py-1 text-xs '
+            'font-semibold" style="background:{}; color:{}; outline:{}">'
             '<input type="radio" name="{}" value="{}"{}> {}</label>',
             (
-                (
-                    tint.bg,
-                    tint.fg,
-                    "2px solid currentColor" if key == value else "none",
-                    name,
-                    key,
-                    mark_safe(" checked") if key == value else "",
-                    tint.label,
-                )
+                (tint.bg, tint.fg,
+                 "2px solid currentColor" if key == value else "none",
+                 name, key,
+                 mark_safe(" checked") if key == value else "",
+                 tint.label)
                 for key, tint in palette.TINTS.items()
             ),
         )
         return format_html(
-            '<div style="max-width:52em; line-height:2">{}</div>', rows)
+            '<div>{}<div class="flex flex-wrap gap-1" style="max-width:52em">{}</div></div>',
+            preview, rows)
 
 
 _EMPLOYEES_KEY = "breathe:employees"

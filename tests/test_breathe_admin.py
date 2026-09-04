@@ -97,6 +97,7 @@ def test_saving_the_form_stores_the_link(staff_client):
             "name": "Link Me", "initials": "LM", "group": c.group_id, "active": "on",
             "breathe_employee_id": "2340357",
             "trainee_profile-TOTAL_FORMS": "0", "trainee_profile-INITIAL_FORMS": "0",
+            "commitments-TOTAL_FORMS": "0", "commitments-INITIAL_FORMS": "0",
         })
     assert resp.status_code == 302, resp.content.decode()[:500]
     assert Clinician.objects.get(pk=c.pk).breathe_employee_id == 2340357

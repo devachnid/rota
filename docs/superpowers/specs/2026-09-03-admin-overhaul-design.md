@@ -1,0 +1,403 @@
+# Admin overhaul — design
+
+**Date:** 2026-09-03
+**Status:** approved in conversation; spec for review
+**Branch:** `feature/admin-overhaul`
+
+The rota's screens are in good shape; its configuration surface is stock
+Django admin — nineteen models in one alphabetical block beside Users, auth
+Groups and three django-axes tables, no search, no on-page help, two bespoke
+pages bolted onto changelists, and a colour scheme, font and dark mode that
+belong to Django rather than to the app. The goal is an admin a practice
+manager can use day to day with no documentation, and that gets a new
+practice from empty to a filled rota by following the screen rather than the
+README.
+
+## Decisions made in conversation
+
+1. **The admin serves two people:** a practice manager day to day (a new GP
+   and their pattern, a bank holiday, a session type's colour, a locum, a
+   Breathe link) and a guided first-time setup for whoever sets the practice
+   up. The manager's daily jobs come first; setup is a checklist on the
+   dashboard.
+2. **One dependency is allowed, and it is `django-unfold`.** The project's
+   no-new-dependencies rule is amended for this one package, against the
+   controller's recommendation and with Tom's decision. Mitigations are in
+   §6. Facts that made it the choice over `django-admin-interface`: version
+   0.104.1 requires only `django>=5.2` and Python ≥ 3.12 — this stack's
+   exact floor; it bundles its own Tailwind and Alpine (1.6 MB of static
+   files) and fetches nothing from a CDN or Google Fonts; it exposes a
+   configurable sidebar, a dashboard callback, custom admin pages, tabs and
+   a command palette — the hooks a task-oriented admin needs.
+   `django-admin-interface` pulls two further packages and keeps Django's
+   layout, so it could not deliver the sidebar or the dashboard.
+3. **Approach A:** unfold as the chrome, the admin reorganised around jobs,
+   every model admin rebuilt with the documentation moved onto the page,
+   the two bespoke pages ported, colours derived from the app's tokens.
+   Option C — bespoke guided flows such as a "New clinician" wizard — is
+   deferred until a manager has used A.
+
+## Global constraints (unchanged from the project, with the one amendment)
+
+- No build step, no node. Exactly one new dependency: `django-unfold`,
+  pinned to an exact version in `requirements.txt`.
+- Every colour comes from `static/css/tokens.css` or `rota/palette.py`. The
+  admin's colour scales are *derived* from them (§1), never written by hand;
+  the stylesheet this work adds carries no colour literals, and the existing
+  literal-grep test extends to it.
+- `cell_state()` and every service under `rota/services/` are untouched.
+  Nothing in this work changes what the app's own screens do, except one
+  new **Admin** link in the header for rota admins.
+- No pre-existing test assertion is weakened or deleted. The admin tests
+  (`test_bulk_pattern_admin.py`, `test_pattern_editor.py`,
+  `test_breathe_admin.py`, `test_admin_colour.py`) are re-pointed only where
+  markup changed.
+- The Breathe API key appears in no file.
+- One migration, `0025_admin_help_texts`, containing only `AlterField`
+  operations that add or change `help_text`. No schema or data change.
+
+---
+
+## 1. Foundations: wiring, colours, theme, and who gets in
+
+**Package.** `django-unfold==0.104.1` in `requirements.txt`. `INSTALLED_APPS`
+gains `unfold`, `unfold.contrib.filters`, `unfold.contrib.forms` ahead of
+`django.contrib.admin`. WhiteNoise's manifest storage hashes unfold's static
+files like ours; the deploy check (`rota/checks.py`) scans only the
+project's own templates and needs no change. `collectstatic` under manifest
+storage and `manage.py check --deploy` are acceptance steps.
+
+**One module owns the admin.** `rota/admin_site.py` holds:
+
+- `RotaAdminSite(UnfoldAdminSite)` — `has_permission(request)` returns
+  `user.is_active and (user.is_rota_admin or user.is_superuser)`. Its
+  `login` view redirects to `/accounts/login/?next=…` so there is one login
+  page, the app's; logout returns to `/rota/`. `config/urls.py` mounts this
+  site at `/admin/` in place of `admin.site`; every `@admin.register` in
+  `rota/admin.py` and `accounts/admin.py` targets it.
+- `build_config() -> dict` — the `UNFOLD` setting. `settings.py` contains
+  exactly `UNFOLD = build_config()` plus the `INSTALLED_APPS` change.
+
+**Site identity.** `SITE_TITLE = "Rota"`, `SITE_HEADER = "Practice Rota"`,
+`SITE_URL = "/rota/"` — unfold renders it as its own "View site" link in the
+header, which is the way back to the app, `SITE_FAVICONS` and `SITE_ICON` from
+`static/icons/`. `SHOW_HISTORY = True`, `SHOW_VIEW_ON_SITE = False`.
+
+**Colours from the tokens.** Unfold takes two eleven-shade scales (`50` …
+`950`) and a `font` role map, in OKLCH. `build_config()` reads
+`static/css/tokens.css` at import time (the same read `scripts/make_icons.py`
+does) and, through `rota/palette.py`'s OKLCH functions, derives:
+
+- `primary` from `--accent` (`#2F5D50`): the scale is generated by holding
+  the accent's hue and chroma and stepping lightness so that shade **600**
+  *is* the accent, shades 50–200 are usable as tinted grounds and 700–950
+  as pressed/hover states.
+- `base` from the app's neutrals: 50 = `--ground`, 100 = `--sunken`,
+  200 = `--hairline`, 400 = `--field-border`, 500 = `--muted`,
+  700 = `--ink-soft`, 900 = `--ink`, with the remaining shades interpolated
+  in OKLCH between their neighbours.
+- `font`: `default-light` = base-700, `important-light` = base-900,
+  `subtle-light` = base-500; the dark variants use the app's dark-theme
+  values of the same tokens (read from the `[data-theme="dark"]` block).
+
+A test asserts `primary["600"]` round-trips to `#2F5D50` within 1 ΔE and
+that the shades unfold uses for body text on white, and for white on
+primary buttons, clear WCAG AA in both themes, via `palette.contrast_ratio`.
+
+**Font.** `static/admin/rota-admin.css` (registered in `UNFOLD["STYLES"]`)
+sets unfold's sans-serif font token to the self-hosted Plus Jakarta Sans,
+reusing `static/css/fonts.css`'s `@font-face`. The implementer confirms
+the exact custom-property name unfold's Tailwind build uses for its font
+family (`--font-sans` in Tailwind v4) from the installed `styles.css`.
+
+**Theme bridge.** Unfold persists its light/dark/auto choice under the
+localStorage key `adminTheme` (Alpine `$persist`); the app's `theme.js`
+uses its own key and a `data-theme` attribute. `static/admin/theme-bridge.js`
+(registered in `UNFOLD["SCRIPTS"]`), ten lines, try/catch around every
+storage access: on load, if the app has a stored choice and unfold does
+not, copy it across; whenever unfold's value changes (a `storage` listener
+and a poll on the toggle), write it back to the app's key. Neither side
+breaks if storage is unavailable.
+
+**Who gets in.** `is_rota_admin` is the one flag.
+`accounts/backends.py::RotaAdminBackend.has_perm(user, perm, obj)` returns
+`True` for any permission whose app label is `rota` or `accounts` when
+`user.is_active and user.is_rota_admin`; `has_module_perms` likewise. It is
+appended to `AUTHENTICATION_BACKENDS` after `ModelBackend`. Superusers keep
+everything else (auth Groups, django-axes). `is_staff` is no longer required
+and is left as it is on existing users. The app's header (`templates/
+base.html`, desktop nav and the phone "More" sheet) gains an **Admin** link
+for `user.is_rota_admin`.
+
+## 2. The sidebar: organised by job
+
+`SIDEBAR["show_all_applications"] = False`, `show_search = False`;
+`COMMAND["search_models"] = True` (⌘K / Ctrl-K jumps to any model).
+`build_config()` defines the navigation; each item carries a Material
+Symbols icon and a `permission` callback (`lambda request: request.user.
+is_rota_admin or request.user.is_superuser`; the System group's is
+`is_superuser`).
+
+| Group | Items (link target) |
+|---|---|
+| Dashboard | `admin:index` |
+| People | Clinicians · Clinician groups · Login accounts (`accounts.User`) |
+| Working patterns | Pattern editor (custom page) · Recurring commitments · Trainee profiles |
+| Calendar | Closed days · Day notes |
+| Sessions & rules | Session types · Coverage rules · Trainee stage rules · Sites |
+| Leave from Breathe | Sync status (custom page) · Leave mapping · Absences |
+| Practice settings | the change form of `PracticeSettings.load()` |
+| Records | Rota entries · Audit log (`RotaEntryLog`) · Locum requirements · Swap requests |
+| System *(superusers)* | Auth groups · Access attempts · Access failures · Access logs |
+
+`verbose_name`/`verbose_name_plural` are set where the defaults read badly:
+`PracticeSettings` → "practice settings" (both), `RotaEntry` → "rota
+entry"/"rota entries", `RotaEntryLog` → "audit log entry"/"audit log",
+`accounts.User` → "login account"/"login accounts", `TraineeProfile` →
+"trainee profile"/"trainee profiles". (These are `Meta` changes; Django
+does not migrate them.) `TraineeProfile` is registered on its own with a
+minimal `ModelAdmin` so the sidebar item resolves; it remains editable
+inline on the clinician.
+
+## 3. The dashboard
+
+`UNFOLD["DASHBOARD_CALLBACK"] = "rota.admin_dashboard.dashboard"`. The
+function `dashboard(request, context) -> context` adds `setup` and `health`;
+`templates/admin/index.html` extends unfold's index and renders them as two
+cards using unfold's component templates (`unfold/components/card.html`,
+`table.html`, `progress.html`, `text.html`). No other unfold template is
+overridden.
+
+**Setup checklist** — `setup = {"steps": [...], "done": n, "total": 8,
+"next": step | None}`, each step `{"title", "done": bool, "detail": str,
+"url": str}`:
+
+| # | Step | Done when | Link |
+|---|---|---|---|
+| 1 | Practice settings | `open_weekday_list()` non-empty and `default_fill_session_type` set | the settings form |
+| 2 | Sites | `Site.objects.exists()` | add a site |
+| 3 | Clinician groups | ≥ 1 group and exactly one `is_locum_group` | groups |
+| 4 | Session types | ≥ 1 `CLINICAL` and ≥ 1 `ABSENCE` type | session types |
+| 5 | Coverage rules | `CoverageRule.objects.exists()` | coverage rules |
+| 6 | Clinicians | ≥ 1 active clinician | add a clinician |
+| 7 | Working patterns | every active non-locum clinician has ≥ 1 `PatternSlot` | the pattern editor with `?missing=1` |
+| 8 | Breathe | `BREATHE_API_KEY` set, ≥ 1 `BreatheSyncRun(ok=True)`, every active non-locum clinician linked | Sync status, or clinicians filtered `?breathe=unlinked&active__exact=1` |
+
+The card's headline reads "5 of 8 done — next: Working patterns (3
+clinicians)"; the next undone step is highlighted; with all eight done the
+card collapses to a single line, "Setup complete", with a disclosure to
+expand it. Trainee configuration is not a step; it is a health line.
+
+**Health panel** — `health = [{"label", "count", "url", "level": "ok" |
+"warn"}]`, in this order:
+
+1. Active clinicians with no pattern slots → pattern editor `?missing=1`.
+2. Active non-locum clinicians not linked to Breathe → the filtered
+   clinician list.
+3. Breathe sync: "last good sync 12 minutes ago" / "not configured" / "last
+   run failed: …" → Sync status.
+4. Absences whose (kind, reason) and (kind, "") both lack a mapping row
+   (the existing `_unmapped_absence_count`) → leave mapping.
+5. Days with staffing warnings this week (Monday–Sunday of today, open days
+   only, `day_warnings(d, include_drafts=True)`) → the staffing report.
+6. Locum requirements at Possibly needed or Need approved in the next
+   fourteen days → locum requirements filtered by status.
+7. Trainee profiles exist but any of the three trainee session types is
+   unset in practice settings → practice settings.
+
+Zero counts render greyed, not hidden. The dashboard issues a fixed number
+of queries regardless of practice size; a "does not grow" test guards it.
+
+## 4. Every model admin, rebuilt
+
+**Shared treatment.** Every `ModelAdmin` subclasses `unfold.admin.ModelAdmin`;
+inlines subclass unfold's `StackedInline`/`TabularInline`. Each defines
+`search_fields`, a considered `list_display`, `list_filter` (using
+`unfold.contrib.filters.admin.RangeDateFilter` for date ranges), and `fieldsets` whose
+`description` is the one- or two-sentence explanation lifted from the
+matching `docs/admin/` page. Fields lacking `help_text` get one on the
+model, via the single migration `0025_admin_help_texts`.
+
+**List-of-integers fields become checkboxes.** `PracticeSettings.
+open_weekdays`, `CoverageRule.weekdays`, `.months`, `.preferred_weekdays`
+are stored as `"0,1,2,3,4"` and validated by `rota/services/ranges.py`. A
+form field `rota/admin_forms.py::IntListCheckboxField(choices)` renders
+weekday or month checkboxes (`preferred_weekdays` renders ordered — the
+stored order is significant — as a checkbox list plus a small "order"
+number per ticked box) and stores the same comma-joined string through the
+same validator. Storage and every reader are unchanged.
+
+**Per model.**
+
+- **Clinician** — fieldsets *Who* (name, initials, group, user) · *Availability*
+  (active, start_date, end_date) · *Roles* (is_trainer) · *Leave from
+  Breathe* (breathe_employee_id with the employee dropdown and the email
+  suggestion, as now). Inlines: `TraineeProfile` (stacked, extra 0),
+  `RecurringCommitment` (tabular, extra 0). A read-only field
+  **pattern_summary** ("Mon AM/PM · Tue AM · Thu AM/PM — since 1 Sep 2025",
+  or "No pattern yet") with a link to the pattern editor for this clinician.
+  `list_display`: name, initials, group, active, is_trainer, pattern
+  (summary or "none" in red), Breathe link. Filters: group, active, Breathe
+  linked. Search: name, initials, user email. The `deactivate_clinicians`
+  action, `get_deleted_objects`, `delete_model`, `delete_queryset`,
+  `save_model`'s window warning — kept verbatim.
+- **Clinician group** — list with `list_editable` on display_order and
+  min_per_session; help on `is_locum_group` ("exactly one group").
+- **Login account** — `unfold.forms.UserChangeForm`/`UserCreationForm`/
+  `AdminPasswordChangeForm`; fieldsets *Account* (email, password) · *Rota*
+  (is_rota_admin, with the linked clinician shown read-only) · *System*
+  (is_active, is_staff, is_superuser — superusers only). List: email,
+  is_rota_admin, is_active, clinician.
+- **Session type** — the swatch picker as `rota/admin_widgets.py::
+  TintSwatchSelect` rewritten as a `RadioSelect` subclass with a template
+  (`templates/admin/rota/widgets/tint_swatch.html`) that unfold renders in
+  its form layout; colours from `rota.palette`, the selected tint shown
+  large. Fieldsets *Identity* (name, code, colour) · *Where it appears*
+  (category, pin_on_day_view, default_site) · *Fairness* (fairness_tracked)
+  · *Who may do it* (allowed_clinicians, allowed_groups, with
+  `filter_horizontal`) · *Clashes* (blocks_same_day). `legacy_colour` stays
+  read-only in a collapsed *History* fieldset.
+- **Coverage rule** — the docs' worked example as the form's description;
+  fieldsets *What* (session_type, unit, frequency, count) · *When*
+  (parts, weekdays, months, preferred_weekdays as checkboxes) · *Order*
+  (priority). List as now plus `list_editable` on priority.
+- **Trainee stage rule** — `list_editable` on the three per-week counts;
+  delete still refused.
+- **Trainee profile** — standalone admin: list stage, clinician, trainer,
+  placement dates; search clinician name.
+- **Recurring commitment** — list as now; filters clinician, session_type;
+  date range on active_from.
+- **Closed day**, **Day note** — `date_hierarchy = "day"`, a year filter,
+  search on reason/text. The add form is the whole job.
+- **Site** — a proper `ModelAdmin` with search.
+- **Practice settings** — the sidebar opens `PracticeSettings.load()`'s
+  change form; add refused once a row exists (as now); fieldsets *Opening*
+  (open_weekdays as checkboxes) · *Fill* (min_clinical_per_session,
+  default_fill_session_type) · *Trainees* (the three session types, with a
+  description saying blank skips that pass). If every weekday is unticked
+  the form shows "The surgery is open on no days" as a warning message on
+  save; the field still accepts it, as today.
+- **Rota entry** — `date_hierarchy = "day"`; filters is_published,
+  manually_set, session_type, clinician; search clinician name and note.
+- **Audit log** — read-only, `date_hierarchy = "at"`, search clinician_name,
+  detail; filter action.
+- **Locum requirement** — list as now; filters status, session_type; date
+  range; search details, clinician, covering.
+- **Swap request** — filters status; search proposer/colleague names.
+- **Breathe absence** — read-only, as now; filters kind, date range.
+- **Breathe leave mapping** — the default-row delete guard kept.
+- **Breathe sync run** — read-only list; the status page is §5.
+- **Axes** (superusers) — `AccessAttempt`, `AccessFailureLog`, `AccessLog`
+  unregistered from axes' own admin and re-registered under
+  `unfold.admin.ModelAdmin` with axes' `list_display`/`list_filter`.
+- **Auth group** (superusers) — re-registered under unfold's `ModelAdmin`.
+
+## 5. The two bespoke pages, and the way in
+
+**Pattern editor.** `rota/admin_pages.py::PatternEditorView(UnfoldModelAdmin
+ViewMixin, TemplateView)` under `PatternSlotAdmin.get_urls()` at
+`admin:rota_patternslot_bulk` (the existing URL name, so nothing that links
+to it changes). Template `templates/admin/rota/patternslot/editor.html`
+extends `admin/base.html` (unfold's) and renders the seven-day × AM/PM
+grid with unfold's form components. **Behaviour is unchanged:** clinician +
+effective-date + Load; a save with no date or a malformed one is refused
+and saves nothing; the grid shows the pattern in force *on* the chosen
+date; the history table lists every effective date; the success message
+and post-save redirect are the same. `tests/test_bulk_pattern_admin.py`
+and `test_pattern_editor.py` keep passing (assertions re-pointed only
+where markup changed). Additions: `?missing=1` pre-selects the first
+active non-locum clinician without a pattern and lists the rest above the
+grid; after a save with `missing` set, the message offers "Next: <name>"
+while any remain.
+
+**Sync status.** `rota/admin_pages.py::BreatheStatusView` under
+`BreatheSyncRunAdmin.get_urls()` at `admin:rota_breathesyncrun_status`,
+linked from the sidebar and from the runs changelist. In order: configured
+or not (with the `/etc/rota.env` sentence); last successful sync — when
+and its counts; the last error if the most recent run failed; unlinked
+clinicians (count → filtered list); unmapped absences (count → mapping);
+the **Refresh now** button — same POST view `admin:rota_breathesyncrun_
+refresh`, same 60-second guard, same messages; then the runs table. The
+changelist's header block is removed; the changelist is plain history.
+`tests/test_breathe_status.py` is re-pointed to the new page.
+
+**Swatches.** As §4, Session type.
+
+**The way in.** `RotaAdminSite.login` redirects to `/accounts/login/?next=
+<admin url>`; `RotaAdminSite.logout` behaves as Django's and lands on
+`/rota/`. `templates/registration/login.html` (the app's) is unchanged. On a
+phone unfold's sidebar collapses to a drawer; the pattern grid stays
+desktop-first.
+
+## 6. Failure modes, edges and risks
+
+- **Breathe unreachable or unset.** Only the clinician form's employee
+  dropdown (cached, with the raw-id fallback kept) and Refresh now call
+  Breathe. The dashboard and Sync status read stored runs only.
+- **Permissions.** A superuser is admitted regardless of `is_rota_admin`.
+  A rota admin who is not a superuser gets a 403 on any URL outside `rota`
+  and `accounts` (the backend grants nothing else), including axes and
+  auth Groups. The clinician deletion guard is unchanged.
+- **The singleton.** Reached via `PracticeSettings.load()`; works on an
+  empty database.
+- **Unfold's pace.** Exact pin. Every customisation on documented hooks:
+  the config dict, `unfold.admin.ModelAdmin`, `UnfoldModelAdminViewMixin`,
+  `STYLES`/`SCRIPTS`, unfold's component template tags; the only overridden
+  unfold template is `admin/index.html`. The render-everything test (§7)
+  is the upgrade tripwire. `docs/admin/upgrading-unfold.md` records the
+  procedure.
+- **Static files.** Manifest storage rewrites unfold's relative `url()`s
+  at `collectstatic`; the deploy check confirms every referenced file
+  exists. Both run before merge.
+- **Contrast.** The derived scales are asserted AA for unfold's text and
+  button roles in both themes.
+- **Theme bridge.** All storage access in try/catch; without storage each
+  side falls back to its own default.
+- **Two things the design keeps deliberately hard.** The pattern editor's
+  effective date stays a real, guarded concept; Breathe linking stays
+  manual per clinician. Each gets its sentence of help on the page.
+
+## 7. Testing, documentation, rollout, scope
+
+**Tests** (new files `tests/test_admin_site.py`, `test_admin_dashboard.py`,
+`test_admin_models.py`, `test_admin_widgets.py`, `test_admin_theme.py`):
+
+- *Render everything*: a parametrised test over the admin registry GETs, as
+  a rota admin, every changelist, add form and change form (one fixture row
+  per model, built by a small per-model factory table), plus the dashboard,
+  the pattern editor and Sync status: 200, and none of the `LEAKED`
+  fragments the app's hygiene test uses.
+- *Permissions*: GP → redirect to login; rota admin sees the eight groups
+  and can add a closed day; superuser sees nine; rota admin gets 403 on an
+  axes changelist and on auth Groups.
+- *Colours*: `primary["600"]` ≈ `--accent`; AA on the text and button
+  roles in both themes; `static/admin/rota-admin.css` has no colour
+  literals (the grep test's parametrisation gains the file).
+- *Dashboard*: one test per checklist step's condition; one per health
+  line's count and link; query count does not grow with clinicians.
+- *Widgets*: `IntListCheckboxField` round-trips `"0,1,2,3,4"` and
+  `"3,1"` (order kept); the swatch widget submits the chosen tint.
+- *Behaviour preserved*: the four existing admin test files pass with
+  assertions re-pointed only where markup changed; none deleted.
+- *Deploy*: `collectstatic` under manifest storage and `check --deploy`
+  clean, run on this box.
+
+**Documentation.** `docs/admin/README.md`: the mental model stays; the
+opening says the admin explains itself and setup is the dashboard
+checklist; each page gets a "Where: sidebar › Group › Item" line. `README.md`:
+first-time setup becomes "log in as a rota admin and follow the dashboard";
+the old sequence moves to an appendix. New: `docs/admin/upgrading-unfold.md`.
+
+**Rollout.** One branch, subagent-driven. Task order: install + site +
+config + colours + font + theme bridge → permissions backend + Admin link →
+sidebar + verbose names → model admins in three batches (People; Sessions &
+rules + Calendar + Practice settings; Records + Breathe + System) →
+help-text migration → checkbox and swatch widgets → pattern editor →
+Sync status → dashboard → render-everything test → docs. On staging:
+`pip install -r requirements.txt`, migrate, `collectstatic`, restart.
+Nothing changes for GPs; `/admin/` stays where it is.
+
+**Out of scope.** No new models or workflows (the "New clinician" wizard is
+option C, later); no changes to the app's screens beyond the Admin link;
+no i18n; no per-user permission management; no change to what the pattern
+editor permits.

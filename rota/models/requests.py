@@ -21,7 +21,10 @@ class LocumRequirement(models.Model):
     status = models.CharField(
         max_length=10, choices=Status.choices, default=Status.POSSIBLE
     )
-    details = models.TextField(blank=True)
+    details = models.TextField(
+        blank=True,
+        help_text="Which agency, what rate, who you called.",
+    )
     clinician = models.ForeignKey(
         "rota.Clinician", null=True, blank=True, on_delete=models.SET_NULL,
         related_name="locum_bookings",

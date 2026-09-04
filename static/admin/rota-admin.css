@@ -1,0 +1,27 @@
+/* The admin's font is the app's. No colour lives here: the admin's scales
+   come from settings.UNFOLD["COLORS"], derived from tokens.css by
+   rota/admin_theme.py, and unfold writes them as --color-* variables. */
+:root {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Unfold's compiled Tailwind carries no bare .list-decimal — the dashboard's
+   Setup card numbers its steps with this instead. No colour here either. */
+.rota-steps {
+  list-style: decimal;
+  padding-left: 1.25rem;
+}
+
+/* Three more utilities unfold's compiled CSS lacks, used by the pattern
+   editor and the ordered-checkbox widget. No colour here either. */
+.rota-list-disc {
+  list-style: disc;
+}
+
+.rota-items-end {
+  align-items: flex-end;
+}
+
+.rota-w-14 {
+  width: 3.5rem;
+}

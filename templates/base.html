@@ -31,6 +31,7 @@
   {% if user.is_rota_admin %}
     <a href="/requests/" class="nav-link{% if request.path == '/requests/' %} is-active{% endif %}">Requests</a>
     <a href="/rota/fill/" class="nav-link{% if request.path == '/rota/fill/' %} is-active{% endif %}">Assisted fill</a>
+    <a href="/admin/" class="nav-link">Admin</a>
   {% endif %}
   <a href="/reports/fairness/" class="nav-link{% if '/reports/' in request.path %} is-active{% endif %}">Reports</a>
   <button type="button" id="theme-toggle" class="btn btn-quiet">Theme</button>
@@ -56,6 +57,7 @@
       {% if user.is_rota_admin %}
         <a href="/requests/" class="tabbar-link">Requests</a>
         <a href="/rota/fill/" class="tabbar-link">Assisted fill</a>
+        <a href="/admin/" class="tabbar-link">Admin</a>
       {% endif %}
       <a href="/reports/fairness/" class="tabbar-link">Reports</a>
       <button type="button" id="theme-toggle-mobile" class="tabbar-link">Theme</button>

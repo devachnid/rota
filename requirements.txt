@@ -1,6 +1,7 @@
 asgiref==3.12.1
 Django==5.2.16
 django-axes==8.3.1
+django-unfold==0.104.1
 gunicorn==26.0.0
 iniconfig==2.3.0
 packaging==26.2

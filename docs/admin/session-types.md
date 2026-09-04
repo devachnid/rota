@@ -1,5 +1,7 @@
 # Session types
 
+**Where:** sidebar › Sessions & rules › Session types
+
 `/admin/rota/sessiontype/` — everything a clinician can be doing in a session:
 Routine, Duty, Urgent, a branch clinic, SDL, annual leave.
 
