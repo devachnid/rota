@@ -58,54 +58,10 @@ any session type restricted by `allowed_groups`.
 ### User
 
 Links this clinician to a **login account**, so they can see My Schedule and
-propose swaps.
-
-Optional. Leave it blank for someone who is on the rota but does not use the
-app — the rota still works, they simply cannot log in. Locums often sit like
-this.
-
-Create the account first under **People › Login accounts › Add**: their
-email, and whether they are a rota admin. That is all — there is no password
-to type. Saving sends them an invitation with a link to choose their own;
-their page then reads *Invited …, link expires …* until they have, and *Set
-up* after. Links last seven days and work once.
-
-- Link expired, or never arrived? Open the account and press **Send
-  invitation again**.
-- Forgotten their password? They can use *Forgotten your password?* on the
-  login page themselves, or you can press **Send password-reset link** on
-  their account.
-- A whole practice at once: tick the accounts on the list and choose **Send
-  invitation or reset link**.
-
-If outgoing email is not set up (the dashboard's *Outgoing email* step says
-so), each of those shows you the link instead, once, to copy into an email
-yourself. Nobody — not even you — ever sees anyone's password. (A superuser
-can still set one directly at `/admin/accounts/user/<id>/password/`, an
-emergency tool that nothing links to.)
-
-Tick **Admin status** on anyone who should run fills, publish weeks and
-approve requests; it is also what lets them into this admin. There is no
-separate staff flag to set — Django's `is_staff` follows Admin status.
-
-### Passkeys
-
-A person adds passkeys to their own account from **Account** (their email in
-the app's header): their phone's Face ID or fingerprint, a laptop's Windows
-Hello or Touch ID, or a password manager. Their password still works, and
-is how they get back in if a device is lost.
-
-You cannot add one for them — only the device that holds the key can — but
-you can revoke one: open their login account, and under **Passkeys** tick
-*Delete* on the lost device's row and save. Passkeys are bound to this
-site's address; if the rota ever moves to a different domain, everyone
-enrols again. Someone locked out after too many wrong passwords can still
-sign in with their passkey.
-
-Passkeys are for personal devices. Do not enrol one on a shared surgery PC:
-the login page offers every passkey enrolled on that machine to whoever
-clicks the email field, and where colleagues share a Windows login they
-share its PIN too, so the passkey would let any of them in.
+propose swaps. Optional: leave it blank for someone who is on the rota but
+does not use the app — the rota still works, they simply cannot sign in.
+Locums often sit like this. Create the account first — see [Login
+accounts](#login-accounts) below.
 
 ### Active
 
@@ -141,6 +97,101 @@ Which BreatheHR employee this clinician is. A dropdown of your Breathe
 employees; pick one and save. **Unlinked clinicians have no leave read for
 them and are treated as available** — the sync status page and the week grid
 both warn admins about them. See [Leave from Breathe](breathe.md).
+
+## Login accounts
+
+`/admin/accounts/user/` — who can sign in, and how. A login account is
+separate from a clinician; the clinician's [User](#user) field links the two.
+
+The list shows each account's email, **Admin status**, **Active**, whether it
+is **Set up** (has a password), and the linked clinician. Search by email;
+filter by Admin status or Active.
+
+### Adding someone
+
+**Add login account** asks for two things: their email, and whether they are
+an admin. There is no password to type. Saving sends an **invitation** — an
+email with a link to choose their own password — and opens their page, which
+reads *Invited 4 Sep, link expires 11 Sep* until they have, then *Set up*. A
+link lasts seven days and works once; using it signs them straight in.
+
+If outgoing email is not set up (the dashboard's *Outgoing email* step says
+so), or the relay refuses, you are shown the link once instead, to copy into
+an email yourself. Nobody — not even you — ever sees anyone's password.
+
+### The State field and the send button
+
+Every account's page carries a **State** — *Not yet invited*; *Invited …,
+link expires …*; *Invitation expired — send another*; *Set up*; or *Set up —
+last link sent 4 Sep 14:02* — and one button in the save row, chosen by it:
+
+- **Send invitation again** while they have no password yet — for a link
+  that expired or never arrived.
+- **Send password-reset link** once they have one — for someone who has
+  forgotten it. They can also do this themselves with *Forgotten your
+  password?* on the login page, which works for an unfinished invitation too;
+  the same account is not sent a second link within five minutes.
+
+Pressing either saves the page and sends. To invite a whole practice at
+once, tick the accounts on the list and choose **Send invitation or reset
+link**; each account gets whichever it needs.
+
+### Admin status
+
+Tick **Admin status** on anyone who should run fills, publish weeks and
+approve requests; it is also what lets them into this admin. There is no
+separate staff flag to set — Django's `is_staff` follows Admin status.
+
+An admin cannot see a **superuser's** account in the list, open it, or grant
+superuser to anyone. Only a superuser sees the System fieldset (Active,
+Superuser status), the System group in the sidebar, and the password field
+with its direct set-password form — an emergency tool that nothing links to.
+
+### Deactivating
+
+Untick **Active** rather than deleting. An inactive account cannot sign in by
+password or passkey, its links are refused, and its history stays.
+
+### Passkeys
+
+A person adds passkeys to their own account from **Account** (their email in
+the app's header): their phone's Face ID or fingerprint, a laptop's Windows
+Hello or Touch ID, or a password manager. That page lists each passkey with
+when it was added and last used, and lets them remove one. Their password
+still works, and is how they get back in if a device is lost.
+
+You cannot add one for them — only the device that holds the key can — but
+you can revoke one: open their login account, and under **Passkeys** each row
+shows the name, the authenticator, and when it was added and last used; tick
+*Delete* on the lost device's row and save. Passkeys are bound to this site's
+address; if the rota ever moves to a different domain, everyone enrols again.
+
+Passkeys are for personal devices. Do not enrol one on a shared surgery PC:
+the login page offers every passkey enrolled on that machine to whoever
+clicks the email field, and where colleagues share a Windows login they
+share its PIN too, so the passkey would let any of them in.
+
+### Signing in and lockouts
+
+People sign in with their email and password, or with a passkey. On the login
+page a passkey enrolled on that device is offered in the email field's
+autofill where the browser supports it, and **Sign in with a passkey** is
+the explicit button. After a password sign-in on a device with no passkey, a
+one-time card offers to add one; *Not now* puts it away for thirty days on
+that browser.
+
+Five wrong passwords within an hour — counted against the email *and*
+against the address they came from — lock that email and that address out of
+password sign-in for an hour. Any successful login from an address clears its
+counter, so one colleague's mistakes on the surgery's shared connection do
+not lock the building out. A passkey still signs in during a lockout: it
+proves possession of the device, which is the stronger claim; a forged
+assertion for a registered passkey counts like a wrong password.
+
+Superusers can see the record under the **System** group: **Access
+failures** is the permanent log of every failed attempt; **Access attempts**
+is the live counter, empty for an address as soon as someone there has logged
+in; **Access logs** records successful sign-ins.
 
 ## Trainee profile
 

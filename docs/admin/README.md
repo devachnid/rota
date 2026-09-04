@@ -15,7 +15,7 @@ This is the *reference* for what each setting means once you are in there.
 | Page | Covers |
 |---|---|
 | [Practice settings](practice-settings.md) | The practice-wide singleton, sites |
-| [People](people.md) | Clinician groups, clinicians, login accounts, trainee profiles |
+| [People](people.md) | Clinician groups, clinicians, login accounts (invitations, passkeys, lockouts), trainee profiles |
 | [Availability](availability.md) | Pattern slots and the bulk editor, recurring commitments, closed days |
 | [Session types](session-types.md) | Every flag on a session type, and what each one drives |
 | [Coverage rules](coverage-rules.md) | The rules that tell the fill engine what must be staffed, plus trainee stage rules |
@@ -68,3 +68,5 @@ their history stays intact and they drop out of every eligibility pool.
 | A trainee shows a huge backlog | [`requirements_tracked_from`](people.md#trainee-profile) |
 | A warning you do not want | [Warnings](day-to-day.md#warnings-on-the-grid) — they come from three separate sources |
 | Someone's leave is not on the grid | Are they [linked to Breathe](breathe.md#setting-it-up-in-this-order)? Has a sync run since it was approved? |
+| Someone cannot sign in | [Login accounts](people.md#signing-in-and-lockouts) — an invitation link lasts seven days; a lockout lasts an hour and a passkey bypasses it |
+| An invitation never arrived | Is [outgoing email](../../README.md#outgoing-email) set up? The account page shows the link to copy if not, and **Send invitation again** mints a fresh one |

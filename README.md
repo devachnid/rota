@@ -1,14 +1,25 @@
 # GP Rota
 
-Session-based GP practice rota. Spec: `docs/superpowers/specs/2026-07-18-gp-rota-design.md`
-(v1) and `docs/superpowers/specs/2026-08-22-autofill-v2-design.md` (trainees,
-commitments, demand-driven clinics, PMC branch cover).
+Session-based GP practice rota. The design specs live in
+`docs/superpowers/specs/`, one per piece of work in the order it was built: v1;
+autofill v2 (trainees, commitments, demand-driven clinics, PMC branch cover);
+the frontend, in two phases; the post-deployment fixes; leave from Breathe; the
+grid and locum enhancements; the admin overhaul; and account access —
+invitations, self-service passwords, passkeys. Each spec's implementation plan
+sits beside it in `docs/superpowers/plans/`.
 
 ## Develop
 
     source .venv/bin/activate
-    python manage.py migrate && python manage.py runserver
+    DEBUG=1 python manage.py migrate
+    DEBUG=1 python manage.py runserver
     pytest
+
+`DEBUG=1` is what lets `manage.py` start on a box with no `SECRET_KEY` in the
+environment: with debug off, the settings refuse to run on the repository's
+placeholder key (see Deploy). The suite needs neither — it detects pytest.
+With no `EMAIL_HOST` set, a dev box behaves as production does without a relay:
+the admin is shown each invitation link on screen instead of it being sent.
 
 CI (`.github/workflows/tests.yml`) runs `ruff check .` (pyflakes only — see
 `ruff.toml`), `makemigrations --check`, the suite, and `collectstatic` +
@@ -29,6 +40,11 @@ is the reference for what the settings actually mean.
    steps, each detected from the database and linked to where it is done;
    follow it until it reads "Setup complete". The **Health** card beside it
    is what to glance at afterwards.
+3. Create everyone's login accounts under **People › Login accounts › Add** —
+   an email and whether they are an admin, nothing else. Each person receives
+   an invitation, chooses their own password from its link, and can then add a
+   passkey. The superuser from step 1 is the only account with a typed
+   password. See [Login accounts](docs/admin/people.md#login-accounts).
 
 The sequence the checklist walks, for reference: practice settings → sites →
 clinician groups → session types → coverage rules → clinicians → working
@@ -101,10 +117,17 @@ dev box behaves exactly like production: the admin gets each link on screen.
 
 ### Passkeys and the domain
 
-Passkeys are bound to the host the app is served from (`ALLOWED_HOSTS`, the
-tunnel's hostname). Changing that domain invalidates every passkey — people
-sign in with their password and enrol again. The new static file
-`js/passkeys.js` must be collected (`collectstatic` is in every redeploy).
+People add passkeys from their **Account** page or from the card offered after
+a password sign-in, and on the login page a passkey enrolled on that device is
+offered in the email field's autofill — see [Login
+accounts](docs/admin/people.md#signing-in-and-lockouts). Passkeys are bound to
+the host the app is served from (`ALLOWED_HOSTS`, the tunnel's hostname).
+Changing that domain invalidates every passkey — people sign in with their
+password and enrol again. The origin the browser signs must be `https://`, so
+cloudflared has to pass `X-Forwarded-Proto` — it does by default; the
+`Strict-Transport-Security` header in the debug check below is proof, because
+Django only emits it when it believes the request is secure. `js/passkeys.js`
+must be collected (`collectstatic` is in every redeploy).
 
 ### Redeploying
 
@@ -137,8 +160,14 @@ Cloudflare's `CF-Connecting-IP`, believed only when the request arrives from
 
 A password lockout does not block signing in with a passkey: a passkey proves
 possession of the device, which is the stronger claim. A forged passkey
-assertion still counts against the address and the account like a wrong
-password does.
+assertion for a registered passkey counts against the address and the account
+like a wrong password does.
+
+The record is in the admin's **System** group, for superusers: **Access
+failures** is the permanent log of every failed attempt; **Access attempts** is
+the live counter, and is cleared for an address as soon as anyone there logs in
+successfully (that is what keeps a shared surgery connection from locking the
+building out); **Access logs** records successful sign-ins.
 
 Nothing to configure for a standard tunnel. **Do verify the header actually
 arrives**, because if it does not, every attempt is recorded as `127.0.0.1`
@@ -173,7 +202,8 @@ Step 1 is `createsuperuser`, above. The rest, in the order the dashboard walks t
 3. Create session types: Duty (fairness tracked), Routine, Visits, Admin, CPD,
    Annual leave (absence), Study leave, Sick (absence).
 4. Create a coverage rule: Duty, per full day, count 1, priority 1.
-5. Create clinicians (link user accounts) and their pattern slots.
+5. Create clinicians and their pattern slots, and link each to their login
+   account (People › Login accounts › Add sends the invitation).
 6. In Practice settings: minimum clinical GPs per session, default fill
    session type (Routine), open weekdays.
 7. Add closed days (bank holidays) as they come.
@@ -204,13 +234,13 @@ Step 1 is `createsuperuser`, above. The rest, in the order the dashboard walks t
     `mentoring_session_type` at the relevant SessionTypes (create them first,
     category Non-clinical, if they don't already exist). Leaving any of the
     three blank simply skips that trainee pass — no error.
-13. Add RecurringCommitments for fixed personal fixtures (e.g. a GP's weekly
+14. Add RecurringCommitments for fixed personal fixtures (e.g. a GP's weekly
     Vision clinic): clinician, session type, weekday, part (AM/PM/full day),
     optional site, `active_from` (and optional `active_until`), and
     `interval_weeks` (1 = weekly, 2 = fortnightly, anchored to the week of
     `active_from`). The commitments pass runs first and never overwrites an
     existing entry.
-14. New CoverageRule shapes, beyond the original per-slot/per-day rule:
+15. New CoverageRule shapes, beyond the original per-slot/per-day rule:
     - **Vas Clinic** (demand-driven, full day preferred): frequency
       `PER_WEEK`, count `2`, unit `FULL_DAY_PREFERRED`, `preferred_weekdays`
       `3,1` (Thursday then Tuesday, Monday=0) — tries one clinician across
