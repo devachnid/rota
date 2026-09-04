@@ -133,6 +133,29 @@ def test_a_rota_admin_cannot_touch_a_superusers_account(admin_client, staff_user
     assert admin_client.get(f"/admin/accounts/user/{staff_user.pk}/change/").status_code == 403
     assert admin_client.get(f"/admin/accounts/user/{staff_user.pk}/delete/").status_code == 403
     assert admin_client.get(f"/admin/accounts/user/{staff_user.pk}/password/").status_code == 403
+    assert admin_client.get(f"/admin/accounts/user/{staff_user.pk}/history/").status_code == 403
+
+
+def test_a_rota_admins_changelist_has_no_superuser_rows(admin_client, staff_client):
+    """get_queryset drops superusers for a non-superuser requester, so the
+    changelist (and the ⌘K search over it) never discloses them. get_object
+    deliberately bypasses that filter so a direct URL still meets the 403
+    above rather than a not-found redirect — which is why this is the one
+    place the filter shows. Both accounts are created here so neither is
+    the signed-in email that unfold prints in the header."""
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    User.objects.create_user(email="second-root@example.com", password="pw", is_superuser=True)
+    User.objects.create_user(email="plain-login@example.com", password="pw")
+
+    resp = admin_client.get("/admin/accounts/user/")
+    html = resp.content.decode()
+    assert resp.status_code == 200
+    assert "plain-login@example.com" in html
+    assert "second-root@example.com" not in html
+
+    html = staff_client.get("/admin/accounts/user/").content.decode()
+    assert "plain-login@example.com" in html and "second-root@example.com" in html
 
 
 def test_a_superuser_still_sees_the_permissions_fieldset(staff_client, gp_user):
