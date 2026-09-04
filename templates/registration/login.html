@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Log in{% endblock %}
 {% block content %}
 <div class="auth-wrap">
@@ -10,7 +11,15 @@
       {{ form.as_p }}
       <button type="submit" class="btn btn-primary">Log in</button>
     </form>
+    <div class="form-actions">
+      <button type="button" id="passkey-login" class="btn" style="display:none"
+              data-options-url="{% url 'passkey_login_options' %}"
+              data-login-url="{% url 'passkey_login' %}"
+              data-next="{{ next }}">Sign in with a passkey</button>
+    </div>
+    <p id="passkey-error" class="field-error" style="display:none" role="alert"></p>
     <p class="field-help"><a href="{% url 'password_reset' %}">Forgotten your password?</a></p>
   </div>
 </div>
+<script src="{% static 'js/passkeys.js' %}" defer></script>
 {% endblock %}

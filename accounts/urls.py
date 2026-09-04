@@ -16,6 +16,8 @@ urlpatterns = [
     path("passkeys/register/options/", views.passkey_register_options,
          name="passkey_register_options"),
     path("passkeys/register/", views.passkey_register, name="passkey_register"),
+    path("passkeys/login/options/", views.passkey_login_options, name="passkey_login_options"),
+    path("passkeys/login/", views.passkey_login, name="passkey_login"),
     path("passkeys/<int:pk>/remove/", views.passkey_remove, name="passkey_remove"),
     path("password_change/", views.ChangePasswordView.as_view(), name="password_change"),
     path("password_reset/", views.RequestPasswordLinkView.as_view(), name="password_reset"),
