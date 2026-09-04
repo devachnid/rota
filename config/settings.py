@@ -142,6 +142,7 @@ UNFOLD = {
     },
     "STYLES": ["rota.admin_site.style_fonts", "rota.admin_site.style_admin"],
     "SCRIPTS": ["rota.admin_site.script_theme_bridge"],
+    "DASHBOARD_CALLBACK": "rota.admin_dashboard.dashboard",
 }
 
 LANGUAGE_CODE = "en-gb"
