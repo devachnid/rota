@@ -17,7 +17,7 @@
       <ol class="rota-steps flex flex-col gap-1">
         {% for step in setup.steps %}
         <li class="{% if step.done %}text-base-500{% elif step == setup.next %}font-semibold{% endif %}">
-          <a href="{{ step.url }}" class="underline">{{ step.title }}</a>
+          {% if step.url %}<a href="{{ step.url }}" class="underline">{{ step.title }}</a>{% else %}{{ step.title }}{% endif %}
           <span class="text-base-500">— {{ step.detail }}</span>{% if step.done %} ✓{% endif %}
         </li>
         {% endfor %}
