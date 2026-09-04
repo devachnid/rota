@@ -56,3 +56,27 @@ class User(AbstractUser):
         # is_rota_admin, never by this flag.
         self.is_staff = self.is_rota_admin or self.is_superuser
         super().save(*args, **kwargs)
+
+
+class Passkey(models.Model):
+    """A WebAuthn credential — a person's phone, laptop or security key.
+    Text rather than BinaryField so rows read plainly in the admin; the
+    ids are base64url exactly as the browser sends them, so a lookup by
+    the browser's `credential.id` is a plain equality."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="passkeys")
+    credential_id = models.CharField(max_length=1024, unique=True)
+    public_key = models.TextField()
+    sign_count = models.PositiveIntegerField(default=0)
+    transports = models.CharField(max_length=200, blank=True)
+    aaguid = models.UUIDField(null=True, blank=True)
+    name = models.CharField(max_length=60)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("created_at",)
+        verbose_name = "passkey"
+
+    def __str__(self):
+        return f"{self.name} ({self.user.email})"
