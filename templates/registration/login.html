@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% load static %}
 {% block title %}Log in{% endblock %}
 {% block content %}
 <div class="auth-wrap">
@@ -21,5 +20,4 @@
     <p class="field-help"><a href="{% url 'password_reset' %}">Forgotten your password?</a></p>
   </div>
 </div>
-<script src="{% static 'js/passkeys.js' %}" defer></script>
 {% endblock %}

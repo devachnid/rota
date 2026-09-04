@@ -1,18 +1,33 @@
 /* Passkeys: the browser half of WebAuthn, with no library.
  *
- * Two buttons, each present on one page: #passkey-add (Account) and
- * #passkey-login (login). Both start with display:none and are revealed
- * only when the browser has PublicKeyCredential — `hidden` is not used
- * because .btn's display beats the UA [hidden] rule. The server speaks
- * the WebAuthn JSON shapes (base64url everywhere); the two converters
- * below are what parseCreationOptionsFromJSON / toJSON do in browsers new
- * enough to have them, written out so older ones work too.
+ * Loaded on every page (base.html). Three things it may find:
+ *   #passkey-login on the login page — arms conditional mediation on load,
+ *     so a passkey is offered in the email field's autofill and nobody
+ *     without one sees anything; the button is the explicit path, and the
+ *     only path where conditional UI is unavailable.
+ *   #passkey-add on the Account page — enrol, with a typed name.
+ *   #passkey-nudge on every signed-in page — a card offering to enrol on
+ *     this device, shown only where this browser has never enrolled or
+ *     signed in with a passkey (a localStorage marker), snoozed per browser
+ *     with "Not now". Passkeys are per device, so the memory is too.
+ *
+ * Buttons start display:none and are revealed only when the browser has
+ * PublicKeyCredential — `hidden` is not used because .btn's display beats
+ * the UA [hidden] rule. The server speaks the WebAuthn JSON shapes
+ * (base64url everywhere); the two converters below are what
+ * parseCreationOptionsFromJSON / toJSON do in browsers new enough to have
+ * them, written out so older ones work too.
  *
  * Every POST carries the CSRF token read from the page's form — the cookie
  * is HttpOnly on purpose (config/settings.py).
  */
 (function () {
   if (!window.PublicKeyCredential) { return; }
+
+  var MARK = "rota-passkey";           // "1" once this browser has used a passkey here
+  var SNOOZE = "rota-passkey-snooze";  // ms timestamp until which the nudge stays away
+  function store(key, value) { try { localStorage.setItem(key, value); } catch (e) {} }
+  function read(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
 
   function b64urlToBytes(s) {
     s = s.replace(/-/g, "+").replace(/_/g, "/");
@@ -92,44 +107,122 @@
     return e.message;
   }
 
+  // --- enrolling ------------------------------------------------------------
+
+  function enrol(button, form, errorEl, onDone) {
+    show(errorEl, "");
+    var token = csrfToken(form);
+    var nameInput = form.querySelector("[name=name]");
+    post(button.dataset.optionsUrl, token).then(function (opts) {
+      return navigator.credentials.create({ publicKey: creationOptions(opts) });
+    }).then(function (cred) {
+      return post(button.dataset.registerUrl, token, {
+        credential: credentialToJSON(cred),
+        name: nameInput ? nameInput.value : ""
+      });
+    }).then(function (data) {
+      store(MARK, "1");
+      onDone(data);
+    }).catch(function (e) { show(errorEl, explain(e)); });
+  }
+
   var add = document.getElementById("passkey-add");
   if (add) {
-    var addForm = document.getElementById("passkey-form");
-    var addError = document.getElementById("passkey-error");
     add.style.display = "";
     add.addEventListener("click", function () {
-      show(addError, "");
-      var token = csrfToken(addForm);
-      post(add.dataset.optionsUrl, token).then(function (opts) {
-        return navigator.credentials.create({ publicKey: creationOptions(opts) });
-      }).then(function (cred) {
-        return post(add.dataset.registerUrl, token, {
-          credential: credentialToJSON(cred),
-          name: addForm.querySelector("[name=name]").value
-        });
-      }).then(function () {
-        window.location.reload();
-      }).catch(function (e) { show(addError, explain(e)); });
+      enrol(add, document.getElementById("passkey-form"),
+            document.getElementById("passkey-error"),
+            function () { window.location.reload(); });
     });
   }
+
+  // --- the nudge -------------------------------------------------------------
+
+  var nudge = document.getElementById("passkey-nudge");
+  if (nudge && !add && read(MARK) !== "1" && !(Number(read(SNOOZE)) > Date.now())) {
+    var nudgeAdd = document.getElementById("passkey-nudge-add");
+    var nudgeForm = document.getElementById("passkey-nudge-form");
+    var nudgeError = document.getElementById("passkey-nudge-error");
+    nudge.style.display = "";
+    nudgeAdd.addEventListener("click", function () {
+      enrol(nudgeAdd, nudgeForm, nudgeError, function (data) {
+        nudge.querySelector(".flash").textContent =
+          "Passkey added" + (data.name ? " (" + data.name + ")" : "") + " — sign in with it next time.";
+      });
+    });
+    document.getElementById("passkey-later").addEventListener("click", function () {
+      store(SNOOZE, String(Date.now() + 30 * 24 * 60 * 60 * 1000));
+      nudge.style.display = "none";
+    });
+  }
+
+  // --- signing in --------------------------------------------------------------
 
   var signIn = document.getElementById("passkey-login");
   if (signIn) {
     var loginForm = document.querySelector(".auth-card form");
     var loginError = document.getElementById("passkey-error");
+    var pending = null;   // the conditional request's AbortController
+    var rearm = null;     // the timer that refreshes it
     signIn.style.display = "";
+
+    function finish(cred, token) {
+      return post(signIn.dataset.loginUrl, token, {
+        credential: credentialToJSON(cred),
+        next: signIn.dataset.next || ""
+      }).then(function (data) {
+        store(MARK, "1");
+        window.location.assign(data.next);
+      });
+    }
+
+    function cancelConditional() {
+      if (rearm) { clearTimeout(rearm); rearm = null; }
+      if (pending) { pending.abort(); pending = null; }
+    }
+
+    // Conditional mediation: the browser offers the passkey in the email
+    // field's autofill and shows nothing to anyone without one. The
+    // server's challenge lives as long as the options' `timeout` says, and
+    // a login tab can sit open longer, so the request is re-armed with a
+    // fresh challenge a minute before the old one would expire. Only one
+    // WebAuthn request may be pending at a time — the button aborts this
+    // one before starting its own.
+    function armConditional() {
+      var email = loginForm.querySelector("input[name=username]");
+      if (email) { email.setAttribute("autocomplete", "username webauthn"); }
+      var token = csrfToken(loginForm);
+      post(signIn.dataset.optionsUrl, token).then(function (opts) {
+        pending = new AbortController();
+        rearm = setTimeout(function () { cancelConditional(); armConditional(); },
+                           Math.max((opts.timeout || 60000) - 60000, 30000));
+        return navigator.credentials.get({
+          publicKey: requestOptions(opts), mediation: "conditional", signal: pending.signal
+        });
+      }).then(function (cred) {
+        cancelConditional();
+        return finish(cred, csrfToken(loginForm));
+      }).catch(function (e) {
+        if (e.name === "AbortError") { return; }   // our own cancel
+        cancelConditional();
+        show(loginError, explain(e));
+      });
+    }
+
+    if (PublicKeyCredential.isConditionalMediationAvailable) {
+      PublicKeyCredential.isConditionalMediationAvailable().then(function (available) {
+        if (available) { armConditional(); }
+      });
+    }
+
     signIn.addEventListener("click", function () {
       show(loginError, "");
+      cancelConditional();
       var token = csrfToken(loginForm);
       post(signIn.dataset.optionsUrl, token).then(function (opts) {
         return navigator.credentials.get({ publicKey: requestOptions(opts) });
       }).then(function (cred) {
-        return post(signIn.dataset.loginUrl, token, {
-          credential: credentialToJSON(cred),
-          next: signIn.dataset.next || ""
-        });
-      }).then(function (data) {
-        window.location.assign(data.next);
+        return finish(cred, token);
       }).catch(function (e) { show(loginError, explain(e)); });
     });
   }
