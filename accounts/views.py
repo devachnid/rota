@@ -106,8 +106,13 @@ def _json_body(request):
 
 
 def _credential_from(request):
+    """The body's credential dict and name, or (None, None) if the body is
+    not the JSON object the page's script sends. Checked here, before the
+    service spends the challenge on it."""
     body = _json_body(request)
     if body is None or not isinstance(body.get("credential"), dict):
+        return None, None
+    if not isinstance(body.get("name", ""), str):
         return None, None
     return body, body["credential"]
 
