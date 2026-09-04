@@ -40,8 +40,10 @@
       headers: { "Content-Type": "application/json", "X-CSRFToken": token },
       body: JSON.stringify(body || {})
     }).then(function (r) {
-      return r.json().then(function (data) {
-        if (!r.ok) { throw new Error(data.error || "Something went wrong."); }
+      return r.json().catch(function () { return {}; }).then(function (data) {
+        if (!r.ok) {
+          throw new Error(data.error || ("Something went wrong (HTTP " + r.status + ")."));
+        }
         return data;
       });
     });
@@ -85,7 +87,9 @@
   }
 
   function explain(e) {
-    return e.name === "NotAllowedError" ? "Cancelled, or no passkey was offered." : e.message;
+    if (e.name === "NotAllowedError") { return "Cancelled, or no passkey was offered."; }
+    if (e.name === "InvalidStateError") { return "This device already has a passkey here."; }
+    return e.message;
   }
 
   var add = document.getElementById("passkey-add");

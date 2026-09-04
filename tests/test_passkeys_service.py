@@ -249,3 +249,44 @@ def test_a_credential_that_is_not_a_dict_is_a_passkey_error_and_spends_the_chall
     passkeys.login_options(request)
     with pytest.raises(passkeys.PasskeyError, match="Malformed request"):
         passkeys.verify_login(request, "nope")
+
+
+def test_a_platform_passkey_that_always_reports_zero_still_signs_in(request_for, gp_user):
+    """iCloud Keychain and Google Password Manager never advance the counter;
+    the library skips the check only when both sides are 0."""
+    auth = SoftAuthenticator()
+    _register(request_for(gp_user), gp_user, auth)
+    for _ in range(2):
+        request = request_for()
+        passkey = passkeys.verify_login(request, auth.get(passkeys.login_options(request), sign_count=0))
+        assert passkey.user == gp_user and passkey.sign_count == 0
+
+
+def test_the_account_is_bound_by_the_credential_not_the_user_handle(request_for, gp_user):
+    auth = SoftAuthenticator()
+    _register(request_for(gp_user), gp_user, auth)
+    request = request_for()
+    passkey = passkeys.verify_login(request, auth.get(passkeys.login_options(request), user_handle=b"999999"))
+    assert passkey.user == gp_user
+
+
+def test_registering_the_same_credential_twice_is_refused(request_for, gp_user):
+    auth = SoftAuthenticator()
+    _register(request_for(gp_user), gp_user, auth)
+    with pytest.raises(passkeys.PasskeyError, match="already registered"):
+        _register(request_for(gp_user), gp_user, auth)
+    assert Passkey.objects.count() == 1
+
+
+def test_an_oversized_credential_id_is_refused(request_for, gp_user):
+    import secrets
+    auth = SoftAuthenticator()
+    auth.credential_id = secrets.token_bytes(1100)
+    with pytest.raises(passkeys.PasskeyError, match="too long"):
+        _register(request_for(gp_user), gp_user, auth)
+    assert Passkey.objects.count() == 0
+
+
+def test_the_options_timeout_matches_the_challenge_ttl(request_for, gp_user):
+    assert json.loads(passkeys.registration_options(request_for(gp_user), gp_user))["timeout"] == 300000
+    assert json.loads(passkeys.login_options(request_for()))["timeout"] == 300000

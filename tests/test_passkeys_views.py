@@ -72,6 +72,7 @@ def test_the_json_endpoints_are_csrf_protected(gp_user):
     strict.force_login(gp_user)
     assert _post_json(strict, REG_OPTIONS).status_code == 403
     assert _post_json(Client(enforce_csrf_checks=True), LOGIN_OPTIONS).status_code == 403
+    assert _post_json(Client(enforce_csrf_checks=True), LOGIN).status_code == 403
 
 
 # --- removing ----------------------------------------------------------------
@@ -94,6 +95,7 @@ def test_the_login_page_offers_a_passkey_and_carries_next(client):
     assert 'id="passkey-login"' in html and "Sign in with a passkey" in html
     assert 'data-next="/rota/day/"' in html and "js/passkeys.js" in html
     assert client.get(LOGIN_OPTIONS).status_code == 405
+    assert client.get(LOGIN).status_code == 405
 
 
 def test_signing_in_with_a_passkey(gp_client, gp_user):

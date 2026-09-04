@@ -225,6 +225,12 @@ AXES_CLIENT_IP_CALLABLE = "accounts.client_ip.client_ip"
 # for that client, so ordinary mistakes do not accumulate towards a lockout —
 # only an unbroken run of failures does.
 AXES_LOCKOUT_PARAMETERS = ["username", "ip_address"]
+# Django's login form — and the passkey login view — report a failure as
+# credentials={"username": ...} whatever USERNAME_FIELD is called; axes'
+# default for this setting is USERNAME_FIELD ("email"), which never matched,
+# so every attempt was recorded with username=None and only the address half
+# of the lockout ever locked. Name the key the form actually sends.
+AXES_USERNAME_FORM_FIELD = "username"
 AXES_RESET_ON_SUCCESS = True
 
 # axes requires a request object during authenticate(), which the test
