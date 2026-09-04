@@ -21,12 +21,6 @@ pytestmark = pytest.mark.django_db
 User = get_user_model()
 
 
-@pytest.fixture
-def configured(settings):
-    settings.EMAIL_HOST = "smtp.example"
-    settings.DEFAULT_FROM_EMAIL = "Practice Rota <rota@example.org>"
-
-
 def _request(rf, user=None):
     request = rf.get("/admin/accounts/user/")
     request.user = user or AnonymousUser()
@@ -145,3 +139,9 @@ def test_link_expiry_follows_the_setting(settings):
     settings.PASSWORD_RESET_TIMEOUT = 3600
     now = timezone.now()
     assert link_expires(now) == now + timedelta(hours=1)
+
+
+def test_a_signed_in_gp_is_not_named_as_the_contact(rf, configured, gp_user):
+    colleague = User.objects.create_user(email="colleague@example.com", password="pw")
+    send_password_link(_request(rf, gp_user), colleague, invite=False)
+    assert "ask a rota admin" in mail.outbox[0].body

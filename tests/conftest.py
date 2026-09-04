@@ -49,3 +49,11 @@ def staff_client(staff_user):
     client = Client()
     client.force_login(staff_user)
     return client
+
+
+@pytest.fixture
+def configured(settings):
+    """A relay is named, so sends go to the locmem outbox instead of
+    coming back as links to copy."""
+    settings.EMAIL_HOST = "smtp.example"
+    settings.DEFAULT_FROM_EMAIL = "Practice Rota <rota@example.org>"

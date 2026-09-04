@@ -150,12 +150,18 @@ class CustomUserAdmin(UserAdmin, ModelAdmin):
 
     def get_actions_submit_line(self, request, object_id):
         """One button, chosen by state: an account with no usable password
-        can be invited again; one with a password can be sent a reset."""
+        can be invited again; one with a password can be sent a reset. The
+        add page has no buttons at all — save_model sends the invitation
+        itself, so a button name smuggled into an add POST must not send a
+        second one."""
+        if request.resolver_match and request.resolver_match.url_name.endswith("_add"):
+            return []
         obj = self.get_object(request, object_id)
         want = ("send_reset_link" if obj is not None and obj.has_usable_password()
                 else "send_invitation")
+        name = f"{self.opts.app_label}_{self.opts.model_name}_{want}"
         return [a for a in super().get_actions_submit_line(request, object_id)
-                if a.action_name.endswith(want)]
+                if a.action_name == name]
 
     @action(description="Send invitation again")
     def send_invitation(self, request, obj):
@@ -165,13 +171,16 @@ class CustomUserAdmin(UserAdmin, ModelAdmin):
     def send_reset_link(self, request, obj):
         _report(request, obj, send_password_link(request, obj, invite=False), invite=False)
 
-    @admin.action(description="Send invitation or reset link")
+    @admin.action(description="Send invitation or reset link", permissions=["change"])
     def send_links(self, request, queryset):
         """Onboard a practice at once. Each row gets whichever it needs;
         rows the requester may not change (a superuser's, for a rota
         admin) are skipped — the changelist filter hides them anyway."""
         sent = copies = 0
         for user in queryset:
+            # Belt and braces: the changelist queryset already hides the
+            # rows a rota admin may not change, and permissions=["change"]
+            # above keeps the action off a view-only menu.
             if not self.has_change_permission(request, user):
                 continue
             invite = not user.has_usable_password()
@@ -189,9 +198,14 @@ class CustomUserAdmin(UserAdmin, ModelAdmin):
 
     @admin.display(description="State")
     def account_state(self, obj):
-        if obj.has_usable_password():
-            return "Set up"
         sent = obj.password_link_sent_at
+        if obj.has_usable_password():
+            if sent is None:
+                return "Set up"
+            # The admin's buttons are never throttled, but the person's own
+            # request is quiet for five minutes after any link — so say
+            # when the last one went.
+            return f"Set up — last link sent {timezone.localtime(sent):%-d %b %H:%M}"
         if sent is None:
             return "Not yet invited"
         expires = link_expires(sent)

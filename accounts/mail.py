@@ -68,13 +68,17 @@ def send_password_link(request, user, *, invite, throttle=False):
     if (throttle and user.password_link_sent_at is not None
             and timezone.now() - user.password_link_sent_at < RESEND_WAIT):
         return None
+    requester = request.user
     now = timezone.now()
     link = password_link(request, user)
     context = {
         "link": link,
         "expires": link_expires(now),
         "email": user.email,
-        "contact": request.user.email if request.user.is_authenticated else None,
+        # Who to ask for another: the admin who sent it. A signed-in GP
+        # using the public form for a colleague is not that person.
+        "contact": (requester.email if requester.is_authenticated
+                    and (requester.is_rota_admin or requester.is_superuser) else None),
     }
     kind = "invitation" if invite else "password_reset"
     subject = "".join(render_to_string(f"registration/{kind}_subject.txt", context).splitlines())

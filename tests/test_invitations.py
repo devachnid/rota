@@ -19,12 +19,6 @@ ADD = "/admin/accounts/user/add/"
 LIST = "/admin/accounts/user/"
 
 
-@pytest.fixture
-def configured(settings):
-    settings.EMAIL_HOST = "smtp.example"
-    settings.DEFAULT_FROM_EMAIL = "rota@example.org"
-
-
 def _change(user):
     return f"/admin/accounts/user/{user.pk}/change/"
 
@@ -81,6 +75,7 @@ def test_a_refusing_relay_shows_the_reason_and_the_link(admin_client, configured
     html = admin_client.post(ADD, {"email": "new@example.com"}, follow=True).content.decode()
     assert "Sending to new@example.com failed" in html and "550" in html
     assert 'href="http://testserver/accounts/reset/' in html
+    assert User.objects.filter(email="new@example.com").exists()   # the relay's refusal loses no account
 
 
 # --- the state field ---------------------------------------------------------
@@ -89,6 +84,9 @@ def test_the_state_field_reads_the_account(settings, gp_user):
     settings.PASSWORD_RESET_TIMEOUT = 7 * 24 * 3600
     state = _user_admin().account_state
     assert state(gp_user) == "Set up"
+    gp_user.password_link_sent_at = timezone.now()
+    last = timezone.localtime(gp_user.password_link_sent_at)
+    assert state(gp_user) == f"Set up — last link sent {last:%-d %b %H:%M}"
     invited = User.objects.create_user(email="invited@example.com")
     assert state(invited) == "Not yet invited"
     invited.password_link_sent_at = timezone.now()
@@ -140,6 +138,19 @@ def test_pressing_the_button_sends(admin_client, configured, gp_user):
 
 def test_saving_without_a_button_sends_nothing(admin_client, configured, gp_user):
     assert admin_client.post(_change(gp_user), _form(gp_user)).status_code == 302
+    assert mail.outbox == []
+
+
+def test_a_button_smuggled_into_the_add_post_sends_once(admin_client, configured):
+    admin_client.post(ADD, {"email": "new@example.com", "accounts_user_send_invitation": "1"})
+    assert len(mail.outbox) == 1
+
+
+def test_the_wrong_states_button_is_a_no_op(admin_client, configured, gp_user):
+    admin_client.post(_change(gp_user), _form(gp_user, accounts_user_send_invitation="1"))
+    assert mail.outbox == []
+    invited = User.objects.create_user(email="invited@example.com")
+    admin_client.post(_change(invited), _form(invited, accounts_user_send_reset_link="1"))
     assert mail.outbox == []
 
 

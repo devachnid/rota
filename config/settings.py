@@ -204,8 +204,6 @@ EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "1") == "1"
 EMAIL_TIMEOUT = 10
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "webmaster@localhost")
-if DEBUG and not EMAIL_HOST:
-    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 # Links are minted ahead of a start date, so a week rather than Django's
 # three days. One setting covers invitations and resets alike.

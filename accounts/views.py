@@ -31,7 +31,7 @@ class RequestPasswordLinkForm(PasswordResetForm):
     def get_users(self, email):
         return User._default_manager.filter(email__iexact=email, is_active=True)
 
-    def save(self, request=None, **kwargs):
+    def save(self, *args, request=None, **kwargs):
         if not email_is_configured():
             return
         for user in self.get_users(self.cleaned_data["email"]):

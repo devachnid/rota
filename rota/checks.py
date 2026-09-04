@@ -116,8 +116,8 @@ def static_manifest_covers_templates(app_configs, **kwargs):
 # Email is optional — without a relay every invitation and reset becomes a
 # link for the admin to copy, and the dashboard says so — but a deployment
 # that meant to send and cannot should hear about it here, not from a GP
-# whose invitation never came. Quiet in DEBUG, where the console backend
-# prints the mail instead.
+# whose invitation never came. Quiet in DEBUG, where nobody is deploying and
+# the admin gets each link on screen anyway.
 @register(deploy=True)
 def outgoing_email_is_configured(app_configs, **kwargs):
     if settings.DEBUG:

@@ -15,12 +15,6 @@ DONE = "/accounts/password_reset/done/"
 STRONG = "orchard-lantern-quiet-42"
 
 
-@pytest.fixture
-def configured(settings):
-    settings.EMAIL_HOST = "smtp.example"
-    settings.DEFAULT_FROM_EMAIL = "rota@example.org"
-
-
 def _link_for(client, user):
     """Ask the public form for a link and read it out of the outbox — the
     same path a real person takes."""
@@ -118,6 +112,7 @@ def test_an_invitation_link_welcomes_sets_the_password_and_signs_in(client, conf
     resp = client.post(form_url, {"new_password1": STRONG, "new_password2": STRONG})
     assert resp.status_code == 302 and resp["Location"] == "/rota/"
     assert client.session["_auth_user_id"] == str(user.pk)
+    assert client.get("/accounts/account/").status_code == 200   # the backend path survives the next request
     user.refresh_from_db()
     assert user.check_password(STRONG)
 
@@ -153,7 +148,7 @@ def test_a_deactivated_accounts_link_is_refused(client, configured, gp_user):
     gp_user.save()
     resp, _ = _form_url(client, link)
     assert "no longer valid" in resp.content.decode()
-    assert "_auth_user_id" not in client.session
+    assert client.get("/accounts/account/").status_code == 302   # nobody was signed in
 
 
 def test_a_garbage_link_is_refused_not_crashed(client):
