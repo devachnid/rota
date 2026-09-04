@@ -635,35 +635,61 @@ class PracticeSettingsAdmin(ModelAdmin):
 
 
 @admin.register(RotaEntry)
-class RotaEntryAdmin(admin.ModelAdmin):
-    list_display = ("day", "part", "clinician", "session_type", "is_published",
-                    "manually_set")
-    list_filter = ("is_published", "session_type")
+class RotaEntryAdmin(ModelAdmin):
+    list_display = ("day", "part", "clinician", "session_type", "site",
+                    "is_published", "manually_set")
+    list_filter = ("is_published", "manually_set", "session_type", "clinician")
+    search_fields = ("clinician__name", "note")
+    date_hierarchy = "day"
+    list_select_related = ("clinician", "session_type", "site")
+    fieldsets = (
+        (None, {"fields": ("day", "part", "clinician", "session_type", "site", "note")}),
+        ("State", {
+            "fields": ("is_published", "manually_set", "fill_reason"),
+            "description": "Published entries are what GPs see. Manually set entries "
+                           "are never overwritten by assisted fill; untick to let the "
+                           "engine take a cell back.",
+        }),
+        ("Grouping", {"fields": ("allocation_group", "companion_group"), "classes": ("collapse",)}),
+    )
 
 
 @admin.register(RotaEntryLog)
-class RotaEntryLogAdmin(admin.ModelAdmin):
+class RotaEntryLogAdmin(ModelAdmin):
     list_display = ("at", "actor", "action", "day", "part", "clinician_name", "detail")
+    list_filter = ("action",)
+    search_fields = ("clinician_name", "detail")
+    date_hierarchy = "at"
     readonly_fields = [f.name for f in RotaEntryLog._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(LocumRequirement)
-class LocumRequirementAdmin(admin.ModelAdmin):
+class LocumRequirementAdmin(ModelAdmin):
     list_display = ("day", "part", "session_type", "status", "clinician", "covering")
-    list_filter = ("status",)
+    list_filter = ("status", "session_type", ("day", RangeDateFilter))
+    search_fields = ("details", "clinician__name", "covering__name")
+    list_select_related = ("session_type", "clinician", "covering")
 
 
 @admin.register(SwapRequest)
-class SwapRequestAdmin(admin.ModelAdmin):
+class SwapRequestAdmin(ModelAdmin):
     list_display = ("proposer", "colleague", "status", "created_at")
     list_filter = ("status",)
+    search_fields = ("proposer__name", "colleague__name")
 
 
 @admin.register(BreatheAbsence)
-class BreatheAbsenceAdmin(admin.ModelAdmin):
+class BreatheAbsenceAdmin(ModelAdmin):
     list_display = ("clinician", "kind", "reason", "start_date", "end_date",
                     "half_start_am_pm", "half_end_am_pm")
-    list_filter = ("kind",)
+    list_filter = ("kind", ("start_date", RangeDateFilter))
+    search_fields = ("clinician__name", "reason")
     readonly_fields = [f.name for f in BreatheAbsence._meta.fields]
 
     def has_add_permission(self, request):
@@ -674,7 +700,7 @@ class BreatheAbsenceAdmin(admin.ModelAdmin):
 
 
 @admin.register(BreatheLeaveMapping)
-class BreatheLeaveMappingAdmin(admin.ModelAdmin):
+class BreatheLeaveMappingAdmin(ModelAdmin):
     list_display = ("kind", "reason", "session_type")
     list_filter = ("kind",)
 
@@ -702,7 +728,7 @@ def _unmapped_absence_count():
 
 
 @admin.register(BreatheSyncRun)
-class BreatheSyncRunAdmin(admin.ModelAdmin):
+class BreatheSyncRunAdmin(ModelAdmin):
     list_display = ("started", "ok", "n_deduped", "n_unlinked", "error")
     readonly_fields = [f.name for f in BreatheSyncRun._meta.fields]
     change_list_template = "admin/rota/breathesyncrun/change_list.html"
@@ -745,3 +771,6 @@ class BreatheSyncRunAdmin(admin.ModelAdmin):
         else:
             messages.error(request, f"Sync failed: {run.error}")
         return redirect("admin:rota_breathesyncrun_changelist")
+
+
+from . import admin_system  # noqa: E402,F401 — re-registers the System tables on unfold

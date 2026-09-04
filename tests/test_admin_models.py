@@ -207,3 +207,46 @@ def test_settings_render_weekday_checkboxes_and_warn_on_no_days(admin_client):
     assert "open on no days" in resp.content.decode()
     s.refresh_from_db()
     assert s.open_weekdays == ""
+
+
+# ---------------------------------------------------------------- records ---
+
+def test_rota_entries_search_and_filter(admin_client):
+    from tests.factories import make_entry
+    c = make_clinician("Searchable Sam")
+    make_entry(c, note="bring laptop")
+    html = admin_client.get("/admin/rota/rotaentry/?q=laptop").content.decode()
+    assert "Searchable Sam" in html
+    assert "day__year=" in html, "the date hierarchy renders a year link once an entry exists"
+
+
+def test_the_audit_log_is_read_only(admin_client):
+    from rota.models import RotaEntryLog
+    log = RotaEntryLog.objects.create(day=date.today(), action="created", detail="x")
+    assert admin_client.get("/admin/rota/rotaentrylog/add/").status_code == 403
+    html = _change(admin_client, log)
+    assert 'name="detail"' not in html
+
+
+def test_locum_requirements_filter_by_status_and_search_covering(admin_client):
+    from rota.models import LocumRequirement
+    covered = make_clinician("Cara Covered")
+    LocumRequirement.objects.create(day=date.today(), part="AM",
+                                    session_type=make_session_type("Duty"),
+                                    status="APPROVED", covering=covered)
+    html = admin_client.get("/admin/rota/locumrequirement/?q=Cara").content.decode()
+    assert "Cara Covered" in html and "Need approved" in html
+
+
+# ---------------------------------------------------------------- system ---
+
+@pytest.mark.parametrize("url", ["/admin/axes/accessattempt/", "/admin/axes/accesslog/",
+                                 "/admin/axes/accessfailurelog/", "/admin/auth/group/"])
+def test_system_tables_render_inside_unfold_for_superusers(staff_client, url):
+    from unfold.admin import ModelAdmin
+    from django.contrib import admin
+    html = staff_client.get(url).content.decode()
+    assert "Practice Rota" in html
+    model = next(m for m in admin.site._registry
+                 if f"/admin/{m._meta.app_label}/{m._meta.model_name}/" == url)
+    assert isinstance(admin.site._registry[model], ModelAdmin)
