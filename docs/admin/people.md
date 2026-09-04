@@ -99,7 +99,8 @@ You cannot add one for them — only the device that holds the key can — but
 you can revoke one: open their login account, and under **Passkeys** tick
 *Delete* on the lost device's row and save. Passkeys are bound to this
 site's address; if the rota ever moves to a different domain, everyone
-enrols again.
+enrols again. Someone locked out after too many wrong passwords can still
+sign in with their passkey.
 
 ### Active
 

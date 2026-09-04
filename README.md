@@ -124,6 +124,11 @@ Cloudflare's `CF-Connecting-IP`, believed only when the request arrives from
 `TRUSTED_PROXY_IPS` (loopback by default, where cloudflared connects) — see
 `accounts/client_ip.py` for why it is that header and not `X-Forwarded-For`.
 
+A password lockout does not block signing in with a passkey: a passkey proves
+possession of the device, which is the stronger claim. A forged passkey
+assertion still counts against the address and the account like a wrong
+password does.
+
 Nothing to configure for a standard tunnel. **Do verify the header actually
 arrives**, because if it does not, every attempt is recorded as `127.0.0.1`
 and address-based lockout quietly stops meaning anything:
