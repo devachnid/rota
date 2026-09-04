@@ -233,6 +233,12 @@ AXES_LOCKOUT_PARAMETERS = ["username", "ip_address"]
 AXES_USERNAME_FORM_FIELD = "username"
 AXES_RESET_ON_SUCCESS = True
 
+# AccessAttempt is a counter, and AXES_RESET_ON_SUCCESS wipes it for the
+# whole address as soon as anyone there logs in — so the admin's "Access
+# attempts" reads empty minutes after real failures. The failure log is the
+# permanent record; axes leaves it off by default.
+AXES_ENABLE_ACCESS_FAILURE_LOG = True
+
 # axes requires a request object during authenticate(), which the test
 # client's login()/force_login() don't provide — disable it under pytest.
 if _TESTING:

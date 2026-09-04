@@ -1,6 +1,7 @@
 """Every email leaves through accounts/mail.py. These pin the link it mints,
 the headers it sets, what it returns when it cannot send, and the throttle."""
 
+import logging
 import smtplib
 from datetime import timedelta
 
@@ -145,3 +146,37 @@ def test_a_signed_in_gp_is_not_named_as_the_contact(rf, configured, gp_user):
     colleague = User.objects.create_user(email="colleague@example.com", password="pw")
     send_password_link(_request(rf, gp_user), colleague, invite=False)
     assert "ask a rota admin" in mail.outbox[0].body
+
+
+def test_any_failure_in_sending_is_a_link_to_copy_not_a_crash(rf, configured, monkeypatch,
+                                                              admin_user, gp_user, caplog):
+    """Django's own address parsing raises ValueError and TLS raises ssl
+    errors — the relay path can raise more than smtplib's family, and
+    nothing it raises may reach a page. The traceback goes to the journal."""
+    def refuse(self, fail_silently=False):
+        raise ValueError("Invalid address; only 'x' could be parsed")
+    monkeypatch.setattr(EmailMessage, "send", refuse)
+    with caplog.at_level(logging.ERROR, logger="accounts.mail"):
+        result = send_password_link(_request(rf, admin_user), gp_user, invite=False)
+    assert isinstance(result, LinkToCopy) and "Invalid address" in result.reason
+    assert "could not be sent" in caplog.text and "ValueError" in caplog.text
+    gp_user.refresh_from_db()
+    assert gp_user.password_link_sent_at is not None       # the admin was handed the link
+
+
+def test_a_failed_public_send_does_not_start_the_throttle(rf, configured, monkeypatch, gp_user):
+    """The stamp means "a link was handed out". A public request whose send
+    failed handed out nothing — so the next attempt must send, not be told
+    to wait five minutes. (Staging: a 500 on the first submit, then a
+    silent "check your email" with no email on the second.)"""
+    def refuse(self, fail_silently=False):
+        raise ValueError("Invalid address")
+    monkeypatch.setattr(EmailMessage, "send", refuse)
+    assert isinstance(send_password_link(_request(rf), gp_user, invite=False, throttle=True), LinkToCopy)
+    gp_user.refresh_from_db()
+    assert gp_user.password_link_sent_at is None
+    monkeypatch.undo()
+    assert send_password_link(_request(rf), gp_user, invite=False, throttle=True) is None
+    assert len(mail.outbox) == 1
+    gp_user.refresh_from_db()
+    assert gp_user.password_link_sent_at is not None
