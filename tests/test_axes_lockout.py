@@ -129,3 +129,39 @@ def test_a_spoofed_header_cannot_be_rotated_to_evade_the_limit():
     assert blocked.status_code != 302, (
         "rotating CF-Connecting-IP from an untrusted peer evaded the lockout"
     )
+
+
+@pytest.mark.django_db
+@axes_on
+def test_attempts_are_recorded_against_the_email_for_both_ways_in(gp_user):
+    """AXES_USERNAME_FORM_FIELD names the key Django's form and the passkey
+    view both send; without it every row carried username=None and the
+    username half of AXES_LOCKOUT_PARAMETERS never locked anything."""
+    import json
+    from axes.models import AccessAttempt
+    from tests.soft_authenticator import SoftAuthenticator
+
+    _login(HOME, "gp@example.com", "wrong")
+    assert list(AccessAttempt.objects.values_list("username", flat=True)) == ["gp@example.com"]
+    AccessAttempt.objects.all().delete()
+
+    gp = Client()
+    gp.force_login(gp_user)
+    auth = SoftAuthenticator()
+    options = gp.post("/accounts/passkeys/register/options/", data="{}",
+                      content_type="application/json").json()
+    assert gp.post("/accounts/passkeys/register/",
+                   data=json.dumps({"credential": auth.create(options), "name": "phone"}),
+                   content_type="application/json").status_code == 200
+    forger = SoftAuthenticator()
+    forger.credential_id = auth.credential_id
+    anon = Client()
+    options = anon.post("/accounts/passkeys/login/options/", data="{}",
+                        content_type="application/json",
+                        REMOTE_ADDR=TUNNEL, HTTP_CF_CONNECTING_IP=HOME).json()
+    resp = anon.post("/accounts/passkeys/login/",
+                     data=json.dumps({"credential": forger.get(options)}),
+                     content_type="application/json",
+                     REMOTE_ADDR=TUNNEL, HTTP_CF_CONNECTING_IP=HOME)
+    assert resp.status_code == 400
+    assert list(AccessAttempt.objects.values_list("username", flat=True)) == ["gp@example.com"]

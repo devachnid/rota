@@ -10,10 +10,12 @@ what binds every passkey to the domain the app is served from — move the
 app and every passkey is re-enrolled.
 """
 
+import logging
 import time
 import uuid
 
 import webauthn
+from django.db import IntegrityError
 from django.utils import timezone
 from webauthn.helpers import base64url_to_bytes, bytes_to_base64url, options_to_json
 from webauthn.helpers.exceptions import WebAuthnException
@@ -23,6 +25,8 @@ from webauthn.helpers.structs import (AttestationConveyancePreference,
                                       UserVerificationRequirement)
 
 from .models import Passkey
+
+logger = logging.getLogger(__name__)
 
 RP_NAME = "Practice Rota"
 SESSION_KEY = "passkey_challenge"
@@ -84,8 +88,19 @@ def _spend(request):
     return base64url_to_bytes(challenge)
 
 
+def _could_not_verify(exc):
+    """The library refused the browser's bytes — or, if it raised a builtin,
+    tripped over them. The second case gets a line in the journal: it is a
+    hostile payload or a library change, and neither should hide behind a
+    friendly 400."""
+    if not isinstance(exc, WebAuthnException):
+        logger.warning("passkey verification raised %s", exc.__class__.__name__, exc_info=True)
+    return PasskeyError(f"The passkey could not be verified ({exc.__class__.__name__}: {exc}).")
+
+
 def registration_options(request, user):
     options = webauthn.generate_registration_options(
+        timeout=CHALLENGE_TTL * 1000,      # the browser's own abort, matched to ours
         rp_id=rp_id(request), rp_name=RP_NAME,
         user_id=str(user.pk).encode(), user_name=user.email,
         attestation=AttestationConveyancePreference.NONE,
@@ -110,7 +125,11 @@ def complete_registration(request, user, credential, name):
             expected_rp_id=rp_id(request), expected_origin=origin(request),
             require_user_verification=True)
     except LIBRARY_ERRORS as exc:
-        raise PasskeyError(f"The passkey could not be verified ({exc.__class__.__name__}: {exc}).")
+        raise _could_not_verify(exc)
+    # WebAuthn caps a credential id at 1023 bytes; the library reads a
+    # 2-byte length and SQLite ignores max_length, so refuse it here.
+    if len(verified.credential_id) > 1023:
+        raise PasskeyError("The passkey could not be verified (credential id too long).")
     aaguid = None if verified.aaguid in (None, NO_AAGUID) else uuid.UUID(verified.aaguid)
     # The library validates everything it verifies; transports it merely
     # echoes, so filter the browser's list ourselves. A bare string is
@@ -118,21 +137,26 @@ def complete_registration(request, user, credential, name):
     # container itself must be checked, not just its elements.
     raw_transports = credential.get("response", {}).get("transports")
     transports = [t for t in raw_transports if isinstance(t, str)] if isinstance(raw_transports, list) else []
-    return Passkey.objects.create(
-        user=user,
-        credential_id=bytes_to_base64url(verified.credential_id),
-        public_key=bytes_to_base64url(verified.credential_public_key),
-        sign_count=verified.sign_count,
-        transports=",".join(transports)[:200],
-        aaguid=aaguid,
-        name=(name or "").strip()[:60] or KNOWN_AAGUIDS.get(str(aaguid), "Passkey"),
-    )
+    try:
+        return Passkey.objects.create(
+            user=user,
+            credential_id=bytes_to_base64url(verified.credential_id),
+            public_key=bytes_to_base64url(verified.credential_public_key),
+            sign_count=verified.sign_count,
+            transports=",".join(transports)[:200],
+            aaguid=aaguid,
+            name=(name or "").strip()[:60] or KNOWN_AAGUIDS.get(str(aaguid), "Passkey"),
+        )
+    except IntegrityError:
+        # excludeCredentials is only a hint to the browser.
+        raise PasskeyError("That passkey is already registered here.")
 
 
 def login_options(request):
     """No allowCredentials: the authenticator offers whichever discoverable
     key it holds for this RP, so nobody types an email."""
     options = webauthn.generate_authentication_options(
+        timeout=CHALLENGE_TTL * 1000,
         rp_id=rp_id(request), user_verification=UserVerificationRequirement.REQUIRED)
     _stash(request, options.challenge)
     return options_to_json(options)
@@ -155,7 +179,7 @@ def verify_login(request, credential):
             credential_current_sign_count=passkey.sign_count,
             require_user_verification=True)
     except LIBRARY_ERRORS as exc:
-        error = PasskeyError(f"The passkey could not be verified ({exc.__class__.__name__}: {exc}).")
+        error = _could_not_verify(exc)
         error.passkey = passkey
         raise error
     passkey.sign_count = verified.new_sign_count
