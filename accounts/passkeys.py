@@ -15,7 +15,7 @@ import time
 import uuid
 
 import webauthn
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 from webauthn.helpers import base64url_to_bytes, bytes_to_base64url, options_to_json
 from webauthn.helpers.exceptions import WebAuthnException
@@ -138,15 +138,18 @@ def complete_registration(request, user, credential, name):
     raw_transports = credential.get("response", {}).get("transports")
     transports = [t for t in raw_transports if isinstance(t, str)] if isinstance(raw_transports, list) else []
     try:
-        return Passkey.objects.create(
-            user=user,
-            credential_id=bytes_to_base64url(verified.credential_id),
-            public_key=bytes_to_base64url(verified.credential_public_key),
-            sign_count=verified.sign_count,
-            transports=",".join(transports)[:200],
-            aaguid=aaguid,
-            name=(name or "").strip()[:60] or KNOWN_AAGUIDS.get(str(aaguid), "Passkey"),
-        )
+        # A savepoint, so a refused insert does not poison the caller's
+        # transaction (Django's documented way to catch IntegrityError).
+        with transaction.atomic():
+            return Passkey.objects.create(
+                user=user,
+                credential_id=bytes_to_base64url(verified.credential_id),
+                public_key=bytes_to_base64url(verified.credential_public_key),
+                sign_count=verified.sign_count,
+                transports=",".join(transports)[:200],
+                aaguid=aaguid,
+                name=(name or "").strip()[:60] or KNOWN_AAGUIDS.get(str(aaguid), "Passkey"),
+            )
     except IntegrityError:
         # excludeCredentials is only a hint to the browser.
         raise PasskeyError("That passkey is already registered here.")
