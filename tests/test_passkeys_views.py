@@ -2,6 +2,7 @@
 client with a software authenticator."""
 
 import json
+import logging
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -158,3 +159,15 @@ def test_a_bad_assertion_for_a_known_passkey_counts_as_a_failed_login(gp_client,
     finally:
         user_login_failed.disconnect(dispatch_uid="test-passkey-failed")
     assert "_auth_user_id" not in anon.session
+
+
+def test_a_rejected_registration_tells_the_person_nothing_about_why(gp_client, caplog):
+    """The library's reason goes to the journal, never to the client — good
+    manners on a login endpoint, and CodeQL's py/stack-trace-exposure."""
+    options = _post_json(gp_client, REG_OPTIONS).json()
+    evil = SoftAuthenticator(origin="https://evil.example").create(options)
+    with caplog.at_level(logging.INFO, logger="accounts.passkeys"):
+        resp = _post_json(gp_client, REGISTER, {"credential": evil})
+    assert resp.status_code == 400
+    assert resp.json() == {"error": "The passkey could not be verified."}
+    assert "InvalidRegistrationResponse" in caplog.text and "origin" in caplog.text
