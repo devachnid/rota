@@ -150,7 +150,9 @@ going only to the journal. That has happened.
     systemctl restart rota
 
 `check --deploy` verifies that every asset the templates reference is in the
-manifest, so run it before the restart rather than after. It has to be
+manifest, and that every stored weekday and month list still parses (`rota.E006`
+names the record to open and save if not), so run it before the restart rather
+than after. It has to be
 `--deploy` rather than plain `check`: an ordinary check would also run during
 `collectstatic` and `migrate`, which legitimately run before a manifest
 exists.

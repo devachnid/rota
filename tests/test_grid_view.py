@@ -80,6 +80,10 @@ def test_closed_day_styled(admin_client):
     ClosedDay.objects.create(day=MON, reason="Bank holiday")
     html = admin_client.get(URL).content.decode()
     assert "closed" in html
+    # Both header rows: the day-name cell and the AM/PM cells beneath it,
+    # or the closed column reads two-tone.
+    assert html.count('class="grid-day closed"') == 1
+    assert html.count('class="grid-part closed"') == 2
 
 
 def test_own_row_highlighted(gp_client, gp_user):

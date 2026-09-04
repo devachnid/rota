@@ -174,3 +174,48 @@ def test_a_sender_django_cannot_parse_is_an_error_naming_the_fix(settings):
     assert "quoted" in found[0].hint
     settings.DEFAULT_FROM_EMAIL = '"Rota @ Ashgrove Medical Group" <rota@example.org>'
     assert _email() == []
+
+
+# --------------------------------------------------------------------------
+# Stored weekday/month lists. The forms validate them, but a value stored
+# before the parser was made strict sits in the database and 500s the grid,
+# the day view and My Schedule on every request.
+# --------------------------------------------------------------------------
+
+def _ranges():
+    return checks.stored_ranges_parse(None)
+
+
+@pytest.mark.django_db
+def test_clean_range_fields_pass():
+    from rota.models import PracticeSettings
+    PracticeSettings.load()
+    assert _ranges() == []
+
+
+@pytest.mark.django_db
+def test_a_stored_range_that_no_longer_parses_is_an_error_naming_the_record():
+    from rota.models import CoverageRule, PracticeSettings
+    from tests.factories import make_session_type
+    ps = PracticeSettings.load()
+    ps.open_weekdays = "0,1,2,3,4,"          # a trailing comma, savable before the strict parser
+    ps.save()                                 # .save() does not run clean(); the form does
+    CoverageRule.objects.create(session_type=make_session_type("Duty", code="DUTY"), months="1,2,13")
+    found = _ranges()
+    assert [f.id for f in found] == ["rota.E006"] and isinstance(found[0], Error)
+    assert "open_weekdays" in found[0].msg and "'0,1,2,3,4,'" in found[0].msg
+    assert "months" in found[0].msg and "13" in found[0].msg and "Duty" in found[0].msg
+    assert "admin" in found[0].hint
+
+
+def test_the_range_check_is_quiet_before_the_database_exists(monkeypatch):
+    """A first deploy runs check --deploy before anything is in the database;
+    CI runs it against a database that does not exist at all."""
+    from django.db import OperationalError
+    from rota.models import PracticeSettings
+
+    class NoTable:
+        def all(self):
+            raise OperationalError("no such table: rota_practicesettings")
+    monkeypatch.setattr(PracticeSettings, "objects", NoTable())
+    assert _ranges() == []
