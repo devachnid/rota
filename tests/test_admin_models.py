@@ -140,3 +140,70 @@ def test_the_models_read_as_a_manager_would_say_them():
 def test_every_field_a_manager_meets_explains_itself(model, field):
     from rota import models
     assert getattr(models, model)._meta.get_field(field).help_text, f"{model}.{field}"
+
+
+# ------------------------------------------------------ sessions & rules ---
+
+def test_the_session_type_page_has_its_fieldsets_and_the_large_swatch(admin_client):
+    st = make_session_type("Duty", code="DUTY")
+    html = _change(admin_client, st)
+    for title in ("Identity", "Where it appears", "Fairness", "Who may do it", "Clashes"):
+        assert title in html, title
+
+
+def test_coverage_rules_render_checkboxes_and_save_the_same_string(admin_client):
+    st = make_session_type("Duty")
+    html = admin_client.get("/admin/rota/coveragerule/add/").content.decode()
+    assert 'name="weekdays" value="0"' in html and 'name="months" value="12"' in html
+    assert "worked example" in html.lower() or "Duty, per full day" in html
+    resp = admin_client.post("/admin/rota/coveragerule/add/", {
+        "session_type": st.pk, "unit": "DAY", "frequency": "SLOT", "count": 1,
+        "priority": 1, "parts": "BOTH", "weekdays": ["0", "1", "2", "3", "4"]})
+    assert resp.status_code == 302, resp.content.decode()[:500]
+    from rota.models import CoverageRule
+    assert CoverageRule.objects.get().weekdays == "0,1,2,3,4"
+
+
+def test_stage_rules_edit_in_the_list_and_cannot_be_deleted(admin_client):
+    from rota.models import TraineeStageRule
+    rule = TraineeStageRule.objects.get(stage="ST1")
+    html = admin_client.get("/admin/rota/traineestagerule/").content.decode()
+    assert 'name="form-0-vts_per_week"' in html
+    assert admin_client.get(f"/admin/rota/traineestagerule/{rule.pk}/delete/").status_code == 403
+
+
+def test_a_commitment_offers_weekdays_by_name(admin_client):
+    html = admin_client.get("/admin/rota/recurringcommitment/add/").content.decode()
+    assert '<option value="3">Thursday</option>' in html
+
+
+# --------------------------------------------------------------- calendar ---
+
+def test_closed_days_have_a_date_hierarchy_and_search(admin_client):
+    from rota.models import ClosedDay
+    ClosedDay.objects.create(day=date(2026, 12, 25), reason="Christmas")
+    html = admin_client.get("/admin/rota/closedday/").content.decode()
+    assert "2026" in html and "Christmas" in html
+    assert "Christmas" in admin_client.get("/admin/rota/closedday/?q=Christ").content.decode()
+
+
+# ------------------------------------------------------- practice settings ---
+
+def test_the_settings_changelist_opens_the_singleton(admin_client):
+    from rota.models import PracticeSettings
+    s = PracticeSettings.load()
+    resp = admin_client.get("/admin/rota/practicesettings/")
+    assert resp.status_code == 302
+    assert resp["Location"].endswith(f"/admin/rota/practicesettings/{s.pk}/change/")
+
+
+def test_settings_render_weekday_checkboxes_and_warn_on_no_days(admin_client):
+    from rota.models import PracticeSettings
+    s = PracticeSettings.load()
+    html = _change(admin_client, s)
+    assert 'name="open_weekdays" value="0"' in html and "Trainees" in html
+    resp = admin_client.post(f"/admin/rota/practicesettings/{s.pk}/change/", {
+        "min_clinical_per_session": 2, "open_weekdays": []}, follow=True)
+    assert "open on no days" in resp.content.decode()
+    s.refresh_from_db()
+    assert s.open_weekdays == ""

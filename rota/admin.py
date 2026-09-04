@@ -1,5 +1,6 @@
 from datetime import date, timedelta
 
+from django import forms
 from django.contrib import admin, messages
 from django.contrib.admin.utils import NestedObjects
 from django.db import router
@@ -10,6 +11,7 @@ from django.utils.html import format_html
 from django.utils.text import capfirst
 
 from unfold.admin import ModelAdmin, StackedInline, TabularInline
+from unfold.contrib.filters.admin import RangeDateFilter
 from unfold.decorators import display
 
 from .models import (BreatheAbsence, BreatheLeaveMapping, BreatheSyncRun,
@@ -19,6 +21,7 @@ from .models import (BreatheAbsence, BreatheLeaveMapping, BreatheSyncRun,
                      SessionType, Site, SwapRequest, TraineeProfile, TraineeStageRule)
 from .services.patterns import bulk_set_pattern, current_pattern
 from .services.breathe import client as breathe_client, sync as breathe_sync
+from .admin_forms import WEEKDAYS, CoverageRuleForm, PracticeSettingsForm
 from .admin_widgets import (BreatheEmployeeSelect, TintSwatchSelect,
                             breathe_employees, employee_label)
 
@@ -90,6 +93,11 @@ class RecurringCommitmentInline(TabularInline):
     fields = ("session_type", "weekday", "part", "site", "active_from",
               "active_until", "interval_weeks")
     verbose_name_plural = "Recurring commitments"
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        if db_field.name == "weekday":
+            kwargs["widget"] = forms.Select(choices=WEEKDAYS)
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
 
 
 class BreatheLinkedFilter(admin.SimpleListFilter):
@@ -337,12 +345,34 @@ class ClinicianAdmin(ModelAdmin):
 
 
 @admin.register(SessionType)
-class SessionTypeAdmin(admin.ModelAdmin):
+class SessionTypeAdmin(ModelAdmin):
     list_display = ("name", "code", "category", "colour_swatch",
                     "fairness_tracked", "pin_on_day_view")
     list_filter = ("pin_on_day_view", "fairness_tracked", "category")
+    search_fields = ("name", "code")
     filter_horizontal = ("allowed_clinicians", "allowed_groups", "blocks_same_day")
     readonly_fields = ("legacy_colour",)
+    fieldsets = (
+        ("Identity", {"fields": ("name", "code", "colour")}),
+        ("Where it appears", {
+            "fields": ("category", "pin_on_day_view", "default_site"),
+            "description": "Pin the roles someone opens the day view to check — Duty "
+                           "above all. Default site is stamped on entries the fill "
+                           "engine creates.",
+        }),
+        ("Fairness", {"fields": ("fairness_tracked",)}),
+        ("Who may do it", {
+            "fields": ("allowed_clinicians", "allowed_groups"),
+            "description": "Leave both empty and anyone may do it. Otherwise only the "
+                           "named clinicians and groups are eligible.",
+        }),
+        ("Clashes", {
+            "fields": ("blocks_same_day",),
+            "description": "A clinician holding this type on a day is not "
+                           "auto-assigned any of these the same day.",
+        }),
+        ("History", {"fields": ("legacy_colour",), "classes": ("collapse",)}),
+    )
 
     def formfield_for_dbfield(self, db_field, request, **kwargs):
         if db_field.name == "colour":
@@ -358,7 +388,10 @@ class SessionTypeAdmin(admin.ModelAdmin):
             tint.bg, tint.fg, tint.label)
 
 
-admin.site.register(Site)
+@admin.register(Site)
+class SiteAdmin(ModelAdmin):
+    list_display = ("name",)
+    search_fields = ("name",)
 
 
 @admin.register(PatternSlot)
@@ -501,15 +534,33 @@ class PatternSlotAdmin(admin.ModelAdmin):
 
 
 @admin.register(CoverageRule)
-class CoverageRuleAdmin(admin.ModelAdmin):
+class CoverageRuleAdmin(ModelAdmin):
+    form = CoverageRuleForm
     list_display = ("session_type", "unit", "frequency", "parts", "weekdays",
                     "months", "count", "priority")
+    list_editable = ("priority",)
+    list_filter = ("session_type", "frequency", "unit")
+    fieldsets = (
+        ("What", {
+            "fields": ("session_type", "unit", "frequency", "count"),
+            "description": "A worked example: Duty, per full day, per slot, count 1, "
+                           "priority 1 means one clinician holds Duty all day, every "
+                           "open day, and this rule is filled before any other.",
+        }),
+        ("When", {"fields": ("parts", "weekdays", "months", "preferred_weekdays")}),
+        ("Order", {
+            "fields": ("priority",),
+            "description": "Lower fills first. When two rules want the same person, "
+                           "the lower number gets them.",
+        }),
+    )
 
 
 @admin.register(TraineeStageRule)
-class TraineeStageRuleAdmin(admin.ModelAdmin):
+class TraineeStageRuleAdmin(ModelAdmin):
     list_display = ("stage", "vts_per_week", "sdl_per_week",
                     "mentoring_per_week", "vts_weekday", "vts_part")
+    list_editable = ("vts_per_week", "sdl_per_week", "mentoring_per_week")
 
     def has_delete_permission(self, request, obj=None):
         # The four rows are reference data seeded by migration, not user
@@ -527,22 +578,60 @@ class TraineeProfileAdmin(ModelAdmin):
 
 
 @admin.register(RecurringCommitment)
-class RecurringCommitmentAdmin(admin.ModelAdmin):
+class RecurringCommitmentAdmin(ModelAdmin):
     list_display = ("clinician", "weekday", "part", "session_type", "site",
                     "interval_weeks", "active_from", "active_until")
-    list_filter = ("clinician",)
+    list_filter = ("clinician", "session_type", ("active_from", RangeDateFilter))
+    search_fields = ("clinician__name",)
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        if db_field.name == "weekday":
+            kwargs["widget"] = forms.Select(choices=WEEKDAYS)
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
 
 
-admin.site.register(ClosedDay)
-admin.site.register(DayNote)
+@admin.register(ClosedDay)
+class ClosedDayAdmin(ModelAdmin):
+    list_display = ("day", "reason")
+    date_hierarchy = "day"
+    search_fields = ("reason",)
+    ordering = ("-day",)
+
+
+@admin.register(DayNote)
+class DayNoteAdmin(ModelAdmin):
+    list_display = ("day", "text")
+    date_hierarchy = "day"
+    search_fields = ("text",)
+    ordering = ("-day",)
 
 
 @admin.register(PracticeSettings)
-class PracticeSettingsAdmin(admin.ModelAdmin):
+class PracticeSettingsAdmin(ModelAdmin):
+    form = PracticeSettingsForm
+    fieldsets = (
+        ("Opening", {"fields": ("open_weekdays",)}),
+        ("Fill", {"fields": ("min_clinical_per_session", "default_fill_session_type")}),
+        ("Trainees", {
+            "fields": ("vts_session_type", "sdl_session_type", "mentoring_session_type"),
+            "description": "Only for a practice with trainees. A blank type skips that "
+                           "pass of the fill — no error.",
+        }),
+    )
+
     def has_add_permission(self, request):
-        """PracticeSettings is a pk=1 singleton by convention
-        (PracticeSettings.load()) — refuse a second row."""
         return not PracticeSettings.objects.exists()
+
+    def changelist_view(self, request, extra_context=None):
+        """No changelist of one row: open the singleton."""
+        return redirect("admin:rota_practicesettings_change",
+                        PracticeSettings.load().pk)
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        if not obj.open_weekday_list():
+            messages.warning(request, "The surgery is open on no days: the grid "
+                                      "will show nothing until a weekday is ticked.")
 
 
 @admin.register(RotaEntry)
