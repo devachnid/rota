@@ -1,0 +1,7 @@
+{% for group, options, index in widget.optgroups %}{% for option in options %}
+<label class="flex items-center gap-2 py-1">
+  <input type="checkbox" name="{{ widget.name }}" value="{{ option.value }}"{% if option.selected %} checked{% endif %}>
+  <span class="grow">{{ option.label }}</span>
+  <input type="number" name="{{ widget.name }}_order_{{ option.value }}" min="1" max="7" class="w-14" aria-label="Order for {{ option.label }}" value="{{ option.order }}">
+</label>
+{% endfor %}{% endfor %}
