@@ -4,6 +4,11 @@ Reference for everything configurable at `/admin/`. One page per area, every
 field explained — what it does, what depends on it, and what goes wrong if it
 is set incorrectly.
 
+The admin now explains itself: every field carries a sentence, every page a
+short description, and the dashboard's Setup card walks a new practice
+through the eight steps in order. This guide is the reference for the
+"why" — read it when a setting does not do what you expected.
+
 The `README.md` in the project root has the *sequence* for a first-time setup.
 This is the *reference* for what each setting means once you are in there.
 
@@ -16,6 +21,7 @@ This is the *reference* for what each setting means once you are in there.
 | [Coverage rules](coverage-rules.md) | The rules that tell the fill engine what must be staffed, plus trainee stage rules |
 | [Day to day](day-to-day.md) | Assisted fill, rota entries, day notes, locums, leave, swaps, the audit log |
 | [Leave from Breathe](breathe.md) | Linking clinicians, the sync, what counts as off |
+| [Upgrading unfold](upgrading-unfold.md) | How to upgrade the admin package and what to test |
 
 ## The mental model
 

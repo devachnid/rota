@@ -1,5 +1,7 @@
 # Day to day
 
+**Where:** sidebar › Records › Rota entries / Audit log / Locum requirements / Swap requests
+
 Most of this is done from the app itself rather than `/admin/`. The admin
 entries exist for correcting things and for looking at history.
 

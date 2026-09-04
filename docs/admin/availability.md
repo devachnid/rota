@@ -1,5 +1,7 @@
 # Availability
 
+**Where:** sidebar › Working patterns › Pattern editor / Recurring commitments; Calendar › Closed days / Day notes
+
 Three separate things decide whether a clinician can be given a session:
 **pattern slots** (do they work it), **recurring commitments** (is it already
 spoken for), and **closed days** (is the practice open at all).

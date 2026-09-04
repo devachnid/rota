@@ -17,9 +17,21 @@ page per area, each field explained with what depends on it and what goes wrong
 if it is set wrong. The sequence below gets a new practice running; that guide
 is the reference for what the settings actually mean.
 
-## First-time setup (via /admin/)
+## First-time setup
 
 1. `python manage.py createsuperuser`
+2. Sign in and open **Admin**. The dashboard's **Setup** card lists eight
+   steps, each detected from the database and linked to where it is done;
+   follow it until it reads "Setup complete". The **Health** card beside it
+   is what to glance at afterwards.
+
+The sequence the checklist walks, for reference: practice settings → sites →
+clinician groups → session types → coverage rules → clinicians → working
+patterns → Breathe. Trainees, recurring commitments and locum bookings are
+day-to-day work, not setup — see [docs/admin/](docs/admin/README.md).
+
+### Appendix: the setup steps in detail
+
 2. Create clinician groups (e.g. Partner, Salaried, GPST, and a Locum group
    with "is locum group" ticked). Set display order and any per-session minimums.
 3. Create session types: Duty (fairness tracked), Routine, Visits, Admin, CPD,
@@ -31,9 +43,6 @@ is the reference for what the settings actually mean.
 7. Add closed days (bank holidays) as they come.
 8. Link each clinician to their Breathe employee — see
    docs/admin/breathe.md.
-
-### v2: trainees, commitments, and demand-driven clinics
-
 9. Mark trainers: tick `is_trainer` on any Clinician who can supervise a
    mentoring session (Clinician admin).
 10. Create a trainee profile for each trainee: on the Clinician admin page,

@@ -1,5 +1,7 @@
 # People
 
+**Where:** sidebar › People › Clinician groups / Clinicians / Login accounts; Working patterns › Trainee profiles
+
 ## Clinician groups
 
 `/admin/rota/cliniciangroup/` — the bands the practice is organised into:

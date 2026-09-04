@@ -1,5 +1,7 @@
 # Leave from Breathe
 
+**Where:** sidebar › Leave from Breathe › Sync status / Leave mapping / Absences
+
 Leave is not requested or approved in the rota. It is managed in BreatheHR and
 read from there — read-only, every fifteen minutes — so that the grid shows who
 is off and assisted fill never assigns them.
