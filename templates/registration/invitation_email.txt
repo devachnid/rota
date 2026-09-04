@@ -1,0 +1,10 @@
+{% autoescape off %}Hello,
+
+A Practice Rota login has been created for {{ email }}. Choose your password here:
+
+{{ link }}
+
+The link works until {{ expires|date:"j F" }} and can only be used once. If it has expired, you can ask {% if contact %}{{ contact }}{% else %}a rota admin{% endif %} to send another, or use "Forgotten your password?" on the login page.
+
+If you weren't expecting this, ignore it — nothing happens until the link is used.
+{% endautoescape %}

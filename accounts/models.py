@@ -28,6 +28,12 @@ class User(AbstractUser):
     email = models.EmailField(unique=True)
     is_rota_admin = models.BooleanField(default=False)
 
+    # When the last invitation or password-reset link was handed out — sent,
+    # or shown to an admin to copy. For an account with no usable password
+    # this is its invitation date; for any account it throttles the public
+    # reset form (accounts/mail.py). Null until the first link.
+    password_link_sent_at = models.DateTimeField(null=True, blank=True)
+
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
     objects = UserManager()
