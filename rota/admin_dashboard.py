@@ -32,6 +32,16 @@ def setup_steps():
     missing_patterns = clinicians_without_a_pattern().count()
     unlinked = _unlinked().count()
     any_active = Clinician.objects.filter(active=True).exists()
+    has_key = bool(settings.BREATHE_API_KEY)
+    synced = BreatheSyncRun.objects.filter(ok=True).exists()
+    if not has_key:
+        breathe_detail = "BREATHE_API_KEY is not set"
+    elif not synced:
+        breathe_detail = "no successful sync yet"
+    elif unlinked:
+        breathe_detail = f"{unlinked} not linked"
+    else:
+        breathe_detail = "key set, synced, everyone linked"
     steps = [
         {"title": "Practice settings",
          "done": bool(ps.open_weekday_list()) and ps.default_fill_session_type_id is not None,
@@ -40,10 +50,13 @@ def setup_steps():
         {"title": "Sites", "done": Site.objects.exists(),
          "detail": "at least one", "url": reverse("admin:rota_site_add")},
         {"title": "Clinician groups",
-         "done": ClinicianGroup.objects.exists()
-                 and ClinicianGroup.objects.filter(is_locum_group=True).count() == 1,
+         "done": ClinicianGroup.objects.filter(is_locum_group=True).count() == 1,
          "detail": "at least one, and exactly one locum group",
          "url": _cl("cliniciangroup")},
+        # Migration 0022_breathe seeds three ABSENCE-category types (AL/SICK/
+        # OTH), so on a real database this step reduces to "has a clinical
+        # type" — the absence half is kept so the checklist stays honest if
+        # those seeded rows are ever deleted.
         {"title": "Session types",
          "done": SessionType.objects.filter(category=SessionType.Category.CLINICAL).exists()
                  and SessionType.objects.filter(category=SessionType.Category.ABSENCE).exists(),
@@ -59,10 +72,8 @@ def setup_steps():
                     f"without one" if missing_patterns else "everyone has one"),
          "url": reverse("admin:rota_patternslot_bulk") + "?missing=1"},
         {"title": "Breathe",
-         "done": bool(settings.BREATHE_API_KEY)
-                 and BreatheSyncRun.objects.filter(ok=True).exists()
-                 and unlinked == 0,
-         "detail": (f"{unlinked} not linked" if unlinked else "key set, synced, everyone linked"),
+         "done": has_key and synced and unlinked == 0,
+         "detail": breathe_detail,
          "url": (_cl("clinician", breathe="unlinked", active__exact=1) if unlinked
                  else reverse("admin:rota_breathesyncrun_status"))},
     ]
@@ -104,12 +115,15 @@ def health():
         {"label": "Absences with no mapping", "count": unmapped_absence_count(),
          "url": _cl("breatheleavemapping"), "level": "warn"},
         {"label": "Days with staffing gaps this week", "count": gap_days,
-         "url": "/reports/staffing/", "level": "warn"},
+         "url": reverse("report-staffing"), "level": "warn"},
         {"label": "Locum needs not yet advertised (next fortnight)",
          "count": LocumRequirement.objects.filter(
              status__in=[LocumRequirement.Status.POSSIBLE, LocumRequirement.Status.APPROVED],
              day__range=(today, today + timedelta(days=14))).count(),
-         "url": _cl("locumrequirement", status__exact="POSSIBLE"), "level": "warn"},
+         "url": _cl("locumrequirement", status__in="POSSIBLE,APPROVED",
+                    day__gte=today.isoformat(),
+                    day__lte=(today + timedelta(days=14)).isoformat()),
+         "level": "warn"},
         {"label": "Trainee session types unset", "count": 1 if trainee_gap else 0,
          "url": reverse("admin:rota_practicesettings_change", args=[ps.pk]), "level": "warn"},
     ]

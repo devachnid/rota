@@ -5,7 +5,7 @@
 {% block branding %}{% include "unfold/helpers/site_branding.html" %}{% endblock %}
 
 {% block content %}
-<div class="flex flex-col gap-6 lg:flex-row lg:items-start">
+<div class="flex flex-col gap-6 lg:flex-row">
   <div class="lg:w-1/2">
     {% component "unfold/components/card.html" with title="Setup" %}
       {% if setup.complete %}
@@ -14,7 +14,7 @@
       {% else %}
         <p class="mb-3"><strong>{{ setup.done }} of {{ setup.total }} done</strong> — next: <a class="underline" href="{{ setup.next.url }}">{{ setup.next.title }}</a> ({{ setup.next.detail }}).</p>
       {% endif %}
-      <ol class="list-decimal pl-5 flex flex-col gap-1">
+      <ol class="rota-steps flex flex-col gap-1">
         {% for step in setup.steps %}
         <li class="{% if step.done %}text-base-500{% elif step == setup.next %}font-semibold{% endif %}">
           <a href="{{ step.url }}" class="underline">{{ step.title }}</a>
@@ -29,7 +29,7 @@
     {% component "unfold/components/card.html" with title="Health" %}
       <ul class="flex flex-col gap-2">
         {% for h in health %}
-        <li class="flex items-baseline gap-3{% if h.count == 0 %} text-base-500{% elif h.level == 'warn' and h.count != None %} text-red-600 dark:text-red-500 font-semibold{% endif %}">
+        <li class="flex items-center gap-3{% if h.count == 0 %} text-base-500{% elif h.level == 'warn' and h.count != None %} text-red-600 dark:text-red-500 font-semibold{% endif %}">
           <a href="{{ h.url }}" class="underline grow">{{ h.label }}</a>
           {% if h.count != None %}<span>{{ h.count }}</span>{% else %}<span class="{% if h.level == 'warn' %}text-red-600 dark:text-red-500{% endif %}">{{ h.detail }}</span>{% endif %}
         </li>
