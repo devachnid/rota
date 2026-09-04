@@ -226,6 +226,16 @@ def test_the_audit_log_is_read_only(admin_client):
     assert admin_client.get("/admin/rota/rotaentrylog/add/").status_code == 403
     html = _change(admin_client, log)
     assert 'name="detail"' not in html
+    assert "delete_selected" not in admin_client.get("/admin/rota/rotaentrylog/").content.decode()
+
+
+def test_the_audit_log_cannot_be_deleted(admin_client):
+    from rota.models import RotaEntryLog
+    log = RotaEntryLog.objects.create(day=date.today(), action="created", detail="x")
+    assert admin_client.get(f"/admin/rota/rotaentrylog/{log.pk}/delete/").status_code == 403
+    admin_client.post("/admin/rota/rotaentrylog/", {
+        "action": "delete_selected", "_selected_action": [log.pk], "post": "yes"})
+    assert RotaEntryLog.objects.filter(pk=log.pk).exists()
 
 
 def test_locum_requirements_filter_by_status_and_search_covering(admin_client):

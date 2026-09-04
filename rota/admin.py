@@ -668,6 +668,10 @@ class RotaEntryLogAdmin(ModelAdmin):
     def has_change_permission(self, request, obj=None):
         return False
 
+    def has_delete_permission(self, request, obj=None):
+        # An audit trail a manager can erase is not one.
+        return False
+
 
 @admin.register(LocumRequirement)
 class LocumRequirementAdmin(ModelAdmin):
