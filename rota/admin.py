@@ -4,7 +4,7 @@ from django import forms
 from django.contrib import admin, messages
 from django.contrib.admin.utils import NestedObjects
 from django.db import router
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import redirect
 from django.urls import NoReverseMatch, path, reverse
 from django.utils import timezone
 from django.utils.html import format_html
@@ -16,10 +16,9 @@ from unfold.decorators import display
 
 from .models import (BreatheAbsence, BreatheLeaveMapping, BreatheSyncRun,
                      Clinician, ClinicianGroup, ClosedDay, CoverageRule,
-                     DayNote, LocumRequirement, Part,
+                     DayNote, LocumRequirement,
                      PatternSlot, PracticeSettings, RecurringCommitment, RotaEntry, RotaEntryLog,
                      SessionType, Site, SwapRequest, TraineeProfile, TraineeStageRule)
-from .services.patterns import bulk_set_pattern, current_pattern
 from .services.breathe import client as breathe_client, sync as breathe_sync
 from .admin_forms import WEEKDAYS, CoverageRuleForm, PracticeSettingsForm
 from .admin_widgets import (BreatheEmployeeSelect, TintSwatchSelect,
@@ -395,142 +394,17 @@ class SiteAdmin(ModelAdmin):
 
 
 @admin.register(PatternSlot)
-class PatternSlotAdmin(admin.ModelAdmin):
+class PatternSlotAdmin(ModelAdmin):
     list_display = ("clinician", "weekday", "part", "works", "effective_from")
     list_filter = ("clinician",)
-    change_list_template = "admin/rota/patternslot/change_list.html"
 
     def get_urls(self):
+        from .admin_pages import PatternEditorView
         return [
-            path("bulk/", self.admin_site.admin_view(self.bulk_view),
+            path("bulk/",
+                 self.admin_site.admin_view(PatternEditorView.as_view(model_admin=self)),
                  name="rota_patternslot_bulk"),
         ] + super().get_urls()
-
-    def bulk_view(self, request):
-        clinicians = Clinician.objects.filter(active=True).order_by("name")
-        clinician = None
-        clinician_id = (request.POST.get("clinician_id")
-                        or request.GET.get("clinician_id"))
-        if clinician_id:
-            clinician = get_object_or_404(Clinician, pk=clinician_id)
-
-        # Two names because raw_date answers two different questions and
-        # conflating them was the bug: raw_date (POST-or-GET) is what
-        # RENDERING should use -- it is how the post-save redirect restores
-        # the admin's context (?clinician_id=&effective_from=) on the next
-        # GET, and a first visit with no date at all should still default to
-        # today without erroring. posted_date (POST body only, no GET
-        # fallback) is the only thing a SAVE decision may look at: the form
-        # has no method="get" sibling any more, so anything the query string
-        # still carries is leftover context from a previous request, not
-        # something the admin just submitted. Without this split, clearing
-        # the date field and pressing Save on a URL the app's own redirect
-        # put you on (carrying a still-valid effective_from) silently wrote
-        # a row at that stale date -- raw_date fell back to the query string,
-        # so "not raw_date" never noticed the field was cleared.
-        raw_date = (request.POST.get("effective_from")
-                    or request.GET.get("effective_from") or "")
-        posted_date = request.POST.get("effective_from") or ""
-        date_error = ""
-        if raw_date:
-            try:
-                effective_from = date.fromisoformat(raw_date)
-            except ValueError:
-                # Never fall back to today: today is the value that overwrites
-                # the live pattern, so a typo would be destructive.
-                effective_from = date.today()
-                date_error = (f"{raw_date!r} is not a date (use YYYY-MM-DD). "
-                              f"Nothing was saved.")
-        else:
-            # A harmless display default for rendering (a first visit, or a
-            # load with no date chosen yet).
-            effective_from = date.today()
-
-        action = request.POST.get("action")
-        if request.method == "POST" and action == "save" and clinician \
-                and not posted_date:
-            # An explicit save with no date in the request body -- field
-            # cleared, or the key omitted entirely -- must be refused exactly
-            # like a malformed one, regardless of what effective_from the
-            # query string still holds from a previous redirect. Falling
-            # through to the date.today() display default here would
-            # reproduce the exact disaster this task exists to remove, just
-            # through a narrower door.
-            date_error = "Effective date is required. Nothing was saved."
-
-        if request.method == "POST" and action == "save" and clinician \
-                and not date_error:
-            desired = {
-                (weekday, part): f"d{weekday}_{part}" in request.POST
-                for weekday in range(7)
-                for part in Part.values
-            }
-            changed = bulk_set_pattern(clinician, effective_from, desired)
-            messages.success(
-                request,
-                f"Saved pattern for {clinician.name} effective "
-                f"{effective_from} ({changed} slot(s) changed).",
-            )
-            return redirect(
-                f"{request.path}?clinician_id={clinician.pk}"
-                f"&effective_from={effective_from.isoformat()}"
-            )
-
-        grid = None
-        history = []
-        if clinician:
-            # The pattern in force *on* the chosen date, not the day before
-            # it. For a date with no rows of its own the two are identical,
-            # so the add-a-future-change flow still opens on the pattern it
-            # would be changing. For a date that already has rows -- exactly
-            # what the Pattern history table invites an admin to click --
-            # the day-before view rendered those rows' own sessions
-            # unticked, and Save then posted the boxes as rendered and
-            # flipped them to works=False in place. Destroying the value it
-            # had just been asked to show.
-            #
-            # bulk_set_pattern's own `prior` lookup still compares against
-            # the day before, on purpose: that comparison is what makes a
-            # save write only genuine differences, and it is not what the
-            # admin is looking at.
-            in_force = current_pattern(clinician, effective_from)
-            grid = [
-                {
-                    "weekday": weekday,
-                    "label": WEEKDAY_LABELS[weekday],
-                    "am_checked": in_force.get((weekday, "AM"), False),
-                    "pm_checked": in_force.get((weekday, "PM"), False),
-                }
-                for weekday in range(7)
-            ]
-            history = self._pattern_history(clinician)
-
-        context = {
-            **self.admin_site.each_context(request),
-            "title": "Bulk edit clinician pattern",
-            "opts": self.model._meta,
-            "clinicians": clinicians,
-            "clinician": clinician,
-            "effective_from": effective_from,
-            "date_error": date_error,
-            "grid": grid,
-            "history": history,
-        }
-        return render(request, "admin/rota/patternslot/bulk_form.html", context)
-
-    @staticmethod
-    def _pattern_history(clinician):
-        """Every effective_from and what it sets, so the editor stops hiding
-        the fact that other dates exist."""
-        by_date = {}
-        for row in PatternSlot.objects.filter(clinician=clinician).order_by(
-            "effective_from", "weekday", "part"
-        ):
-            by_date.setdefault(row.effective_from, []).append(
-                f"{WEEKDAY_LABELS[row.weekday][:3]} {row.part}"
-                f"{'' if row.works else ' off'}")
-        return [{"effective_from": d, "sessions": ", ".join(v)}
-                for d, v in sorted(by_date.items())]
 
 
 @admin.register(CoverageRule)

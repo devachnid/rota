@@ -261,3 +261,36 @@ def test_the_post_save_redirect_lands_on_a_page_that_re_saves_identically(
     })
     assert {(r.weekday, r.part, r.works)
             for r in PatternSlot.objects.filter(clinician=clinician)} == after_first
+
+
+@pytest.mark.django_db
+def test_missing_preselects_the_first_clinician_without_a_pattern_and_lists_the_rest(staff_client):
+    from tests.factories import make_clinician, make_group, make_pattern
+    done = make_clinician("Done Already")
+    make_pattern(done)
+    a = make_clinician("Alan Empty")
+    b = make_clinician("Beth Empty")
+    locums = make_group("Locum", is_locum_group=True, display_order=99)
+    make_clinician("Idle Locum", group=locums)   # locums are never "missing"
+    html = staff_client.get(URL, {"missing": "1"}).content.decode()
+    assert f'<option value="{a.pk}" selected' in html
+    assert "Beth Empty" in html and "Idle Locum" not in html.split("<form")[0]
+
+
+@pytest.mark.django_db
+def test_saving_with_missing_set_offers_the_next_clinician(staff_client):
+    from tests.factories import make_clinician
+    a = make_clinician("Alan Empty")
+    make_clinician("Beth Empty")
+    resp = staff_client.post(URL + "?missing=1", {
+        "action": "save", "clinician_id": a.pk, "effective_from": "2026-01-05",
+        "d0_AM": "on"}, follow=True)
+    html = resp.content.decode()
+    assert "Next: Beth Empty" in html
+    assert "missing=1" in resp.redirect_chain[-1][0]
+
+
+@pytest.mark.django_db
+def test_the_editor_wears_the_admin_chrome(staff_client, clinician):
+    html = staff_client.get(URL, {"clinician_id": clinician.pk}).content.decode()
+    assert "Practice Rota" in html and "Pattern editor" in html
