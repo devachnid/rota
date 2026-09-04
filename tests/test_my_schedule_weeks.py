@@ -30,6 +30,23 @@ def _ctx(client):
     return client.get("/me/").context
 
 
+def _pin_today(monkeypatch, weekday=2):
+    """The view reads date.today(). On a weekend that is a non-open day, and
+    "closed" beats every other state — which is how CI first failed, on a
+    Saturday. Pin today to a weekday of the current week so the today-tests
+    mean the same thing every day of the week."""
+    real = date.today()
+    pinned = real - timedelta(days=real.weekday()) + timedelta(days=weekday)
+
+    class Today(date):
+        @classmethod
+        def today(cls):
+            return pinned
+
+    monkeypatch.setattr("rota.views.my_schedule.date", Today)
+    return pinned
+
+
 def test_there_are_four_week_blocks(gp_client, gp_user):
     make_clinician(user=gp_user)
     assert len(_ctx(gp_client)["weeks"]) == 4
@@ -165,24 +182,24 @@ def test_a_dashes_only_day_is_not_flagged_as_leave(gp_client, gp_user):
         assert row["is_leave"] is False
 
 
-def test_today_says_not_in_when_you_have_no_sessions(gp_client, gp_user):
+def test_today_says_not_in_when_you_have_no_sessions(gp_client, gp_user, monkeypatch):
+    _pin_today(monkeypatch)
     c = make_clinician(user=gp_user)
     make_pattern(c, weekdays=())
     assert _ctx(gp_client)["today_state"] == "not_in"
 
 
-def test_today_says_closed_when_the_surgery_is_shut(gp_client, gp_user):
+def test_today_says_closed_when_the_surgery_is_shut(gp_client, gp_user, monkeypatch):
+    today = _pin_today(monkeypatch)
     make_clinician(user=gp_user)
-    ClosedDay.objects.create(day=date.today(), reason="Bank holiday")
+    ClosedDay.objects.create(day=today, reason="Bank holiday")
     assert _ctx(gp_client)["today_state"] == "closed"
 
 
-def test_today_is_working_when_you_have_a_session(gp_client, gp_user):
+def test_today_is_working_when_you_have_a_session(gp_client, gp_user, monkeypatch):
+    today = _pin_today(monkeypatch)
     c = make_clinician(user=gp_user)
     make_pattern(c)
-    today = date.today()
-    if today.weekday() > 4:
-        pytest.skip("weekend: the practice is closed and this case cannot arise")
     make_entry(c, day=today, part="AM",
                session_type=make_session_type("Routine", code="ROUT"))
     assert _ctx(gp_client)["today_state"] == "working"
