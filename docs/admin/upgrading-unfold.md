@@ -9,7 +9,14 @@ documented hooks and nothing else:
 - `unfold.admin.ModelAdmin`, `StackedInline`, `TabularInline` — every admin.
 - `unfold.views.UnfoldModelAdminViewMixin` — the pattern editor and Sync
   status (`rota/admin_pages.py`).
-- `unfold.forms` — the login-account forms.
+- `unfold.forms` — the login-account change form and the superuser's
+  set-password form (the add form is the app's own `InviteForm`).
+- `unfold.decorators.action` with `actions_submit_line` — the login-account
+  page's **Send invitation again** / **Send password-reset link** button. It
+  relies on unfold's `ActionModelAdminMixin.save_model` calling the pressed
+  button's method after the save, and on `get_actions_submit_line()` deciding
+  which button renders *and* which may fire — guarded by
+  `tests/test_invitations.py`.
 - `unfold.contrib.filters.admin.RangeDateFilter`.
 - `{% component %}` with `unfold/components/card.html`, `container.html`,
   `title.html`, `button.html` — in `templates/admin/index.html` and the two
@@ -32,6 +39,8 @@ To upgrade: bump the pin, `pip install -r requirements.txt`, run the suite.
 `tests/test_admin_theme.py` checks the colour variables still reach the
 page; `tests/test_admin_css_classes.py` checks the borrowed Tailwind classes
 still exist in unfold's compiled CSS; the pattern-editor and Breathe tests
-check the custom pages. Then open the dashboard and one change form in both
+check the custom pages; `tests/test_invitations.py` and
+`tests/test_passkeys_admin.py` check the login-account page's buttons and
+its passkey inline. Then open the dashboard and one change form in both
 themes and look. If a component template's parameters changed, the two page
 templates are where it shows.

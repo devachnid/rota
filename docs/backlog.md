@@ -1,9 +1,12 @@
 # Post-merge backlog
 
-**Last checked against live code: 2026-08-31.** Entries here have gone stale
-before — two were already fixed when checked, and this file claimed the app was
-undeployed for a day after it went live. Verify before acting on anything
-recorded here.
+**Last checked against live code: 2026-09-04.** Entries here have gone stale
+before — two were already fixed when checked, this file claimed the app was
+undeployed for a day after it went live, and it listed Frontend Phase 2 as
+"not started" three days after it merged. Verify before acting on anything
+recorded here. On 2026-09-04 the two open items below were re-checked against
+the code (both still open) and everything the day's four merges parked was
+added.
 
 Three sweeps on 2026-08-23 cleared everything actionable that the v1 and
 autofill v2 review processes had accumulated:
@@ -22,6 +25,29 @@ autofill v2 review processes had accumulated:
   hygiene and the test-coverage gaps earlier reviews flagged.
 
 ## Settled
+
+- **Login accounts are invited, passwords are self-service, and passkeys are a
+  second way in** (2026-09-04, PRs #10–#13; spec
+  `docs/superpowers/specs/2026-09-04-account-access-design.md`). An admin
+  creates an account with an email and an Admin-status tick and never sees a
+  password; the person sets theirs from a seven-day single-use link, resets it
+  from the login page, and can enrol passkeys, which the login page offers in
+  the email field's autofill. Outgoing mail is Django's SMTP backend (Mailjet
+  on staging) and the app works without it — the admin copies each link. Two
+  things staging found the same evening are settled with it: a sender with an
+  unquoted `@` in its display name made every send raise (now caught, logged,
+  and refused by `check --deploy` as `rota.E005`), and the failed send was
+  stamping the account so the retry was silently throttled (a failed public
+  send no longer stamps).
+
+- **The username half of the login lockout had been inert since August**
+  (2026-09-04, PR #13). See the correction under the axes entry below.
+
+- **CI gates every merge** (2026-09-04, PRs #14 and #15). `tests` runs
+  `ruff check` (pyflakes only), `makemigrations --check`, the suite, and
+  `collectstatic` + `check --deploy` against a throwaway environment; the
+  master ruleset requires it strictly, alongside CodeQL, a pull request and
+  linear history. The only merge method is rebase.
 
 - **Leave moved to BreatheHR** (2026-09-02). Requesting, approving and
   tracking entitlement locally is gone — `LeaveRequest` and its "counts
@@ -44,6 +70,14 @@ autofill v2 review processes had accumulated:
   the building out. Verified end to end: five failures across five different
   usernames from one address now blocks it, and an unrelated address is
   unaffected. Clears the `axes.W006` system check.
+  **Correction, 2026-09-04:** that verification exercised only the address
+  key. With a custom `USERNAME_FIELD`, django-axes recorded attempts under
+  `credentials["email"]` while Django's login form sends
+  `credentials["username"]`, so every row carried `username=None` and the
+  username half never locked anything. `AXES_USERNAME_FORM_FIELD = "username"`
+  fixes it; a test with axes enabled now asserts the row carries the email.
+  `AXES_ENABLE_ACCESS_FAILURE_LOG` is on too — the admin's *Access failures*
+  page had been empty because axes leaves the permanent log off by default.
 
 - **The palette has a true neutral** (2026-08-24). It had none: all 40 tints
   were colours, and the family at hue 360° was named "slate" while rendering a
@@ -64,10 +98,10 @@ autofill v2 review processes had accumulated:
   track; the placement's full contractual total is a deanery question, not a
   rota one. No change needed; `rota/views/reports.py:179` already does this.
 
-## Open — check before deploying the rota-fixes branch
+## Open — stored weekday and month lists are parsed strictly
 
-**Stored weekday and month lists are parsed more strictly than they were.** The
-branch gave four free-text fields a real parser (`rota/services/ranges.py`):
+The post-deployment fixes (merged 2026-08-31) gave four free-text fields a real
+parser (`rota/services/ranges.py`):
 `PracticeSettings.open_weekdays`, and `CoverageRule.months`, `weekdays`,
 `preferred_weekdays`. The old parser silently dropped empty segments, so a
 value like `"0,1,2,3,4,"` was savable and readable before and is neither now —
@@ -80,8 +114,8 @@ trailing comma stored under the old rules therefore 500s the main page rather
 than naming the offending value.
 
 **Nothing on this box's dev database trips it — checked 2026-08-31. The staging
-database on the LXC is a different database and was not checked.** Run this
-there:
+database on the LXC is a different database and had not been checked as of
+2026-09-04.** Run this there:
 
 ```bash
 python manage.py shell <<'EOF'
@@ -113,6 +147,8 @@ The durable fix is a **deploy check** over all four fields, in the existing
 both routes and any future one, where wrapping views one at a time closes one
 instance of the hazard and leaves the next open. Deliberately not done on the
 branch: it would have been unreviewed code landed after the final review gate.
+Still not written as of 2026-09-04. Note that CI now runs `check --deploy`,
+but against an empty test database — this check's value is on the staging box.
 
 ## Open — minor
 
@@ -120,6 +156,41 @@ branch: it would have been unreviewed code landed after the final review gate.
   greys correctly but the AM/PM row beneath it stays on the surface colour,
   because `closed` is only applied to the upper `<th>` in `grid.html`. Confirmed
   in a browser. Cosmetic, and a template change rather than a styling one.
+  Still so on 2026-09-04: the `<th class="grid-part">` row carries no `closed`.
+
+Parked by the account-access work (2026-09-04), none blocking:
+
+- **Two login tabs can desync a passkey sign-in once.** The server keeps one
+  challenge per session and the newest mint wins; the login page re-arms on
+  tab focus so the visible tab holds it, but two tabs racing their arming
+  requests can still make one attempt fail with "could not be verified" before
+  a retry works. A per-challenge list server-side would close it.
+- **`SESSION_COOKIE_AGE` is Django's two-week default**, so
+  `rota-clearsessions.timer` reaps a login-page session row a fortnight after
+  the passkey autofill minted it. A day or two would bound the table properly.
+- **The passkey credential-id cap counts bytes (1023) while the column counts
+  base64url characters (1024).** Harmless on SQLite, which ignores
+  `max_length`; a `DataError` on Postgres. Cap at 768 bytes or widen the column
+  if the database ever changes.
+- **`last_used_at` on a passkey advances before the inactive-account check**,
+  so the admin can show a last use for an account that never got in. The sign
+  count advancing is correct (clone detection); the timestamp is cosmetic.
+- **`exclude_credentials` omits the stored transports hint**, the one thing the
+  `transports` column exists for in WebAuthn.
+- **The card offering a passkey drops keyboard focus** on *Not now* and on
+  success (the focused button is hidden or replaced); a focus handoff to the
+  page would fix it.
+- **Two near-simultaneous public reset requests could both send** — the
+  five-minute throttle reads and writes the account's stamp without a row lock.
+  Practice-scale; worst case is two emails to the same inbox.
+- **`EMAIL_USE_TLS` honours only the literal `1`**, matching `DEBUG`'s parsing;
+  `=true` would silently turn STARTTLS off. The README documents `=0` only.
+- **The signed-in email in the header is now a link and carries the browser's
+  default underline**; no CSS was added. A look call for Tom on staging.
+- **The dashboard's query count scales with coverage rules and entries** (from
+  the admin overhaul, PR #8); a windowed resolver in `day_warnings` is service
+  work. Also from that branch: the colour-swatch radios carry no `id`; the
+  ordered-checkbox widget hard-codes `max="7"`.
 
 ## Configuration notes
 
@@ -144,6 +215,27 @@ Deliberate choices, recorded so they stop being re-reported by each review pass.
 - **Swap audit log records one clinician's name per touched slot** (the other
   appears in the free-text detail). A second row per swap would be a tidier
   trail, but the information is not lost.
+- **Only a superuser can set a password directly**, at
+  `/admin/accounts/user/<id>/password/`, and nothing links to it. A rota admin
+  sends links; nobody knows anyone's password. Tom, 2026-09-04.
+- **`is_staff` is derived, not set.** It follows Admin status or superuser on
+  save, because in this app it grants nothing except unfold's command palette
+  and Django's own help text under the toggle claimed it controlled admin
+  login. The toggle is gone from the form. Tom, 2026-09-04.
+- **The link an admin is shown to copy is a clickable `<a>`**: on a phone a
+  long-press offers *Copy link*, which is the point; clicking it lands on
+  someone else's set-password page, which is visible and undone by logging
+  out.
+- **No console email backend for `DEBUG=1`.** Every send path returns before
+  the backend when `EMAIL_HOST` is unset, so it could never fire, and it
+  contradicted "`EMAIL_HOST` being set is what configured means". A dev box
+  gets links on screen like production.
+- **Passkeys are for personal devices; the shared-PC caution is documentation,
+  not code.** Conditional UI offers every passkey enrolled on a machine to
+  whoever focuses the email field; a shared Windows PIN shares the gate.
+- **The `tests` check is strict**: a PR must be up to date with master to
+  merge, so every landing invalidates the other open PRs' runs and they are
+  rebased and re-run serially. Tom, 2026-09-04.
 - **The draft hatch is a weak signal on its own.** Unpublished sessions carry a
   diagonal wash, deliberately subtle so the tint underneath stays readable, which
   means it reads as texture rather than as a WCAG 1.4.11 non-text cue. Acceptable
@@ -153,23 +245,38 @@ Deliberate choices, recorded so they stop being re-reported by each review pass.
 
 ## Outstanding project work
 
-- **Deployment — done, 2026-08-24.** Running on the LXC. Not yet exercised
-  through the Cloudflare tunnel by real users.
+- **Deployment — done, 2026-08-24**, running on the LXC behind the Cloudflare
+  tunnel at `/home/rota-live/rota`. Tom uses it to test every branch before
+  merging; **real GPs have not started using it day to day** as of 2026-09-04.
+  Mailjet is configured there and sending.
 
 - **Manual smoke test — in progress.** The first pass immediately found four
   issues: a template comment rendering to the page and an unfiltered trainer
   dropdown (both fixed in `580747e`), an assisted-fill run that produced nothing
   because the clinician patterns had not been populated yet, and a question about
-  eligibility semantics that turned out to be working as intended. The autofill v2 review predicted this
-  pass would surface things no amount of review would, and it did. Still to do:
-  configure the real practice rules, run a 4-week fill with patterns populated,
-  and check the result against how the rota is actually built.
+  eligibility semantics that turned out to be working as intended. Later passes
+  on staging found the sender-parse 500, the empty axes pages and the two
+  passkey requests the autofill work needed. Still to do: configure the real
+  practice rules, run a 4-week fill with patterns populated, and check the
+  result against how the rota is actually built. Two admin data steps from
+  the frontend work are still worth confirming on the staging database: give
+  "Routine - PMC" its own code (two types both render as `Routine`), and tick
+  **Pin on day view** on Duty or the day view's pinned block never appears.
 
-- **Frontend Phase 1 — done and merged** (`f82033c`, 2026-08-24). Design system
-  applied to every screen, browser-verified. **Phases 2 and 3 are specced but not
-  started:** Phase 2 is mobile — My Schedule reworked for a phone, plus a day
-  view answering "who is on duty today, and is there enough cover for me to take
-  leave?", which is currently unanswerable on a phone and is what most GPs will
-  actually use. Phase 3 is grid interaction — drag-and-drop assignment, keyboard
-  navigation, inline editing.
+- **Frontend Phase 1 — done** (`f82033c`, 2026-08-24): the design system on
+  every screen, browser-verified. **Phase 2 — done** (PR #5, 2026-09-01): the
+  day view at `/rota/day/`, My Schedule rebuilt for a phone, the tab bar below
+  640px; installable to a home screen (2026-09-01), with a service worker
+  deliberately deferred because offline caching of an authenticated rota is a
+  decision for after living with standalone mode. **Phase 3 is specced and not
+  started:** grid interaction — drag-and-drop assignment, keyboard navigation,
+  inline editing.
 
+- **Admin overhaul — done** (PR #8, 2026-09-04): django-unfold, the setup
+  dashboard, the sidebar by job. Option C from its spec — bespoke guided flows
+  such as a "New clinician" wizard — was deferred until a practice manager has
+  used the plain admin.
+
+- **Not tested on iOS.** Tom has no iOS device or simulator; the home-screen
+  install, the safe-area inset and passkeys on Safari have been reasoned from
+  the specs and verified on Android and Windows only.
