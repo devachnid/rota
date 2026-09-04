@@ -58,6 +58,9 @@ def test_a_malformed_or_rejected_registration_is_a_400_with_a_reason(gp_client):
     assert _post_json(gp_client, REGISTER, {"credential": "nope"}).json() == {"error": "Malformed request."}
     assert gp_client.post(REGISTER, data="not json", content_type="application/json").status_code == 400
     options = _post_json(gp_client, REG_OPTIONS).json()
+    resp = _post_json(gp_client, REGISTER, {"credential": SoftAuthenticator().create(options), "name": 12345})
+    assert resp.status_code == 400 and resp.json() == {"error": "Malformed request."}
+    options = _post_json(gp_client, REG_OPTIONS).json()
     evil = SoftAuthenticator(origin="https://evil.example").create(options)
     resp = _post_json(gp_client, REGISTER, {"credential": evil})
     assert resp.status_code == 400 and "could not be verified" in resp.json()["error"]
