@@ -63,6 +63,11 @@ def _models():
     return [m for m in admin.site._registry if m._meta.app_label in ("rota", "accounts")]
 
 
+def _clean(html, where):
+    for frag in LEAKED:
+        assert frag not in html, (where, frag)
+
+
 @pytest.mark.parametrize("model", _models(), ids=lambda m: m._meta.model_name)
 def test_every_changelist_and_form_renders_for_a_rota_admin(admin_client, rows, model):
     opts = model._meta
@@ -70,14 +75,17 @@ def test_every_changelist_and_form_renders_for_a_rota_admin(admin_client, rows, 
     ma = admin.site._registry[model]
     resp = admin_client.get(base, follow=True)
     assert resp.status_code == 200, (base, resp.status_code)
+    final = resp.redirect_chain[-1][0] if resp.redirect_chain else base
+    assert final.startswith(base), (base, final)
+    _clean(resp.content.decode(), base)
     if ma.has_add_permission(resp.wsgi_request):
-        assert admin_client.get(base + "add/").status_code == 200, base + "add/"
+        add_resp = admin_client.get(base + "add/")
+        assert add_resp.status_code == 200, base + "add/"
+        _clean(add_resp.content.decode(), base + "add/")
     row = rows[opts.model_name]
     resp = admin_client.get(f"{base}{row.pk}/change/")
     assert resp.status_code == 200, f"{base}{row.pk}/change/"
-    html = resp.content.decode()
-    for frag in LEAKED:
-        assert frag not in html, (base, frag)
+    _clean(resp.content.decode(), f"{base}{row.pk}/change/")
 
 
 @pytest.mark.parametrize("url", ["/admin/", "/admin/rota/patternslot/bulk/",
