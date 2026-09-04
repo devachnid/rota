@@ -339,3 +339,15 @@ sending mail asynchronously; SMS.
   long-press offers *Copy link*, which is the point; clicking it instead
   lands on someone else's set-password page, which is visible and undone by
   logging out.
+
+## Amended after staging (2026-09-04, Tom)
+
+- §2's password hash field is gone from every change page, a superuser's
+  included — it added nothing. The superuser-only direct set-password view
+  stays reachable by URL, unlinked, for emergencies.
+- The *Staff status* toggle is gone and `is_rota_admin` is labelled
+  **Admin status**. Django's `is_staff` is now derived on save (admin status
+  or superuser) rather than set by hand: its only effect here is unfold's
+  command palette, which previously never appeared for an invited rota
+  admin, and Django's own help text under the toggle claimed it controlled
+  admin login, which in this app it never did.

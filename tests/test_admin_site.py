@@ -20,9 +20,37 @@ def test_the_admin_site_is_ours():
     assert isinstance(admin.site, RotaAdminSite)
 
 
-def test_a_rota_admin_who_is_not_staff_reaches_the_admin(admin_client, admin_user):
-    assert not admin_user.is_staff
+def test_a_rota_admin_reaches_the_admin(admin_client, admin_user):
     assert admin_client.get("/admin/").status_code == 200
+
+
+def test_staff_alone_grants_nothing(rf):
+    """Entry is by is_rota_admin. is_staff is derived from it on save
+    (User.save) and never consulted — so an unsaved user with the flag
+    forced on, the only way to hold it without admin status, is refused."""
+    from django.contrib.auth import get_user_model
+    user = get_user_model()(email="staff-only@example.com", is_staff=True, is_active=True)
+    request = rf.get("/admin/")
+    request.user = user
+    assert RotaAdminSite().has_permission(request) is False
+
+
+def test_staff_follows_admin_status_and_is_never_a_form_field(staff_client, gp_user):
+    """is_staff keeps Django's meaning — can use this admin — because it
+    follows admin status; unfold's command palette checks it. Nobody sets
+    it by hand: the System fieldset offers Active and Superuser only, and
+    the one toggle that matters is labelled Admin status."""
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    pm = User.objects.create_user(email="pm@example.com", password="pw", is_rota_admin=True)
+    assert pm.is_staff
+    pm.is_rota_admin = False
+    pm.save()
+    assert not pm.is_staff
+    assert not gp_user.is_staff and User.objects.get(pk=gp_user.pk).is_staff is False
+    html = staff_client.get(f"/admin/accounts/user/{gp_user.pk}/change/").content.decode()
+    assert 'name="is_staff"' not in html and 'name="is_superuser"' in html
+    assert "Admin status" in html and "Staff status" not in html
 
 
 def test_a_superuser_reaches_the_admin(staff_client):
@@ -125,7 +153,9 @@ def test_a_rota_admin_cannot_make_anyone_a_superuser(admin_client, gp_user):
     })
     assert resp.status_code in (200, 302), resp.content.decode()
     gp_user.refresh_from_db()
-    assert not gp_user.is_superuser and not gp_user.is_staff
+    # is_staff follows admin status now (User.save), so it is no longer a
+    # flag anyone can smuggle; superuser is the one that must not move.
+    assert not gp_user.is_superuser
     assert 'name="is_superuser"' not in admin_client.get(url).content.decode()
 
 

@@ -80,11 +80,13 @@ up* after. Links last seven days and work once.
 
 If outgoing email is not set up (the dashboard's *Outgoing email* step says
 so), each of those shows you the link instead, once, to copy into an email
-yourself. Nobody — not even you — ever sees anyone's password; only a
-superuser keeps a form that sets one directly.
+yourself. Nobody — not even you — ever sees anyone's password. (A superuser
+can still set one directly at `/admin/accounts/user/<id>/password/`, an
+emergency tool that nothing links to.)
 
-Tick **is rota admin** on anyone who should run fills, publish weeks and
-approve requests; it is also what lets them into this admin.
+Tick **Admin status** on anyone who should run fills, publish weeks and
+approve requests; it is also what lets them into this admin. There is no
+separate staff flag to set — Django's `is_staff` follows Admin status.
 
 ### Active
 

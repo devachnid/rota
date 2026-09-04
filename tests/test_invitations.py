@@ -205,9 +205,9 @@ def test_only_a_superuser_reaches_the_direct_set_password_form(admin_client, sta
     assert staff_client.get(url).status_code == 200
 
 
-def test_a_rota_admins_change_page_has_no_password_link(admin_client, staff_client, gp_user):
+def test_no_change_page_links_the_direct_password_form(admin_client, staff_client, gp_user):
+    """The hash field and its "this form" link are gone for everyone — an
+    admin sends a link, they never set a password. A superuser's direct
+    set-password view stays reachable by URL only (test above)."""
     assert "password/" not in admin_client.get(_change(gp_user)).content.decode()
-    # unfold's UserChangeForm links the hash field's help text to the
-    # relative "../password/" — the direct set-password form, which only a
-    # superuser's fieldsets include.
-    assert 'href="../password/"' in staff_client.get(_change(gp_user)).content.decode()
+    assert "password/" not in staff_client.get(_change(gp_user)).content.decode()

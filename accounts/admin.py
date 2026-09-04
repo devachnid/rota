@@ -42,7 +42,7 @@ def _report(request, user, result, *, invite):
 class CustomUserAdmin(UserAdmin, ModelAdmin):
     """A rota admin (not a superuser) can open this changelist through
     RotaAdminBackend's blanket accounts.* grant. Without the guards below,
-    that grant would let them edit is_staff/is_superuser on any account —
+    that grant would let them edit is_superuser on any account —
     including their own — through the ordinary change form, and reach a
     superuser's delete/password views. Only a superuser requester sees or
     can touch those fields or accounts; the guards defer to Django's normal
@@ -93,12 +93,11 @@ class CustomUserAdmin(UserAdmin, ModelAdmin):
     def get_fieldsets(self, request, obj=None):
         if obj is None:
             return self.add_fieldsets
-        # `password` is Django's hash field with the link to the direct
-        # set-password form — a superuser's tool, so only they see it.
-        account = (("email", "password", "account_state") if request.user.is_superuser
-                   else ("email", "account_state"))
+        # No password field for anyone: an admin sends a link, they never
+        # set one. (A superuser's direct set-password view stays reachable
+        # by URL — user_change_password below — but nothing links to it.)
         sets = [
-            ("Account", {"fields": account}),
+            ("Account", {"fields": ("email", "account_state")}),
             ("Rota", {
                 "fields": ("is_rota_admin", "clinician_name"),
                 "description": "A rota admin can publish weeks, run the fill, and "
@@ -107,7 +106,9 @@ class CustomUserAdmin(UserAdmin, ModelAdmin):
             }),
         ]
         if request.user.is_superuser:
-            sets.append(("System", {"fields": ("is_active", "is_staff", "is_superuser")}))
+            # is_staff is derived on save (accounts/models.py), so it is
+            # not offered here.
+            sets.append(("System", {"fields": ("is_active", "is_superuser")}))
         else:
             sets.append(("Status", {"fields": ("is_active",)}))
         return sets
@@ -115,7 +116,7 @@ class CustomUserAdmin(UserAdmin, ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         fields = super().get_readonly_fields(request, obj)
         if not request.user.is_superuser:
-            fields = tuple(fields) + ("is_staff", "is_superuser")
+            fields = tuple(fields) + ("is_superuser",)
         return fields
 
     def has_view_permission(self, request, obj=None):
@@ -217,7 +218,8 @@ class CustomUserAdmin(UserAdmin, ModelAdmin):
     def user_change_password(self, request, id, form_url=""):
         """Django's direct set-password form. A rota admin sends links
         instead — so this is a superuser's tool, whatever has_change_
-        permission says about the account."""
+        permission says about the account. Nothing links here any more;
+        it stays reachable by URL for a superuser's emergency."""
         if not request.user.is_superuser:
             raise PermissionDenied
         return super().user_change_password(request, id, form_url)
