@@ -15,13 +15,15 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from webauthn.helpers import bytes_to_base64url
 
 UP, UV, AT = 0x01, 0x04, 0x40   # user present, user verified, attested credential data
+BE, BS = 0x08, 0x10   # backup eligible, backed up — what platform passkeys set
 
 
 class SoftAuthenticator:
-    def __init__(self, origin="http://testserver", aaguid=bytes(16), user_verified=True):
+    def __init__(self, origin="http://testserver", aaguid=bytes(16), user_verified=True, backed_up=False):
         self.origin = origin
         self.aaguid = aaguid
         self.user_verified = user_verified
+        self.backed_up = backed_up
         self.key = ec.generate_private_key(ec.SECP256R1())
         self.credential_id = secrets.token_bytes(16)
         self.sign_count = 0
@@ -30,13 +32,18 @@ class SoftAuthenticator:
     def id(self):
         return bytes_to_base64url(self.credential_id)
 
+    def mangle_cose(self, key):
+        """Tests override this to hand the library a broken key."""
+        return key
+
     def _cose_key(self):
         n = self.key.public_key().public_numbers()
-        return cbor2.dumps({1: 2, 3: -7, -1: 1,
-                            -2: n.x.to_bytes(32, "big"), -3: n.y.to_bytes(32, "big")})
+        key = {1: 2, 3: -7, -1: 1, -2: n.x.to_bytes(32, "big"), -3: n.y.to_bytes(32, "big")}
+        return cbor2.dumps(self.mangle_cose(key))
 
     def _auth_data(self, rp_id, attested):
-        flags = UP | (UV if self.user_verified else 0) | (AT if attested else 0)
+        flags = (UP | (UV if self.user_verified else 0) | (AT if attested else 0)
+                 | (BE | BS if self.backed_up else 0))
         data = (hashlib.sha256(rp_id.encode()).digest() + bytes([flags])
                 + self.sign_count.to_bytes(4, "big"))
         if attested:

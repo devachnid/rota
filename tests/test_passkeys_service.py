@@ -11,7 +11,7 @@ from django.contrib.sessions.middleware import SessionMiddleware
 
 from accounts import passkeys
 from accounts.models import Passkey
-from tests.soft_authenticator import SoftAuthenticator
+from tests.soft_authenticator import BE, SoftAuthenticator
 
 pytestmark = pytest.mark.django_db
 ICLOUD = "fbfc3007-154e-4ecc-8c0b-6e020557d7bd"
@@ -178,3 +178,74 @@ def test_a_login_with_no_challenge_in_the_session_is_refused(request_for, gp_use
 def test_the_known_aaguid_table_is_uuids_to_names():
     for key, name in passkeys.KNOWN_AAGUIDS.items():
         assert str(uuid.UUID(key)) == key and name
+
+
+def test_a_backed_up_platform_passkey_round_trips(request_for, gp_user):
+    auth = SoftAuthenticator(backed_up=True)
+    _register(request_for(gp_user), gp_user, auth)
+    request = request_for()
+    passkey = passkeys.verify_login(request, auth.get(passkeys.login_options(request)))
+    assert passkey.user == gp_user
+
+
+def test_a_broken_public_key_is_a_passkey_error_not_a_crash(request_for, gp_user):
+    """py_webauthn decodes the COSE key outside its own exception wrapping;
+    a key missing its y coordinate surfaces as a bare KeyError from the
+    library, and a key of an unknown type as UnsupportedPublicKeyType."""
+    class MissingY(SoftAuthenticator):
+        def mangle_cose(self, key):
+            del key[-3]
+            return key
+
+    class UnknownType(SoftAuthenticator):
+        def mangle_cose(self, key):
+            key[1] = 99
+            return key
+
+    for broken in (MissingY(), UnknownType()):
+        request = request_for(gp_user)
+        options = passkeys.registration_options(request, gp_user)
+        with pytest.raises(passkeys.PasskeyError, match="could not be verified"):
+            passkeys.complete_registration(request, gp_user, broken.create(options), "")
+    assert Passkey.objects.count() == 0
+
+
+def test_inconsistent_backup_flags_are_a_passkey_error_even_after_a_good_signature(request_for, gp_user):
+    """BS without BE is invalid per the spec; the library checks it after
+    verifying the signature, so this must not 500 a real login."""
+    auth = SoftAuthenticator()
+    _register(request_for(gp_user), gp_user, auth)
+
+    class BackedUpButNotEligible(SoftAuthenticator):
+        def _auth_data(self, rp_id, attested):
+            data = super()._auth_data(rp_id, attested)
+            flags = data[32] & ~BE   # clear BE, keep BS
+            return data[:32] + bytes([flags]) + data[33:]
+
+    forger = BackedUpButNotEligible(backed_up=True)
+    forger.key, forger.credential_id = auth.key, auth.credential_id
+    request = request_for()
+    options = passkeys.login_options(request)
+    with pytest.raises(passkeys.PasskeyError, match="could not be verified"):
+        passkeys.verify_login(request, forger.get(options))
+
+
+def test_transports_are_filtered_to_strings_and_capped(request_for, gp_user):
+    for bad, expected in (("internal", ""), ([1, 2], ""), (["internal", 3, "hybrid"], "internal,hybrid")):
+        request = request_for(gp_user)
+        options = passkeys.registration_options(request, gp_user)
+        credential = SoftAuthenticator().create(options)
+        credential["response"]["transports"] = bad
+        assert passkeys.complete_registration(request, gp_user, credential, "").transports == expected
+
+
+def test_a_credential_that_is_not_a_dict_is_a_passkey_error_and_spends_the_challenge(request_for, gp_user):
+    request = request_for(gp_user)
+    passkeys.registration_options(request, gp_user)
+    with pytest.raises(passkeys.PasskeyError, match="Malformed request"):
+        passkeys.complete_registration(request, gp_user, ["nope"], "")
+    assert passkeys.SESSION_KEY not in request.session
+    request = request_for()
+    passkeys.login_options(request)
+    with pytest.raises(passkeys.PasskeyError, match="Malformed request"):
+        passkeys.verify_login(request, "nope")
