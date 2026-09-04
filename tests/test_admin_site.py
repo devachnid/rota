@@ -170,20 +170,18 @@ def test_a_rota_admin_can_create_a_login_account(admin_client):
     get_resp = admin_client.get("/admin/accounts/user/add/")
     html = get_resp.content.decode()
     assert get_resp.status_code == 200
-    assert 'name="password1"' in html
+    assert 'name="password1"' not in html        # the person chooses their own, from the link
     assert 'name="is_superuser"' not in html
 
     resp = admin_client.post("/admin/accounts/user/add/", {
         "email": "new@example.com",
-        "password1": "correct-horse-battery",
-        "password2": "correct-horse-battery",
-        "usable_password": "true",
         "is_rota_admin": "on",
     })
     assert resp.status_code == 302, resp.content.decode()
     user = User.objects.get(email="new@example.com")
     assert user.is_rota_admin is True
     assert user.is_superuser is False
+    assert not user.has_usable_password()
 
 
 def test_a_superuser_can_create_a_login_account(staff_client):
@@ -192,9 +190,6 @@ def test_a_superuser_can_create_a_login_account(staff_client):
 
     resp = staff_client.post("/admin/accounts/user/add/", {
         "email": "new@example.com",
-        "password1": "correct-horse-battery",
-        "password2": "correct-horse-battery",
-        "usable_password": "true",
         "is_rota_admin": "on",
     })
     assert resp.status_code == 302, resp.content.decode()
