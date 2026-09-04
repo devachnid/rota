@@ -85,3 +85,74 @@ def test_a_person_removes_their_own_passkey_and_nobody_elses(gp_client, gp_user,
     assert resp.redirect_chain[-1][0] == "/accounts/account/"
     assert "Passkey “old phone” removed." in resp.content.decode()
     assert not Passkey.objects.exists()
+
+
+# --- signing in ----------------------------------------------------------------
+
+def test_the_login_page_offers_a_passkey_and_carries_next(client):
+    html = client.get("/accounts/login/?next=/rota/day/").content.decode()
+    assert 'id="passkey-login"' in html and "Sign in with a passkey" in html
+    assert 'data-next="/rota/day/"' in html and "js/passkeys.js" in html
+    assert client.get(LOGIN_OPTIONS).status_code == 405
+
+
+def test_signing_in_with_a_passkey(gp_client, gp_user):
+    auth = SoftAuthenticator()
+    _enrol(gp_client, auth)
+    anon = Client()
+    options = _post_json(anon, LOGIN_OPTIONS).json()
+    assert options["allowCredentials"] == [] and options["userVerification"] == "required"
+    resp = _post_json(anon, LOGIN, {"credential": auth.get(options), "next": "/rota/day/"})
+    assert resp.status_code == 200 and resp.json() == {"next": "/rota/day/"}
+    assert anon.session["_auth_user_id"] == str(gp_user.pk)
+    assert anon.get("/accounts/account/").status_code == 200      # the backend path survives
+    passkey = Passkey.objects.get()
+    assert passkey.sign_count == 1 and passkey.last_used_at is not None
+
+
+def test_an_off_site_or_missing_next_lands_on_the_rota(gp_client):
+    auth = SoftAuthenticator()
+    _enrol(gp_client, auth)
+    for nxt in ("//evil.example/", "https://evil.example/x", ""):
+        anon = Client()
+        options = _post_json(anon, LOGIN_OPTIONS).json()
+        assert _post_json(anon, LOGIN, {"credential": auth.get(options), "next": nxt}).json() == {"next": "/rota/"}
+
+
+def test_a_deactivated_account_cannot_sign_in_with_its_passkey(gp_client, gp_user):
+    auth = SoftAuthenticator()
+    _enrol(gp_client, auth)
+    gp_user.is_active = False
+    gp_user.save()
+    anon = Client()
+    options = _post_json(anon, LOGIN_OPTIONS).json()
+    resp = _post_json(anon, LOGIN, {"credential": auth.get(options)})
+    assert resp.status_code == 400 and resp.json() == {"error": "This account is not active."}
+    assert "_auth_user_id" not in anon.session
+    assert anon.get("/accounts/account/").status_code == 302
+
+
+def test_a_bad_assertion_for_a_known_passkey_counts_as_a_failed_login(gp_client, gp_user):
+    auth = SoftAuthenticator()
+    _enrol(gp_client, auth)
+    seen = []
+
+    def receiver(sender, credentials, **kwargs):
+        seen.append(credentials["username"])
+    user_login_failed.connect(receiver, weak=False, dispatch_uid="test-passkey-failed")
+    try:
+        anon = Client()
+        options = _post_json(anon, LOGIN_OPTIONS).json()
+        forger = SoftAuthenticator()
+        forger.credential_id = auth.credential_id
+        resp = _post_json(anon, LOGIN, {"credential": forger.get(options)})
+        assert resp.status_code == 400 and "could not be verified" in resp.json()["error"]
+        assert seen == ["gp@example.com"]
+        options = _post_json(anon, LOGIN_OPTIONS).json()
+        resp = _post_json(anon, LOGIN, {"credential": SoftAuthenticator().get(options)})
+        assert resp.status_code == 400 and resp.json() == {"error": "That passkey is not registered here."}
+        assert seen == ["gp@example.com"]        # an unknown key names nobody
+        assert _post_json(anon, LOGIN, {"credential": "nope"}).json() == {"error": "Malformed request."}
+    finally:
+        user_login_failed.disconnect(dispatch_uid="test-passkey-failed")
+    assert "_auth_user_id" not in anon.session

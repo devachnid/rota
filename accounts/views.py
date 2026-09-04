@@ -144,3 +144,35 @@ def passkey_remove(request, pk):
     passkey.delete()
     messages.success(request, f"Passkey “{passkey.name}” removed.")
     return redirect("account")
+
+
+@require_POST
+def passkey_login_options(request):
+    return JsonResponse(json.loads(passkeys.login_options(request)))
+
+
+@require_POST
+def passkey_login(request):
+    """Possession of the private key, proven, is the whole login: no
+    password, no username. axes hears about a bad assertion for a known
+    key exactly as it hears about a wrong password."""
+    body, credential = _credential_from(request)
+    if credential is None:
+        return JsonResponse({"error": "Malformed request."}, status=400)
+    try:
+        passkey = passkeys.verify_login(request, credential)
+    except passkeys.PasskeyError as exc:
+        known = getattr(exc, "passkey", None)
+        if known is not None:
+            user_login_failed.send(sender=__name__, credentials={"username": known.user.email},
+                                   request=request)
+        return JsonResponse({"error": str(exc)}, status=400)
+    user = passkey.user
+    if not user.is_active:
+        return JsonResponse({"error": "This account is not active."}, status=400)
+    auth_login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+    nxt = body.get("next") or ""
+    if not url_has_allowed_host_and_scheme(nxt, allowed_hosts={request.get_host()},
+                                          require_https=request.is_secure()):
+        nxt = settings.LOGIN_REDIRECT_URL
+    return JsonResponse({"next": nxt})
