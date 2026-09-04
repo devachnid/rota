@@ -1,6 +1,6 @@
 # People
 
-**Where:** sidebar › People › Clinician groups / Clinicians / Login accounts; Working patterns › Trainee profiles
+**Where:** sidebar › People › Clinicians / Clinician groups / Login accounts; Working patterns › Trainee profiles
 
 ## Clinician groups
 
