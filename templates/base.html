@@ -37,7 +37,7 @@
   <button type="button" id="theme-toggle" class="btn btn-quiet">Theme</button>
   <span class="nav-spacer"></span>
   {% if user.is_authenticated %}
-    <span class="nav-user">{{ user.email }}</span>
+    <a href="{% url 'account' %}" class="nav-user">{{ user.email }}</a>
     <form method="post" action="/accounts/logout/">{% csrf_token %}<button class="btn btn-quiet">Log out</button></form>
   {% endif %}
 </nav>
@@ -62,7 +62,7 @@
       <a href="/reports/fairness/" class="tabbar-link">Reports</a>
       <button type="button" id="theme-toggle-mobile" class="tabbar-link">Theme</button>
       {% if user.is_authenticated %}
-        <span class="tabbar-user">{{ user.email }}</span>
+        <a href="{% url 'account' %}" class="tabbar-user">{{ user.email }}</a>
         <form method="post" action="/accounts/logout/">{% csrf_token %}<button class="tabbar-link">Log out</button></form>
       {% endif %}
     </div>

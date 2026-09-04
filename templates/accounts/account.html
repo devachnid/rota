@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Account{% endblock %}
+{% block content %}
+<div class="stack">
+  <div class="page-head">
+    <h1>Account</h1>
+  </div>
+  <div class="card">
+    <p>Signed in as <strong>{{ user.email }}</strong>.</p>
+    <div class="form-actions">
+      <a href="{% url 'password_change' %}" class="btn">Change password</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

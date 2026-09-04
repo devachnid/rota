@@ -60,7 +60,9 @@ LEAKED = ["{#", "#}", "{% comment", "{%comment", "endcomment",
                                  "/reports/fairness/",
                                  "/reports/staffing/", "/reports/trainees/",
                                  "/reports/locums/",
-                                 "/me/swap/new/"])
+                                 "/me/swap/new/",
+                                 "/accounts/account/", "/accounts/password_change/",
+                                 "/accounts/password_reset/"])
 def test_no_developer_notes_reach_the_rendered_page(admin_client, url):
     from rota.models import PracticeSettings
     PracticeSettings.load()

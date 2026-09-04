@@ -7,9 +7,13 @@ and signs the person in.
 """
 
 from django.conf import settings
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordResetForm
-from django.contrib.auth.views import PasswordResetConfirmView, PasswordResetView
+from django.contrib.auth.views import (PasswordChangeView, PasswordResetConfirmView,
+                                       PasswordResetView)
 from django.core.exceptions import ValidationError
+from django.shortcuts import render
 from django.urls import reverse_lazy
 from django.utils.http import urlsafe_base64_decode
 
@@ -63,3 +67,22 @@ class SetPasswordFromLinkView(PasswordResetConfirmView):
         context = super().get_context_data(**kwargs)
         context["is_invitation"] = self.user is not None and not self.user.has_usable_password()
         return context
+
+
+class ChangePasswordView(PasswordChangeView):
+    """Signed in and knows the old one. Back to the Account page with a
+    word, rather than Django's separate done page."""
+
+    template_name = "registration/password_change_form.html"
+    success_url = reverse_lazy("account")
+
+    def form_valid(self, form):
+        messages.success(self.request, "Password changed.")
+        return super().form_valid(form)
+
+
+@login_required
+def account(request):
+    """The person's own page: who they are signed in as, and the things
+    only they can do to it. Passkeys join it on their own branch."""
+    return render(request, "accounts/account.html")

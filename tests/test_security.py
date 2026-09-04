@@ -156,7 +156,8 @@ def test_a_password_that_looks_like_the_users_own_email_is_rejected():
 PROTECTED = ["/rota/", "/me/", "/requests/", "/rota/fill/",
              "/reports/fairness/", "/reports/staffing/",
              "/reports/trainees/", "/reports/locums/",
-             "/me/swap/new/", "/rota/drafts/delete/"]
+             "/me/swap/new/", "/rota/drafts/delete/",
+             "/accounts/account/", "/accounts/password_change/"]
 
 
 @pytest.mark.django_db

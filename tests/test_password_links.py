@@ -168,3 +168,42 @@ def test_the_password_rules_apply(client, configured):
     assert resp.status_code == 200 and "too common" in resp.content.decode()
     user.refresh_from_db()
     assert not user.has_usable_password()
+
+
+# --- the Account page and changing a password while signed in ----------------
+
+def test_the_account_page_needs_a_login(client):
+    resp = client.get("/accounts/account/")
+    assert resp.status_code == 302 and resp["Location"].startswith("/accounts/login/?next=")
+
+
+def test_the_account_page_shows_the_email_and_the_way_to_change_the_password(gp_client):
+    html = gp_client.get("/accounts/account/").content.decode()
+    assert "gp@example.com" in html and 'href="/accounts/password_change/"' in html
+
+
+def test_the_signed_in_email_links_to_the_account_page(gp_client):
+    from rota.models import PracticeSettings
+    PracticeSettings.load()
+    html = gp_client.get("/rota/").content.decode()
+    assert html.count('href="/accounts/account/"') == 2   # header, and the tab bar's More sheet
+
+
+def test_the_change_form_is_the_apps_own(gp_client):
+    html = gp_client.get("/accounts/password_change/").content.decode()
+    assert "auth-card" in html and 'name="old_password"' in html
+
+
+def test_changing_the_password_keeps_you_signed_in_and_says_so(gp_client, gp_user):
+    resp = gp_client.post("/accounts/password_change/", {
+        "old_password": "pw", "new_password1": STRONG, "new_password2": STRONG}, follow=True)
+    assert resp.redirect_chain[-1][0] == "/accounts/account/"
+    html = resp.content.decode()
+    assert "Password changed." in html
+    assert resp.wsgi_request.user.is_authenticated
+    gp_user.refresh_from_db()
+    assert gp_user.check_password(STRONG)
+
+
+def test_the_old_change_done_route_is_gone(gp_client):
+    assert gp_client.get("/accounts/password_change/done/").status_code == 404
