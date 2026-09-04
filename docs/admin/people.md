@@ -88,6 +88,19 @@ Tick **Admin status** on anyone who should run fills, publish weeks and
 approve requests; it is also what lets them into this admin. There is no
 separate staff flag to set — Django's `is_staff` follows Admin status.
 
+### Passkeys
+
+A person adds passkeys to their own account from **Account** (their email in
+the app's header): their phone's Face ID or fingerprint, a laptop's Windows
+Hello or Touch ID, or a password manager. Their password still works, and
+is how they get back in if a device is lost.
+
+You cannot add one for them — only the device that holds the key can — but
+you can revoke one: open their login account, and under **Passkeys** tick
+*Delete* on the lost device's row and save. Passkeys are bound to this
+site's address; if the rota ever moves to a different domain, everyone
+enrols again.
+
 ### Active
 
 **Untick instead of deleting.** An inactive clinician:
