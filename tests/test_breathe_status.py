@@ -136,6 +136,10 @@ def test_the_status_page_lists_recent_runs_and_the_changelist_is_plain(staff_cli
                                   n_deduped=3, n_unlinked=0)
     html = staff_client.get("/admin/rota/breathesyncrun/status/").content.decode()
     assert "Refresh now" in html and "Recent runs" in html
+    card = html[html.index("Recent runs"):]
+    assert "No runs yet." not in card
+    assert '<td class="py-2">3</td>' in card
+    assert '<td class="py-2">0</td>' in card
     plain = staff_client.get("/admin/rota/breathesyncrun/").content.decode()
     assert "Last successful sync" not in plain
 

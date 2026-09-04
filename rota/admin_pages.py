@@ -6,11 +6,10 @@ The pattern editor's behaviour is the old bulk_view's, moved not changed:
 every guard in it was paid for.
 """
 
-from datetime import date, timedelta
+from datetime import date
 
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect
-from django.utils import timezone
 from django.views.generic import TemplateView
 from unfold.views import UnfoldModelAdminViewMixin
 
