@@ -5,7 +5,6 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
-from django.utils.safestring import mark_safe
 from unfold.admin import ModelAdmin
 from unfold.decorators import action
 from unfold.forms import AdminPasswordChangeForm, UserChangeForm
@@ -137,23 +136,6 @@ class CustomUserAdmin(UserAdmin, ModelAdmin):
         if obj is not None and obj.is_superuser and not request.user.is_superuser:
             return False
         return super().has_delete_permission(request, obj)
-
-    def render_change_form(self, request, context, add=False, change=False,
-                           form_url="", obj=None):
-        """unfold's UserChangeForm (unfold/forms.py — a Django-5.2
-        compatibility shim, dropped once unfold requires 6.0) always points
-        the password field's help text at the relative "../password/",
-        same page from anywhere it's read but not a URL that names the
-        account. Swap in this object's own admin URL."""
-        if change and obj is not None:
-            form = context["adminform"].form
-            if "password" in form.fields:
-                url = reverse("admin:auth_user_password_change", args=[obj.pk])
-                help_text = str(form.fields["password"].help_text)
-                form.fields["password"].help_text = mark_safe(
-                    help_text.replace("../password/", url))
-        return super().render_change_form(request, context, add=add,
-                                          change=change, form_url=form_url, obj=obj)
 
     # --- invitations ---------------------------------------------------------
 
