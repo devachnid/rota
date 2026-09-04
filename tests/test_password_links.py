@@ -30,10 +30,12 @@ def _link_for(client, user):
 
 
 def _form_url(client, link):
-    """GET the emailed link: Django moves the token into the session and
-    redirects to a URL without it. That URL is where the form lives."""
+    """GET the emailed link. For a good token Django moves it into the
+    session and redirects to a URL without it — that URL is where the form
+    lives. A bad token renders "no longer valid" in place with no redirect,
+    so the second value is then just the link itself."""
     resp = client.get(link, follow=True)
-    return resp, resp.redirect_chain[-1][0]
+    return resp, (resp.redirect_chain[-1][0] if resp.redirect_chain else link)
 
 
 # --- asking ------------------------------------------------------------------
