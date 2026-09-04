@@ -1,0 +1,10 @@
+[Unit]
+Description=Clear expired GP rota sessions
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/rota
+# SECRET_KEY lives in the environment file; manage.py refuses to start
+# without it. See gunicorn.service for why the file is root-only.
+EnvironmentFile=/etc/rota.env
+ExecStart=/root/rota/.venv/bin/python manage.py clearsessions

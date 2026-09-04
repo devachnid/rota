@@ -21,6 +21,7 @@
 <link rel="stylesheet" href="{% static 'css/screens.css' %}">
 {% palette_css %}
 <script src="{% static 'htmx.min.js' %}" defer></script>
+<script src="{% static 'js/passkeys.js' %}" defer></script>
 </head>
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
 <nav class="nav">
@@ -44,6 +45,24 @@
 {% if messages %}
 <div class="flashes">
   {% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}
+</div>
+{% endif %}
+{% if user.is_authenticated %}
+{# Offered once per browser, by the script, where no passkey has been used here. #}
+<div class="flashes" id="passkey-nudge" style="display:none">
+  <div class="flash">
+    <form id="passkey-nudge-form" onsubmit="return false;">
+      {% csrf_token %}
+      <p><strong>Sign in faster next time.</strong> Add a passkey to this device and use your face, fingerprint or device PIN instead of a password.</p>
+      <div class="form-actions">
+        <button type="button" id="passkey-nudge-add" class="btn btn-primary"
+                data-options-url="{% url 'passkey_register_options' %}"
+                data-register-url="{% url 'passkey_register' %}">Add a passkey</button>
+        <button type="button" id="passkey-later" class="btn btn-quiet">Not now</button>
+      </div>
+      <p id="passkey-nudge-error" class="field-error" style="display:none" role="alert"></p>
+    </form>
+  </div>
 </div>
 {% endif %}
 <main class="main">{% block content %}{% endblock %}</main>

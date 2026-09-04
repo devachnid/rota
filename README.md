@@ -51,11 +51,13 @@ Then:
     python manage.py collectstatic --noinput
     python manage.py migrate
     cp deploy/gunicorn.service /etc/systemd/system/rota.service
-    cp deploy/rota-backup.* /etc/systemd/system/
-    systemctl daemon-reload && systemctl enable --now rota rota-backup.timer
+    cp deploy/rota-backup.* deploy/rota-clearsessions.* /etc/systemd/system/
+    systemctl daemon-reload && systemctl enable --now rota rota-backup.timer rota-clearsessions.timer
 
 Point the Cloudflare tunnel ingress at `http://127.0.0.1:8321`.
-Backups land in `backups/`, kept 30 days.
+Backups land in `backups/`, kept 30 days. Expired sessions are cleared
+nightly by `rota-clearsessions.timer`: the login page's passkey autofill
+mints a session per visit, so the table would otherwise only grow.
 
 ### Outgoing email
 

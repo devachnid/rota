@@ -369,3 +369,16 @@ sending mail asynchronously; SMS.
   catalogue; the library's reason is logged (INFO for its own refusals,
   WARNING with a traceback for a builtin), never sent. The client's text for
   a refused verification is simply *The passkey could not be verified.*
+- Conditional UI is in (Tom, after testing on staging): the login page arms
+  `mediation: "conditional"` on load, so a passkey is offered in the email
+  field's autofill and nobody without one sees anything; the button stays as
+  the explicit path and the only path where conditional UI is unavailable.
+  The pending request is re-armed with a fresh challenge a minute before the
+  old one would expire, and aborted before the button starts its own. Every
+  signed-in page carries a one-time card offering to enrol this device
+  (*Sign in faster next time.* / *Add a passkey* / *Not now*), shown by the
+  script only where this browser has never used a passkey and snoozed for
+  30 days per browser — passkeys are per device, so the memory is too. A
+  nightly `rota-clearsessions.timer` clears the session rows the login page
+  now mints per visit.
+
