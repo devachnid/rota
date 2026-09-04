@@ -16,8 +16,7 @@ import uuid
 import webauthn
 from django.utils import timezone
 from webauthn.helpers import base64url_to_bytes, bytes_to_base64url, options_to_json
-from webauthn.helpers.exceptions import (InvalidAuthenticationResponse, InvalidJSONStructure,
-                                         InvalidRegistrationResponse)
+from webauthn.helpers.exceptions import WebAuthnException
 from webauthn.helpers.structs import (AttestationConveyancePreference,
                                       AuthenticatorSelectionCriteria,
                                       PublicKeyCredentialDescriptor, ResidentKeyRequirement,
@@ -29,6 +28,13 @@ RP_NAME = "Practice Rota"
 SESSION_KEY = "passkey_challenge"
 CHALLENGE_TTL = 300          # seconds a minted challenge stays valid
 NO_AAGUID = "00000000-0000-0000-0000-000000000000"
+
+# What the library can raise on attacker-chosen bytes. WebAuthnException is
+# its own base; the three builtins come from its unguarded parsing of a
+# malformed COSE key or attestation object — inside these two calls only,
+# so a builtin error is the library's parse failing on the browser's
+# bytes, never ours.
+LIBRARY_ERRORS = (WebAuthnException, KeyError, TypeError, ValueError)
 
 # Authenticators a person would recognise by name, keyed by AAGUID. From
 # the community list at github.com/passkeydeveloper/passkey-authenticator-
@@ -96,21 +102,28 @@ def registration_options(request, user):
 def complete_registration(request, user, credential, name):
     """Verify the browser's registration response and keep it."""
     challenge = _spend(request)
+    if not isinstance(credential, dict):
+        raise PasskeyError("Malformed request.")
     try:
         verified = webauthn.verify_registration_response(
             credential=credential, expected_challenge=challenge,
             expected_rp_id=rp_id(request), expected_origin=origin(request),
             require_user_verification=True)
-    except (InvalidRegistrationResponse, InvalidJSONStructure) as exc:
-        raise PasskeyError(f"The passkey could not be verified ({exc}).")
+    except LIBRARY_ERRORS as exc:
+        raise PasskeyError(f"The passkey could not be verified ({exc.__class__.__name__}: {exc}).")
     aaguid = None if verified.aaguid in (None, NO_AAGUID) else uuid.UUID(verified.aaguid)
-    transports = credential.get("response", {}).get("transports") or []
+    # The library validates everything it verifies; transports it merely
+    # echoes, so filter the browser's list ourselves. A bare string is
+    # iterable too (and every character passes isinstance(t, str)), so the
+    # container itself must be checked, not just its elements.
+    raw_transports = credential.get("response", {}).get("transports")
+    transports = [t for t in raw_transports if isinstance(t, str)] if isinstance(raw_transports, list) else []
     return Passkey.objects.create(
         user=user,
         credential_id=bytes_to_base64url(verified.credential_id),
         public_key=bytes_to_base64url(verified.credential_public_key),
         sign_count=verified.sign_count,
-        transports=",".join(transports),
+        transports=",".join(transports)[:200],
         aaguid=aaguid,
         name=(name or "").strip()[:60] or KNOWN_AAGUIDS.get(str(aaguid), "Passkey"),
     )
@@ -129,6 +142,8 @@ def verify_login(request, credential):
     """Verify an assertion; return the Passkey it proves possession of, with
     its counter and last-used time advanced."""
     challenge = _spend(request)
+    if not isinstance(credential, dict):
+        raise PasskeyError("Malformed request.")
     passkey = Passkey.objects.select_related("user").filter(credential_id=credential.get("id")).first()
     if passkey is None:
         raise PasskeyError("That passkey is not registered here.")
@@ -139,8 +154,8 @@ def verify_login(request, credential):
             credential_public_key=base64url_to_bytes(passkey.public_key),
             credential_current_sign_count=passkey.sign_count,
             require_user_verification=True)
-    except (InvalidAuthenticationResponse, InvalidJSONStructure) as exc:
-        error = PasskeyError(f"The passkey could not be verified ({exc}).")
+    except LIBRARY_ERRORS as exc:
+        error = PasskeyError(f"The passkey could not be verified ({exc.__class__.__name__}: {exc}).")
         error.passkey = passkey
         raise error
     passkey.sign_count = verified.new_sign_count
