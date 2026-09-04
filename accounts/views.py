@@ -171,7 +171,9 @@ def passkey_login(request):
     if not user.is_active:
         return JsonResponse({"error": "This account is not active."}, status=400)
     auth_login(request, user, backend="django.contrib.auth.backends.ModelBackend")
-    nxt = body.get("next") or ""
+    nxt = body.get("next")
+    if not isinstance(nxt, str):      # the script sends a string; anything else is nobody's next
+        nxt = ""
     if not url_has_allowed_host_and_scheme(nxt, allowed_hosts={request.get_host()},
                                           require_https=request.is_secure()):
         nxt = settings.LOGIN_REDIRECT_URL
