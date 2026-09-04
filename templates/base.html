@@ -50,7 +50,7 @@
 {% if user.is_authenticated %}
 {# Offered once per browser, by the script, where no passkey has been used here. #}
 <div class="flashes" id="passkey-nudge" style="display:none">
-  <div class="flash">
+  <div class="flash" role="status">
     <form id="passkey-nudge-form" onsubmit="return false;">
       {% csrf_token %}
       <p><strong>Sign in faster next time.</strong> Add a passkey to this device and use your face, fingerprint or device PIN instead of a password.</p>
