@@ -6,19 +6,26 @@ where every emailed link lands, invitation or reset: it sets the password
 and signs the person in.
 """
 
+import json
+
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth import login as auth_login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordResetForm
+from django.contrib.auth.signals import user_login_failed
 from django.contrib.auth.views import (PasswordChangeView, PasswordResetConfirmView,
                                        PasswordResetView)
 from django.core.exceptions import ValidationError
-from django.shortcuts import render
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
-from django.utils.http import urlsafe_base64_decode
+from django.utils.http import url_has_allowed_host_and_scheme, urlsafe_base64_decode
+from django.views.decorators.http import require_POST
 
+from . import passkeys
 from .mail import email_is_configured, send_password_link
-from .models import User
+from .models import Passkey, User
 
 
 class RequestPasswordLinkForm(PasswordResetForm):
@@ -84,5 +91,51 @@ class ChangePasswordView(PasswordChangeView):
 @login_required
 def account(request):
     """The person's own page: who they are signed in as, and the things
-    only they can do to it. Passkeys join it on their own branch."""
-    return render(request, "accounts/account.html")
+    only they can do to it — the password, and their passkeys."""
+    return render(request, "accounts/account.html",
+                  {"passkeys": request.user.passkeys.all()})
+
+
+def _json_body(request):
+    """The JSON object a POST carried, or None if it carried anything else."""
+    try:
+        body = json.loads(request.body or b"{}")
+    except ValueError:
+        return None
+    return body if isinstance(body, dict) else None
+
+
+def _credential_from(request):
+    body = _json_body(request)
+    if body is None or not isinstance(body.get("credential"), dict):
+        return None, None
+    return body, body["credential"]
+
+
+@login_required
+@require_POST
+def passkey_register_options(request):
+    return JsonResponse(json.loads(passkeys.registration_options(request, request.user)))
+
+
+@login_required
+@require_POST
+def passkey_register(request):
+    body, credential = _credential_from(request)
+    if credential is None:
+        return JsonResponse({"error": "Malformed request."}, status=400)
+    try:
+        passkey = passkeys.complete_registration(request, request.user, credential,
+                                                 body.get("name", ""))
+    except passkeys.PasskeyError as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
+    return JsonResponse({"id": passkey.pk, "name": passkey.name})
+
+
+@login_required
+@require_POST
+def passkey_remove(request, pk):
+    passkey = get_object_or_404(Passkey, pk=pk, user=request.user)
+    passkey.delete()
+    messages.success(request, f"Passkey “{passkey.name}” removed.")
+    return redirect("account")

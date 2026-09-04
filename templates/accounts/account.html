@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Account{% endblock %}
 {% block content %}
 <div class="stack">
@@ -11,5 +12,36 @@
       <a href="{% url 'password_change' %}" class="btn">Change password</a>
     </div>
   </div>
+  <div class="card">
+    <h2>Passkeys</h2>
+    <p class="field-help">Sign in with your face, fingerprint or device PIN instead of a password. Add one on each device you use; your password still works.</p>
+    {% if passkeys %}
+    <table class="table">
+      <thead><tr><th scope="col">Name</th><th scope="col">Added</th><th scope="col">Last used</th><th scope="col"><span class="visually-hidden">Remove</span></th></tr></thead>
+      <tbody>
+      {% for p in passkeys %}
+        <tr>
+          <td>{{ p.name }}</td>
+          <td>{{ p.created_at|date:"j M Y" }}</td>
+          <td>{% if p.last_used_at %}{{ p.last_used_at|date:"j M Y" }}{% else %}Never{% endif %}</td>
+          <td><form method="post" action="{% url 'passkey_remove' p.pk %}">{% csrf_token %}<button type="submit" class="btn btn-quiet">Remove</button></form></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="empty">No passkeys yet.</p>
+    {% endif %}
+    <form class="form-actions" id="passkey-form" onsubmit="return false;">
+      {% csrf_token %}
+      <input name="name" maxlength="60" placeholder="Name this passkey, e.g. my iPhone" aria-label="Passkey name">
+      <button type="button" id="passkey-add" class="btn btn-primary" style="display:none"
+              data-options-url="{% url 'passkey_register_options' %}"
+              data-register-url="{% url 'passkey_register' %}">Add a passkey</button>
+    </form>
+    <p id="passkey-error" class="field-error" style="display:none" role="alert"></p>
+    <noscript><p class="field-help">Adding a passkey needs JavaScript.</p></noscript>
+  </div>
 </div>
+<script src="{% static 'js/passkeys.js' %}" defer></script>
 {% endblock %}
