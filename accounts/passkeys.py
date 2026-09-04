@@ -59,10 +59,29 @@ KNOWN_AAGUIDS = {
 }
 
 
+# The only texts a response ever carries — chosen by code, never composed
+# from an exception, so nothing the library says about the browser's bytes
+# reaches the client. The reason goes to the journal (_could_not_verify).
+MESSAGES = {
+    "no_request": "Start again — no passkey request is in progress.",
+    "too_slow": "That took too long — start again.",
+    "malformed": "Malformed request.",
+    "unverified": "The passkey could not be verified.",
+    "id_too_long": "The passkey could not be verified (credential id too long).",
+    "duplicate": "That passkey is already registered here.",
+    "unknown": "That passkey is not registered here.",
+}
+
+
 class PasskeyError(Exception):
-    """Something the browser sent that we will not accept. The message is
-    safe to show. verify_login sets `.passkey` when the credential was
-    known, so the caller can count the failure against that account."""
+    """Something the browser sent that we will not accept. `code` names the
+    MESSAGES entry a view shows; str(exc) is that same fixed text.
+    verify_login sets `.passkey` when the credential was known, so the
+    caller can count the failure against that account."""
+
+    def __init__(self, code):
+        super().__init__(MESSAGES[code])
+        self.code = code
 
 
 def rp_id(request):
@@ -81,21 +100,23 @@ def _spend(request):
     """The challenge minted for this session, once."""
     stored = request.session.pop(SESSION_KEY, None)
     if not stored:
-        raise PasskeyError("Start again — no passkey request is in progress.")
+        raise PasskeyError("no_request")
     challenge, issued = stored
     if time.time() - issued > CHALLENGE_TTL:
-        raise PasskeyError("That took too long — start again.")
+        raise PasskeyError("too_slow")
     return base64url_to_bytes(challenge)
 
 
 def _could_not_verify(exc):
     """The library refused the browser's bytes — or, if it raised a builtin,
-    tripped over them. The second case gets a line in the journal: it is a
-    hostile payload or a library change, and neither should hide behind a
-    friendly 400."""
-    if not isinstance(exc, WebAuthnException):
-        logger.warning("passkey verification raised %s", exc.__class__.__name__, exc_info=True)
-    return PasskeyError(f"The passkey could not be verified ({exc.__class__.__name__}: {exc}).")
+    tripped over them. The reason goes to the journal and never to the
+    client, who sees one fixed message. A builtin error is a hostile
+    payload or a library change, so that one carries a traceback."""
+    builtin = not isinstance(exc, WebAuthnException)
+    logger.log(logging.WARNING if builtin else logging.INFO,
+               "passkey verification failed: %s: %s", exc.__class__.__name__, exc,
+               exc_info=builtin)
+    return PasskeyError("unverified")
 
 
 def registration_options(request, user):
@@ -118,7 +139,7 @@ def complete_registration(request, user, credential, name):
     """Verify the browser's registration response and keep it."""
     challenge = _spend(request)
     if not isinstance(credential, dict):
-        raise PasskeyError("Malformed request.")
+        raise PasskeyError("malformed")
     try:
         verified = webauthn.verify_registration_response(
             credential=credential, expected_challenge=challenge,
@@ -129,7 +150,7 @@ def complete_registration(request, user, credential, name):
     # WebAuthn caps a credential id at 1023 bytes; the library reads a
     # 2-byte length and SQLite ignores max_length, so refuse it here.
     if len(verified.credential_id) > 1023:
-        raise PasskeyError("The passkey could not be verified (credential id too long).")
+        raise PasskeyError("id_too_long")
     aaguid = None if verified.aaguid in (None, NO_AAGUID) else uuid.UUID(verified.aaguid)
     # The library validates everything it verifies; transports it merely
     # echoes, so filter the browser's list ourselves. A bare string is
@@ -152,7 +173,7 @@ def complete_registration(request, user, credential, name):
             )
     except IntegrityError:
         # excludeCredentials is only a hint to the browser.
-        raise PasskeyError("That passkey is already registered here.")
+        raise PasskeyError("duplicate")
 
 
 def login_options(request):
@@ -170,10 +191,10 @@ def verify_login(request, credential):
     its counter and last-used time advanced."""
     challenge = _spend(request)
     if not isinstance(credential, dict):
-        raise PasskeyError("Malformed request.")
+        raise PasskeyError("malformed")
     passkey = Passkey.objects.select_related("user").filter(credential_id=credential.get("id")).first()
     if passkey is None:
-        raise PasskeyError("That passkey is not registered here.")
+        raise PasskeyError("unknown")
     try:
         verified = webauthn.verify_authentication_response(
             credential=credential, expected_challenge=challenge,

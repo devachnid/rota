@@ -133,7 +133,9 @@ def passkey_register(request):
         passkey = passkeys.complete_registration(request, request.user, credential,
                                                  body.get("name", ""))
     except passkeys.PasskeyError as exc:
-        return JsonResponse({"error": str(exc)}, status=400)
+        # The text comes from the fixed catalogue, not from the exception:
+        # nothing the library said about the bytes reaches the client.
+        return JsonResponse({"error": passkeys.MESSAGES[exc.code]}, status=400)
     return JsonResponse({"id": passkey.pk, "name": passkey.name})
 
 
@@ -166,7 +168,9 @@ def passkey_login(request):
         if known is not None:
             user_login_failed.send(sender=__name__, credentials={"username": known.user.email},
                                    request=request)
-        return JsonResponse({"error": str(exc)}, status=400)
+        # The text comes from the fixed catalogue, not from the exception:
+        # nothing the library said about the bytes reaches the client.
+        return JsonResponse({"error": passkeys.MESSAGES[exc.code]}, status=400)
     user = passkey.user
     if not user.is_active:
         return JsonResponse({"error": "This account is not active."}, status=400)

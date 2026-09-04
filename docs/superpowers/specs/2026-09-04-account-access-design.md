@@ -362,3 +362,10 @@ sending mail asynchronously; SMS.
   email. A duplicate credential id is refused as *That passkey is already
   registered here.*; a credential id over 1023 bytes is refused; the
   browser's timeout matches the five-minute challenge.
+- CodeQL on PR #11 (`py/stack-trace-exposure`, twice): the passkey views
+  answered with `str(exc)`, which since the error-boundary fix embedded the
+  library's exception class and message. Every `PasskeyError` now names a
+  code in a fixed `MESSAGES` catalogue and the views answer from that
+  catalogue; the library's reason is logged (INFO for its own refusals,
+  WARNING with a traceback for a builtin), never sent. The client's text for
+  a refused verification is simply *The passkey could not be verified.*
