@@ -69,4 +69,4 @@ their history stays intact and they drop out of every eligibility pool.
 | A warning you do not want | [Warnings](day-to-day.md#warnings-on-the-grid) — they come from three separate sources |
 | Someone's leave is not on the grid | Are they [linked to Breathe](breathe.md#setting-it-up-in-this-order)? Has a sync run since it was approved? |
 | Someone cannot sign in | [Login accounts](people.md#signing-in-and-lockouts) — an invitation link lasts seven days; a lockout lasts an hour and a passkey bypasses it |
-| An invitation never arrived | Is [outgoing email](../../README.md#outgoing-email) set up? The account page shows the link to copy if not, and **Send invitation again** mints a fresh one |
+| An invitation never arrived | Is [outgoing email](../../README.md#outgoing-email) set up? If not, each send shows the link once, to copy; **Send invitation again** mints a fresh one |

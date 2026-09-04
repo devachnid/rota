@@ -104,7 +104,7 @@ both warn admins about them. See [Leave from Breathe](breathe.md).
 separate from a clinician; the clinician's [User](#user) field links the two.
 
 The list shows each account's email, **Admin status**, **Active**, whether it
-is **Set up** (has a password), and the linked clinician. Search by email;
+is **Set up?** (has a password), and the linked clinician. Search by email;
 filter by Admin status or Active.
 
 ### Adding someone
@@ -112,8 +112,9 @@ filter by Admin status or Active.
 **Add login account** asks for two things: their email, and whether they are
 an admin. There is no password to type. Saving sends an **invitation** — an
 email with a link to choose their own password — and opens their page, which
-reads *Invited 4 Sep, link expires 11 Sep* until they have, then *Set up*. A
-link lasts seven days and works once; using it signs them straight in.
+reads *Invited 4 Sep, link expires 11 Sep* until they have, then *Set up —
+last link sent 4 Sep 14:02*. A link lasts seven days and works once; using it
+signs them straight in.
 
 If outgoing email is not set up (the dashboard's *Outgoing email* step says
 so), or the relay refuses, you are shown the link once instead, to copy into
@@ -144,8 +145,10 @@ separate staff flag to set — Django's `is_staff` follows Admin status.
 
 An admin cannot see a **superuser's** account in the list, open it, or grant
 superuser to anyone. Only a superuser sees the System fieldset (Active,
-Superuser status), the System group in the sidebar, and the password field
-with its direct set-password form — an emergency tool that nothing links to.
+Superuser status) and the System group in the sidebar, and only a superuser
+can reach the direct set-password form at
+`/admin/accounts/user/<id>/password/` — by URL alone, an emergency tool that
+nothing links to.
 
 ### Deactivating
 
@@ -162,8 +165,8 @@ still works, and is how they get back in if a device is lost.
 
 You cannot add one for them — only the device that holds the key can — but
 you can revoke one: open their login account, and under **Passkeys** each row
-shows the name, the authenticator, and when it was added and last used; tick
-*Delete* on the lost device's row and save. Passkeys are bound to this site's
+shows its name, the authenticator's id (its AAGUID), and when it was added and
+last used; use the row's delete control on the lost device's row and save. Passkeys are bound to this site's
 address; if the rota ever moves to a different domain, everyone enrols again.
 
 Passkeys are for personal devices. Do not enrol one on a shared surgery PC:
@@ -176,9 +179,9 @@ share its PIN too, so the passkey would let any of them in.
 People sign in with their email and password, or with a passkey. On the login
 page a passkey enrolled on that device is offered in the email field's
 autofill where the browser supports it, and **Sign in with a passkey** is
-the explicit button. After a password sign-in on a device with no passkey, a
-one-time card offers to add one; *Not now* puts it away for thirty days on
-that browser.
+the explicit button. In a browser that has never enrolled or used a passkey,
+every signed-in page carries a card offering to add one, until they do or
+press *Not now*, which puts it away for thirty days in that browser.
 
 Five wrong passwords within an hour — counted against the email *and*
 against the address they came from — lock that email and that address out of
@@ -189,9 +192,9 @@ proves possession of the device, which is the stronger claim; a forged
 assertion for a registered passkey counts like a wrong password.
 
 Superusers can see the record under the **System** group: **Access
-failures** is the permanent log of every failed attempt; **Access attempts**
-is the live counter, empty for an address as soon as someone there has logged
-in; **Access logs** records successful sign-ins.
+failures** is the log of failed attempts, kept to the last thousand per email;
+**Access attempts** is the live counter, empty for an address as soon as
+someone there has logged in; **Access logs** records successful sign-ins.
 
 ## Trainee profile
 

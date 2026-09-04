@@ -3,10 +3,10 @@
 Session-based GP practice rota. The design specs live in
 `docs/superpowers/specs/`, one per piece of work in the order it was built: v1;
 autofill v2 (trainees, commitments, demand-driven clinics, PMC branch cover);
-the frontend, in two phases; the post-deployment fixes; leave from Breathe; the
-grid and locum enhancements; the admin overhaul; and account access —
-invitations, self-service passwords, passkeys. Each spec's implementation plan
-sits beside it in `docs/superpowers/plans/`.
+the frontend's first phase; the post-deployment fixes; the frontend's second
+phase (mobile); leave from Breathe; the admin overhaul; the grid and locum
+enhancements; and account access — invitations, self-service passwords,
+passkeys. The implementation plans are in `docs/superpowers/plans/`.
 
 ## Develop
 
@@ -37,14 +37,15 @@ is the reference for what the settings actually mean.
 
 1. `python manage.py createsuperuser`
 2. Sign in and open **Admin**. The dashboard's **Setup** card lists nine
-   steps, each detected from the database and linked to where it is done;
+   steps, each detected from the database (or, for outgoing email, the
+   environment) and linked to where it is done in the admin;
    follow it until it reads "Setup complete". The **Health** card beside it
    is what to glance at afterwards.
 3. Create everyone's login accounts under **People › Login accounts › Add** —
    an email and whether they are an admin, nothing else. Each person receives
    an invitation, chooses their own password from its link, and can then add a
-   passkey. The superuser from step 1 is the only account with a typed
-   password. See [Login accounts](docs/admin/people.md#login-accounts).
+   passkey. The superuser's from step 1 is the only password an admin ever
+   types. See [Login accounts](docs/admin/people.md#login-accounts).
 
 The sequence the checklist walks, for reference: practice settings → sites →
 clinician groups → session types → coverage rules → clinicians → working
@@ -72,8 +73,11 @@ Then:
     python manage.py collectstatic --noinput
     python manage.py migrate
     cp deploy/gunicorn.service /etc/systemd/system/rota.service
-    cp deploy/rota-backup.* deploy/rota-clearsessions.* /etc/systemd/system/
+    cp deploy/rota-backup.* deploy/rota-clearsessions.* deploy/rota-breathe.* /etc/systemd/system/
     systemctl daemon-reload && systemctl enable --now rota rota-backup.timer rota-clearsessions.timer
+
+`rota-breathe.timer` is enabled later, once every clinician is linked — step 5
+of [Leave from Breathe](docs/admin/breathe.md#setting-it-up-in-this-order).
 
 Point the Cloudflare tunnel ingress at `http://127.0.0.1:8321`.
 Backups land in `backups/`, kept 30 days. Expired sessions are cleared
@@ -164,7 +168,7 @@ assertion for a registered passkey counts against the address and the account
 like a wrong password does.
 
 The record is in the admin's **System** group, for superusers: **Access
-failures** is the permanent log of every failed attempt; **Access attempts** is
+failures** is the log of failed attempts (the last thousand per email); **Access attempts** is
 the live counter, and is cleared for an address as soon as anyone there logs in
 successfully (that is what keeps a shared surgery connection from locking the
 building out); **Access logs** records successful sign-ins.
