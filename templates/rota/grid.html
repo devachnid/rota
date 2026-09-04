@@ -35,7 +35,7 @@
   </th>
   {% endfor %}
 </tr>
-<tr><th class="grid-clin"></th>{% for h in day_headers %}<th class="grid-part" scope="col">AM</th><th class="grid-part" scope="col">PM</th>{% endfor %}</tr>
+<tr><th class="grid-clin"></th>{% for h in day_headers %}<th class="grid-part{% if h.closed %} closed{% endif %}" scope="col">AM</th><th class="grid-part{% if h.closed %} closed{% endif %}" scope="col">PM</th>{% endfor %}</tr>
 </thead>
 {% for section in sections %}
 <tbody>

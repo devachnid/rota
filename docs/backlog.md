@@ -4,9 +4,9 @@
 before — two were already fixed when checked, this file claimed the app was
 undeployed for a day after it went live, and it listed Frontend Phase 2 as
 "not started" three days after it merged. Verify before acting on anything
-recorded here. On 2026-09-04 the two open items below were re-checked against
-the code (both still open; the range item's list of exposed views was stale
-and is corrected) and everything the day's eight merges parked was added.
+recorded here. On 2026-09-04 the two open items were re-checked against the code
+(both still open then; both fixed on 2026-09-05) and everything the day's eight
+merges parked was added.
 
 Three sweeps on 2026-08-23 cleared everything actionable that the v1 and
 autofill v2 review processes had accumulated:
@@ -25,6 +25,19 @@ autofill v2 review processes had accumulated:
   hygiene and the test-coverage gaps earlier reviews flagged.
 
 ## Settled
+
+- **A stored weekday or month list that no longer parses stops at deploy**
+  (2026-09-05). The post-deployment fixes (2026-08-31) gave
+  `PracticeSettings.open_weekdays` and `CoverageRule.months` / `weekdays` /
+  `preferred_weekdays` a strict parser, and a value stored under the old rules
+  — a trailing comma — 500'd the grid, the day view and My Schedule, none of
+  which turn a parse failure into a 400. `rota.E006` in `check --deploy` now
+  reads every stored value and names each bad record and field; the fix is to
+  open it in the admin and save. The views stay undecorated on purpose: the
+  check closes all three routes and any future one at once.
+
+- **Closed-day headers are one tone** (2026-09-05). The AM/PM header cells
+  under a closed day now carry `closed` like the day-name cell above them.
 
 - **Login accounts are invited, passwords are self-service, and passkeys are a
   second way in** (2026-09-04, PRs #10–#13; spec
@@ -102,67 +115,7 @@ autofill v2 review processes had accumulated:
   track; the placement's full contractual total is a deanery question, not a
   rota one. No change needed; `rota/views/reports.py:179` already does this.
 
-## Open — stored weekday and month lists are parsed strictly
-
-The post-deployment fixes (merged 2026-08-31) gave four free-text fields a real
-parser (`rota/services/ranges.py`):
-`PracticeSettings.open_weekdays`, and `CoverageRule.months`, `weekdays`,
-`preferred_weekdays`. The old parser silently dropped empty segments, so a
-value like `"0,1,2,3,4,"` was savable and readable before and is neither now —
-it raises at read time.
-
-That matters because three views reach the parser without the decorator that
-turns a parse failure into a 400 explaining itself: `grid`
-(`rota/views/grid.py`), `day_view` (`rota/views/day.py`) and `my_schedule`
-(`rota/views/my_schedule.py`); `parse_errors_as_400` guards only the fill and
-edit views. (`leave_approve`, named here before, went with local leave.) A
-trailing comma stored under the old rules therefore 500s the main page rather
-than naming the offending value.
-
-**Nothing on this box's dev database trips it — checked 2026-08-31. The staging
-database on the LXC is a different database and had not been checked as of
-2026-09-04.** Run this there:
-
-```bash
-python manage.py shell <<'EOF'
-from django.core.exceptions import ValidationError
-from rota.models import PracticeSettings, CoverageRule
-from rota.services.ranges import validate_int_list as v
-
-bad = []
-for s in PracticeSettings.objects.all():
-    try:
-        v(s.open_weekdays, 0, 6, "open_weekdays")
-    except ValidationError as e:
-        bad.append(("PracticeSettings", s.pk, e.messages))
-for r in CoverageRule.objects.all():
-    for field, lo, hi in (("months", 1, 12), ("weekdays", 0, 6), ("preferred_weekdays", 0, 6)):
-        try:
-            v(getattr(r, field), lo, hi, field)
-        except ValidationError as e:
-            bad.append((str(r), field, e.messages))
-print(bad or "all range fields parse cleanly")
-EOF
-```
-
-Anything it lists is fixed by editing the field in `/admin/` and saving — the
-form validator now rejects the bad value with a message naming it.
-
-The durable fix is a **deploy check** over all four fields, in the existing
-`rota/checks.py` `@register(deploy=True)` pattern — view-agnostic, so it closes
-both routes and any future one, where wrapping views one at a time closes one
-instance of the hazard and leaves the next open. Deliberately not done on the
-branch: it would have been unreviewed code landed after the final review gate.
-Still not written as of 2026-09-04. Note that CI now runs `check --deploy`,
-but against an empty test database — this check's value is on the staging box.
-
 ## Open — minor
-
-- **Closed-day headers render two-tone.** On a bank holiday the day-name cell
-  greys correctly but the AM/PM row beneath it stays on the surface colour,
-  because `closed` is only applied to the upper `<th>` in `grid.html`. Confirmed
-  in a browser. Cosmetic, and a template change rather than a styling one.
-  Still so on 2026-09-04: the `<th class="grid-part">` row carries no `closed`.
 
 Parked by the account-access work (2026-09-04), none blocking:
 

@@ -156,3 +156,52 @@ def outgoing_email_is_configured(app_configs, **kwargs):
             id="rota.E005",
         )]
     return []
+
+
+# The four free-text weekday/month fields are validated by their forms, but a
+# value stored before the parser was made strict — "0,1,2,3,4," — sits in the
+# database and 500s the grid, the day view and My Schedule on every request:
+# those views reach the parser with nothing to turn a parse failure into a
+# 400 that names the value. Reading every stored value here closes all three
+# routes and any future one at once, where wrapping views closes one at a
+# time. Quiet before the database exists: a first deploy runs this on an
+# empty box, and CI runs it against no database at all.
+@register(deploy=True)
+def stored_ranges_parse(app_configs, **kwargs):
+    from django.core.exceptions import ValidationError
+    from django.db import DatabaseError
+
+    from rota.models import CoverageRule, PracticeSettings
+    from rota.services.ranges import validate_int_list
+
+    def problem(label, value, low, high):
+        try:
+            validate_int_list(value, low, high, label)
+        except ValidationError as exc:
+            return "; ".join(exc.messages)
+        return None
+
+    found = []
+    try:
+        for ps in PracticeSettings.objects.all():
+            msg = problem("open_weekdays", ps.open_weekdays, 0, 6)
+            if msg:
+                found.append(f"Practice settings open_weekdays={ps.open_weekdays!r}: {msg}")
+        for rule in CoverageRule.objects.select_related("session_type"):
+            for field, low, high in (("months", 1, 12), ("weekdays", 0, 6),
+                                     ("preferred_weekdays", 0, 6)):
+                value = getattr(rule, field)
+                msg = problem(field, value, low, high)
+                if msg:
+                    found.append(f"Coverage rule “{rule}” {field}={value!r}: {msg}")
+    except DatabaseError:
+        return []
+    if found:
+        return [Error(
+            "Stored weekday/month lists that no longer parse — every rota page "
+            "returns 500 until they are fixed: " + " | ".join(found),
+            hint="Open each named record in the admin and save it; the form "
+                 "names the bad value and refuses it.",
+            id="rota.E006",
+        )]
+    return []
