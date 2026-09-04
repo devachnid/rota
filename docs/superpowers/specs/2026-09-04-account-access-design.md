@@ -71,10 +71,11 @@ passkeys as a second way in.
 `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS` (default on), `DEFAULT_FROM_EMAIL`,
 and sets `EMAIL_TIMEOUT = 10` so a stalled relay cannot hold an admin's
 save past gunicorn's worker timeout. **`EMAIL_HOST` being set is what
-"email is configured" means** — one test, used everywhere below. With
-`DEBUG` on and no host, the console backend prints messages to the
-terminal. Under pytest, pytest-django's locmem backend collects them in
-`mail.outbox`.
+"email is configured" means** — one test, used everywhere below. There is
+no console backend for a dev box: with no host, a dev box behaves as
+production does and the admin is shown each link — a second definition of
+"configured" would contradict the one above. Under pytest, pytest-django's
+locmem backend collects them in `mail.outbox`.
 
 Every message the app sends carries `X-Mailjet-TrackClick: 0` and
 `X-Mailjet-TrackOpen: 0`. Mailjet rewrites links through `mjt.lu` for click
@@ -326,3 +327,15 @@ and the six keys into `/etc/rota.env`. None of it blocks the merge — until
 Conditional-UI passkey autofill; passkey enrolment from the invitation
 page itself (password first, passkey second); passkey-only accounts;
 sending mail asynchronously; SMS.
+
+## Amended after the final review (2026-09-04)
+
+- §1's console backend for `DEBUG` is gone: every send path returns before
+  the backend when `EMAIL_HOST` is unset, so it could never have fired, and
+  it contradicted "`EMAIL_HOST` being set is what configured means".
+- §4's "tell the admin when the last link went" is the state field's
+  *Set up — last link sent 4 Sep 14:02* for an account with a password.
+- The link an admin is shown to copy stays a clickable `<a>`: on a phone a
+  long-press offers *Copy link*, which is the point; clicking it instead
+  lands on someone else's set-password page, which is visible and undone by
+  logging out.
