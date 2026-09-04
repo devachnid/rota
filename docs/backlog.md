@@ -5,8 +5,8 @@ before — two were already fixed when checked, this file claimed the app was
 undeployed for a day after it went live, and it listed Frontend Phase 2 as
 "not started" three days after it merged. Verify before acting on anything
 recorded here. On 2026-09-04 the two open items below were re-checked against
-the code (both still open) and everything the day's four merges parked was
-added.
+the code (both still open; the range item's list of exposed views was stale
+and is corrected) and everything the day's eight merges parked was added.
 
 Three sweeps on 2026-08-23 cleared everything actionable that the v1 and
 autofill v2 review processes had accumulated:
@@ -40,8 +40,9 @@ autofill v2 review processes had accumulated:
   stamping the account so the retry was silently throttled (a failed public
   send no longer stamps).
 
-- **The username half of the login lockout had been inert since August**
-  (2026-09-04, PR #13). See the correction under the axes entry below.
+- **The username half of the login lockout had never worked** (2026-09-04:
+  the key in PR #11, the failure log in PR #13). See the correction under the
+  axes entry below.
 
 - **CI gates every merge** (2026-09-04, PRs #14 and #15). `tests` runs
   `ruff check` (pyflakes only), `makemigrations --check`, the suite, and
@@ -74,10 +75,13 @@ autofill v2 review processes had accumulated:
   key. With a custom `USERNAME_FIELD`, django-axes recorded attempts under
   `credentials["email"]` while Django's login form sends
   `credentials["username"]`, so every row carried `username=None` and the
-  username half never locked anything. `AXES_USERNAME_FORM_FIELD = "username"`
-  fixes it; a test with axes enabled now asserts the row carries the email.
-  `AXES_ENABLE_ACCESS_FAILURE_LOG` is on too — the admin's *Access failures*
-  page had been empty because axes leaves the permanent log off by default.
+  username key never resolved — not since August but since the model was made
+  in July; and until the address key was added on 26 August, username was the
+  only parameter, so for five weeks no lockout worked at all.
+  `AXES_USERNAME_FORM_FIELD = "username"` (PR #11) fixes it; a test with axes
+  enabled asserts the row carries the email. `AXES_ENABLE_ACCESS_FAILURE_LOG`
+  is on too (PR #13) — the admin's *Access failures* page had been empty
+  because axes leaves that log off by default.
 
 - **The palette has a true neutral** (2026-08-24). It had none: all 40 tints
   were colours, and the family at hue 360° was named "slate" while rendering a
@@ -107,9 +111,11 @@ parser (`rota/services/ranges.py`):
 value like `"0,1,2,3,4,"` was savable and readable before and is neither now —
 it raises at read time.
 
-That matters because two views reach the parser without the decorator that
+That matters because three views reach the parser without the decorator that
 turns a parse failure into a 400 explaining itself: `grid`
-(`rota/views/grid.py:15`) and `leave_approve` (`rota/views/requests.py:71`). A
+(`rota/views/grid.py`), `day_view` (`rota/views/day.py`) and `my_schedule`
+(`rota/views/my_schedule.py`); `parse_errors_as_400` guards only the fill and
+edit views. (`leave_approve`, named here before, went with local leave.) A
 trailing comma stored under the old rules therefore 500s the main page rather
 than naming the offending value.
 
