@@ -113,7 +113,7 @@ def test_signing_in_with_a_passkey(gp_client, gp_user):
 def test_an_off_site_or_missing_next_lands_on_the_rota(gp_client):
     auth = SoftAuthenticator()
     _enrol(gp_client, auth)
-    for nxt in ("//evil.example/", "https://evil.example/x", ""):
+    for nxt in ("//evil.example/", "https://evil.example/x", "", 5, ["/rota/day/"]):
         anon = Client()
         options = _post_json(anon, LOGIN_OPTIONS).json()
         assert _post_json(anon, LOGIN, {"credential": auth.get(options), "next": nxt}).json() == {"next": "/rota/"}
