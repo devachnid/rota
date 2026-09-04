@@ -161,3 +161,16 @@ def test_a_relay_and_a_real_sender_pass(settings):
     settings.EMAIL_HOST = "smtp.example"
     settings.DEFAULT_FROM_EMAIL = "Practice Rota <rota@example.org>"
     assert _email() == []
+
+
+def test_a_sender_django_cannot_parse_is_an_error_naming_the_fix(settings):
+    """Staging: an @ in the display name, unquoted — every send raised
+    ValueError, as a 500 on the public reset form."""
+    settings.DEBUG = False
+    settings.EMAIL_HOST = "smtp.example"
+    settings.DEFAULT_FROM_EMAIL = "Rota @ Ashgrove Medical Group <rota@example.org>"
+    found = _email()
+    assert [f.id for f in found] == ["rota.E005"] and isinstance(found[0], Error)
+    assert "quoted" in found[0].hint
+    settings.DEFAULT_FROM_EMAIL = '"Rota @ Ashgrove Medical Group" <rota@example.org>'
+    assert _email() == []
