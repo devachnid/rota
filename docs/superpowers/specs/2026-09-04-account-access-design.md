@@ -354,3 +354,11 @@ sending mail asynchronously; SMS.
 - §8's passkeys-and-domain paragraph lives in README › Deploy (where a
   domain change is done) and docs/admin/people.md, not in
   upgrading-unfold.md — that page is about unfold.
+- Found by the passkeys branch's final review: with a custom `USERNAME_FIELD`,
+  django-axes keyed attempts on `credentials["email"]` while Django's login
+  form sends `credentials["username"]`, so the username half of the lockout
+  had never locked anything. `AXES_USERNAME_FORM_FIELD = "username"` fixes
+  both ways in; a test with axes enabled now asserts the row carries the
+  email. A duplicate credential id is refused as *That passkey is already
+  registered here.*; a credential id over 1023 bytes is refused; the
+  browser's timeout matches the five-minute challenge.
