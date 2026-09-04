@@ -228,10 +228,13 @@
         navigator.credentials.get({
           publicKey: requestOptions(opts), mediation: "conditional", signal: controller.signal
         }).then(function (cred) {
+          if (controller.signal.aborted) { return; }   // a pick that landed after our own cancel
           if (rearm) { clearTimeout(rearm); rearm = null; }
           pending = null;
           busy = true;
-          return finish(cred, token).catch(function (e) {
+          return Promise.resolve().then(function () {   // so a throw lands in the catch below
+            return finish(cred, token);
+          }).catch(function (e) {
             busy = false;
             show(loginError, explain(e));
             armConditional();
