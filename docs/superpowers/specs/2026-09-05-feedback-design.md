@@ -212,12 +212,13 @@ Hello,
 
 You wrote on {{ created|date:"j F" }}{% if page %} (on {{ page }}){% endif %}:
 
-> {{ message|linebreaksbr-free, each line prefixed "> " }}
+{{ quoted }}
 
 Reply to this email to reach {{ admin_email }}.
 ```
 
-Not configured → returns "Email isn't set up"; a raise → logged and its
+`quoted` is the original message with every line prefixed `> `, built in
+Python before rendering. Not configured → returns "Email isn't set up"; a raise → logged and its
 `str()` returned. Nothing is stamped unless the send succeeded.
 
 ## 6. The admin
