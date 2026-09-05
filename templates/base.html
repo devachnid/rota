@@ -36,6 +36,10 @@
   {% endif %}
   <a href="/reports/fairness/" class="nav-link{% if '/reports/' in request.path %} is-active{% endif %}">Reports</a>
   <button type="button" id="theme-toggle" class="btn btn-quiet">Theme</button>
+  {% if user.is_authenticated %}
+    <button type="button" id="feedback-open" class="btn btn-quiet"
+            hx-get="{% url 'feedback-form' %}" hx-target="#modal">Feedback</button>
+  {% endif %}
   <span class="nav-spacer"></span>
   {% if user.is_authenticated %}
     <a href="{% url 'account' %}" class="nav-user">{{ user.email }}</a>
@@ -66,6 +70,9 @@
 </div>
 {% endif %}
 <main class="main">{% block content %}{% endblock %}</main>
+{# The one htmx modal target on the page: the grid's cell, note and locum
+   forms and the Feedback form all render into it. #modal:empty is hidden. #}
+{% if user.is_authenticated %}<div id="modal"></div>{% endif %}
 <nav class="tabbar" aria-label="Sections">
   <a href="/rota/" class="tabbar-item{% if request.path == '/rota/' %} is-active{% endif %}">Week</a>
   <a href="/rota/day/" class="tabbar-item{% if '/rota/day/' in request.path %} is-active{% endif %}">Day</a>
@@ -81,6 +88,9 @@
       <a href="/reports/fairness/" class="tabbar-link">Reports</a>
       <button type="button" id="theme-toggle-mobile" class="tabbar-link">Theme</button>
       {% if user.is_authenticated %}
+        {# The sheet is a <details>; the modal opens over it, so close it on the way. #}
+        <button type="button" class="tabbar-link" hx-get="{% url 'feedback-form' %}" hx-target="#modal"
+                onclick="this.closest('details').removeAttribute('open')">Feedback</button>
         <a href="{% url 'account' %}" class="tabbar-user">{{ user.email }}</a>
         <form method="post" action="/accounts/logout/">{% csrf_token %}<button class="tabbar-link">Log out</button></form>
       {% endif %}

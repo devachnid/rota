@@ -52,9 +52,10 @@
   font-size: var(--fs-sm);
 }
 
-/* The toggle is a nav control, not a page action — quiet by default so it
-   does not compete with the links beside it. */
-#theme-toggle {
+/* The theme toggle and the Feedback control are nav controls, not page
+   actions — quiet by default so they do not compete with the links beside
+   them. */
+#theme-toggle, #feedback-open {
   font-size: var(--fs-xs);
   white-space: nowrap;
 }
@@ -179,6 +180,35 @@ body {
   font-weight: 700;
   font-size: var(--fs-sm);
   color: var(--ink);
+}
+/* A fieldset can be a .field too — the feedback form's kind. Reset the
+   browser's box and let the legend read as a label. */
+fieldset.field {
+  border: 0;
+  padding: 0;
+  margin: 0 0 var(--sp-4);
+  min-width: 0;
+}
+.field legend {
+  font-weight: 700;
+  font-size: var(--fs-sm);
+  color: var(--ink);
+  padding: 0;
+  margin-bottom: var(--sp-1);
+}
+/* Two or three radio labels on one line. .radio-row label ties with
+   .field label on specificity (0,1,1) and sits later in this sheet, which
+   is what lets the option text sit at 500 rather than the label's 700. */
+.radio-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-4);
+}
+.radio-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-weight: 500;
 }
 /* :not([type=checkbox]):not([type=radio]) guards this against a checkbox
    or radio sat inside a .field (fill.html's "fill remaining empty cells"
