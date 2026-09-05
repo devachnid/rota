@@ -645,10 +645,11 @@ class SwapRequestAdmin(ModelAdmin):
         try:
             what = swaps_svc.describe(obj)
             swaps_svc.approve(request.user, obj)
-            swap_mail.swap_decided(request, obj, what=what)
-            messages.success(request, "Swap applied.")
         except ValueError as e:
             messages.error(request, f"Not applied: {e}")
+            return
+        swap_mail.swap_decided(request, obj, what=what)
+        messages.success(request, "Swap applied.")
 
     @action(description="Decline")
     def decline_swap(self, request, obj):
@@ -656,10 +657,11 @@ class SwapRequestAdmin(ModelAdmin):
         # was typed.
         try:
             swaps_svc.decline(request.user, obj, obj.admin_comment)
-            swap_mail.swap_decided(request, obj)
-            messages.success(request, "Swap declined.")
         except ValueError as e:
             messages.error(request, str(e))
+            return
+        swap_mail.swap_decided(request, obj)
+        messages.success(request, "Swap declined.")
 
 
 @admin.register(BreatheAbsence)

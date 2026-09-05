@@ -56,19 +56,22 @@ def _send(request, req, to, subject, template, *, reply_to=None, what=None, **ex
     to = [address for address in to if address]
     if not to or not email_is_configured():
         return False
-    context = {
-        "req": req,
-        "what": what or summary(req),
-        "message_quoted": _quoted(req.message),
-        "my_schedule": request.build_absolute_uri("/me/"),
-        "requests": request.build_absolute_uri("/requests/"),
-        **extra,
-    }
-    body = render_to_string(f"rota/email/{template}.txt", context)
-    message = EmailMessage(f"[Rota] {subject}", body, settings.DEFAULT_FROM_EMAIL, to,
-                           headers=TRACKING_OFF,
-                           reply_to=[reply_to] if reply_to else None)
+    # Everything from here is inside the guard, not just the send: a
+    # template or rendering error would otherwise reach the page — and in
+    # the admin, roll back the decision the action had just applied.
     try:
+        context = {
+            "req": req,
+            "what": what or summary(req),
+            "message_quoted": _quoted(req.message),
+            "my_schedule": request.build_absolute_uri("/me/"),
+            "requests": request.build_absolute_uri("/requests/"),
+            **extra,
+        }
+        body = render_to_string(f"rota/email/{template}.txt", context)
+        message = EmailMessage(f"[Rota] {subject}", body, settings.DEFAULT_FROM_EMAIL, to,
+                               headers=TRACKING_OFF,
+                               reply_to=[reply_to] if reply_to else None)
         message.send(fail_silently=False)
     except Exception:  # noqa: BLE001 — the swap is saved; the failure is the journal's
         logger.exception("swap email %s for #%s could not be sent", template, req.pk)

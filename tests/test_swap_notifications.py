@@ -159,6 +159,40 @@ def test_a_relay_failure_is_logged_not_raised(rf, pair, monkeypatch, caplog):
     assert "swap email swap_proposed for #%d could not be sent" % req.pk in caplog.text
 
 
+def test_a_failure_before_the_send_is_logged_not_raised(rf, pair, monkeypatch, caplog):
+    """A rendering error is as much the journal's as a relay error: nothing
+    between deciding to send and sending may reach a page."""
+    a, b, req = pair
+
+    def render(*args, **kwargs):
+        raise RuntimeError("template broke")
+    monkeypatch.setattr(swap_mail, "render_to_string", render)
+    with caplog.at_level("ERROR", logger="rota.mail"):
+        assert swap_mail.swap_proposed(_request(rf, a.user), req) is False
+    assert "could not be sent" in caplog.text and mail.outbox == []
+
+
+def test_an_email_failure_never_touches_the_decision(admin_client, pair, monkeypatch):
+    """The admin's Approve applies the swap inside Django's change-form
+    transaction; an exception from the email would roll it back and 500.
+    The mail layer swallows its own failures, and the action reports the
+    decision it made."""
+    a, b, req = pair
+    req.status = SwapRequest.Status.ACCEPTED
+    req.save()
+
+    def render(*args, **kwargs):
+        raise RuntimeError("template broke")
+    monkeypatch.setattr(swap_mail, "render_to_string", render)
+    resp = admin_client.post(f"/admin/rota/swaprequest/{req.pk}/change/",
+                             {"admin_comment": "", **APPROVE}, follow=True)
+    req.refresh_from_db()
+    assert req.status == SwapRequest.Status.APPROVED
+    assert RotaEntry.objects.get(clinician=b, day=req.proposer_day).part == "PM"
+    assert "Swap applied." in resp.content.decode()
+    assert mail.outbox == []
+
+
 # --------------------------------------------------------------------------
 # the pages send them
 # --------------------------------------------------------------------------
