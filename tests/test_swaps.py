@@ -2,6 +2,7 @@ from datetime import date, timedelta
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.utils.html import escape
 
 from rota.models import RotaEntry, SwapRequest
 from rota.services import entries as entries_svc
@@ -166,8 +167,136 @@ def test_swap_new_excludes_clinicians_with_no_login(client):
     resp = client.get("/me/swap/new/")
     assert b"Beth Brown" not in resp.content
 
+    # Posting her id anyway is answered on the page, not with a 404.
     my_entry = RotaEntry.objects.get(clinician=a, day=day1, part="AM")
     resp = client.post("/me/swap/new/", {
         "my_entry_id": my_entry.id, "their_entry_id": their_entry.id})
-    assert resp.status_code == 404
+    assert resp.status_code == 200
     assert not SwapRequest.objects.exists()
+
+
+# --------------------------------------------------------------------------
+# The propose-a-swap page: what it says when there is nothing to offer, and
+# how it answers a bad submission. Found on staging, where the only account
+# was the admin's own: the colleague list was empty and a blank submit fell
+# through to a text/plain "Bad request: 'their_entry_id'".
+# --------------------------------------------------------------------------
+
+def _gp(name, email):
+    """A clinician who can sign in."""
+    c = make_clinician(name)
+    c.user = User.objects.create_user(email=email, password="pw")
+    c.save()
+    return c
+
+
+@pytest.fixture
+def pair(client):
+    """Alice and Beth both sign in and both have a published session
+    tomorrow; Alice is logged in."""
+    routine = make_session_type("Routine")
+    a = _gp("Alice Adams", "alice.pair@example.com")
+    b = _gp("Beth Brown", "beth.pair@example.com")
+    day1 = date.today() + timedelta(days=1)
+    mine = make_entry(a, day=day1, part="AM", session_type=routine)
+    theirs = make_entry(b, day=day1, part="PM", session_type=routine)
+    client.force_login(a.user)
+    return a, b, mine, theirs
+
+
+def test_a_blank_submission_is_answered_on_the_form(client, pair):
+    resp = client.post("/me/swap/new/", {})
+    assert resp.status_code == 200
+    html = resp.content.decode()
+    assert "Choose one of your sessions." in html
+    assert escape("Choose a colleague's session.") in html
+    assert "Bad request" not in html
+    assert not SwapRequest.objects.exists()
+
+
+def test_the_half_that_was_chosen_survives_a_failed_submission(client, pair):
+    a, b, mine, theirs = pair
+    html = client.post("/me/swap/new/", {"my_entry_id": mine.id,
+                                          "message": "please?"}).content.decode()
+    assert f'value="{mine.id}" selected' in html
+    assert "please?" in html
+    assert escape("Choose a colleague's session.") in html
+
+
+def test_an_id_from_outside_the_lists_is_a_field_error_not_a_404(client, pair):
+    a, b, mine, theirs = pair
+    # Beth's session offered as mine, and a string that is not an id at all.
+    for bad in (theirs.id, "abc"):
+        resp = client.post("/me/swap/new/", {"my_entry_id": bad,
+                                              "their_entry_id": theirs.id})
+        assert resp.status_code == 200
+        assert escape("That isn't one of your upcoming published sessions") in resp.content.decode()
+    assert not SwapRequest.objects.exists()
+
+
+def test_colleagues_sessions_are_grouped_by_colleague(client, pair):
+    a, b, mine, theirs = pair
+    # A second colleague whose session falls *before* Beth's: the list is by
+    # colleague first, so his group comes second and holds only his session.
+    c = _gp("Carl Cole", "carl.pair@example.com")
+    carls = make_entry(c, day=date.today(), part="AM", session_type=theirs.session_type)
+    html = client.get("/me/swap/new/").content.decode()
+    beth, carl = html.index('<optgroup label="Beth Brown">'), html.index('<optgroup label="Carl Cole">')
+    assert beth < html.index(f'value="{theirs.id}"') < carl < html.index(f'value="{carls.id}"')
+    assert 'value="">Choose' in html
+    assert "Only colleagues who can sign in are listed" in html
+
+
+def test_when_no_colleague_can_sign_in_the_page_says_so(client):
+    routine = make_session_type("Routine")
+    a = _gp("Alice Adams", "alice.solo@example.com")
+    b = make_clinician("Beth Brown")  # on the rota, no login
+    day1 = date.today() + timedelta(days=1)
+    make_entry(a, day=day1, part="AM", session_type=routine)
+    make_entry(b, day=day1, part="PM", session_type=routine)
+    client.force_login(a.user)
+    html = client.get("/me/swap/new/").content.decode()
+    assert "None of your colleagues has a login account yet" in html
+    assert "<select" not in html
+    assert "Beth Brown" not in html
+    assert 'href="/me/"' in html
+
+
+def test_when_colleagues_have_nothing_published_the_page_says_that_instead(client):
+    routine = make_session_type("Routine")
+    a = _gp("Alice Adams", "alice.only@example.com")
+    b = _gp("Beth Brown", "beth.only@example.com")
+    day1 = date.today() + timedelta(days=1)
+    make_entry(a, day=day1, part="AM", session_type=routine)
+    make_entry(b, day=day1, part="PM", session_type=routine, is_published=False)
+    make_entry(b, day=day1 - timedelta(days=7), part="AM", session_type=routine)
+    client.force_login(a.user)
+    html = client.get("/me/swap/new/").content.decode()
+    assert "None of your colleagues who can sign in has a published session coming up" in html
+    assert "<select" not in html
+
+
+def test_when_i_have_nothing_published_the_page_says_so(client):
+    routine = make_session_type("Routine")
+    a = _gp("Alice Adams", "alice.none@example.com")
+    b = _gp("Beth Brown", "beth.none@example.com")
+    day1 = date.today() + timedelta(days=1)
+    make_entry(b, day=day1, part="PM", session_type=routine)
+    client.force_login(a.user)
+    html = client.get("/me/swap/new/").content.decode()
+    assert "You have no published sessions coming up" in html
+    assert "<select" not in html
+
+
+def test_the_colleague_sees_the_proposal_on_my_schedule(client, pair):
+    a, b, mine, theirs = pair
+    assert client.post("/me/swap/new/", {"my_entry_id": mine.id,
+                                          "their_entry_id": theirs.id,
+                                          "message": "School run"}).status_code == 302
+    client.force_login(b.user)
+    html = client.get("/me/").content.decode()
+    assert "Waiting for you" in html
+    assert "Alice Adams proposes swapping" in html and "School run" in html
+    req = SwapRequest.objects.get()
+    assert f'action="/me/swap/{req.pk}/accept/"' in html
+    assert f'action="/me/swap/{req.pk}/decline/"' in html

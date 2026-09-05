@@ -2,32 +2,52 @@
 {% block title %}Propose a swap{% endblock %}
 {% block content %}
 <h1>Propose a swap</h1>
+{% if nothing_to_swap %}
+<p>{{ nothing_to_swap }}</p>
+<div class="form-actions">
+  <a href="/me/" class="btn">Back to my schedule</a>
+</div>
+{% else %}
 <form method="post">
   {% csrf_token %}
+  {% if form.non_field_errors %}<p class="field-error" role="alert">{{ form.non_field_errors.0 }}</p>{% endif %}
   <div class="field">
     <label for="id_my_entry_id">My session</label>
-    <select name="my_entry_id" id="id_my_entry_id">
+    <select name="my_entry_id" id="id_my_entry_id" required>
+      <option value="">Choose…</option>
       {% for e in mine %}
-      <option value="{{ e.id }}">{{ e.day|date:"D j M" }} {{ e.part }} — {{ e.session_type.name }}</option>
+      <option value="{{ e.id }}"{% if form.my_entry_id.value == e.id|stringformat:"s" %} selected{% endif %}>{{ e.day|date:"D j M" }} {{ e.part }} — {{ e.session_type.name }}</option>
       {% endfor %}
     </select>
+    {% if form.my_entry_id.errors %}<p class="field-error" role="alert">{{ form.my_entry_id.errors.0 }}</p>{% endif %}
   </div>
   <div class="field">
     <label for="id_their_entry_id">Colleague's session</label>
-    <select name="their_entry_id" id="id_their_entry_id">
-      {% for e in theirs %}
-      <option value="{{ e.id }}">{{ e.clinician.name }}: {{ e.day|date:"D j M" }} {{ e.part }} — {{ e.session_type.name }}</option>
+    <select name="their_entry_id" id="id_their_entry_id" required>
+      <option value="">Choose…</option>
+      {% regroup theirs by clinician as colleagues %}
+      {% for c in colleagues %}
+      <optgroup label="{{ c.grouper.name }}">
+        {% for e in c.list %}
+        <option value="{{ e.id }}"{% if form.their_entry_id.value == e.id|stringformat:"s" %} selected{% endif %}>{{ e.day|date:"D j M" }} {{ e.part }} — {{ e.session_type.name }}</option>
+        {% endfor %}
+      </optgroup>
       {% endfor %}
     </select>
+    <p class="field-help">Only colleagues who can sign in are listed, because they accept the swap themselves.</p>
+    {% if form.their_entry_id.errors %}<p class="field-error" role="alert">{{ form.their_entry_id.errors.0 }}</p>{% endif %}
   </div>
   <div class="field">
     <label for="id_message">Message</label>
-    <textarea name="message" id="id_message" rows="2"></textarea>
+    <textarea name="message" id="id_message" rows="2" maxlength="500">{{ form.message.value|default:"" }}</textarea>
+    {% if form.message.errors %}<p class="field-error" role="alert">{{ form.message.errors.0 }}</p>{% endif %}
   </div>
   <p class="field-help">You exchange session types in both sessions, so you must both normally work
   both of the sessions involved. A full duty day swaps as a whole day.</p>
   <div class="form-actions">
     <button type="submit" class="btn btn-primary">Propose swap</button>
+    <a href="/me/" class="btn">Cancel</a>
   </div>
 </form>
+{% endif %}
 {% endblock %}

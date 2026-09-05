@@ -26,6 +26,18 @@ autofill v2 review processes had accumulated:
 
 ## Settled
 
+- **The propose-a-swap page explains an empty colleague list and checks its
+  own input** (2026-09-05). Only a colleague with a login account can be asked
+  for a swap, because they accept it themselves; on a practice where nobody
+  else has an account yet the page showed an empty dropdown, and submitting it
+  fell through to a text/plain *Bad request: 'their_entry_id'*. It now says
+  which condition is unmet (no colleague can sign in / none of them has a
+  published session coming up / you have none yourself) and offers a way back
+  instead of a form; a blank, foreign or malformed choice is reported beside
+  its field at 200 with what was chosen kept; the colleagues' sessions are
+  grouped by name. The 400 fallback remains for the views that parse path
+  segments.
+
 - **A Feedback control on every signed-in page** (2026-09-05; spec
   `docs/superpowers/specs/2026-09-05-feedback-design.md`). A quiet button
   beside Theme (and in the phone's More sheet) opens a form in the app's own

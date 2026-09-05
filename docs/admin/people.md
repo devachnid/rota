@@ -57,9 +57,11 @@ any session type restricted by `allowed_groups`.
 
 ### User
 
-Links this clinician to a **login account**, so they can see My Schedule and
-propose swaps. Optional: leave it blank for someone who is on the rota but
-does not use the app — the rota still works, they simply cannot sign in.
+Links this clinician to a **login account**, so they can see My Schedule,
+propose swaps and be asked for one — a colleague with no account is left out of
+the swap form's colleague list, because the colleague has to accept. Optional:
+leave it blank for someone who is on the rota but does not use the app — the
+rota still works, they simply cannot sign in.
 Locums often sit like this. Create the account first — see [Login
 accounts](#login-accounts) below.
 
