@@ -2,7 +2,7 @@
 
 Django's admin asks `user.has_perm("rota.change_clinician")` for every page
 and every save. A practice manager should never have to be granted those
-one by one, so this backend answers yes to every permission on the two apps
+one by one, so this backend answers yes to every permission on the apps
 the rota owns — and to nothing else, which keeps django-axes and auth
 Groups for superusers. It authenticates nobody (BaseBackend.authenticate
 returns None); axes and ModelBackend do that.
@@ -10,7 +10,7 @@ returns None); axes and ModelBackend do that.
 
 from django.contrib.auth.backends import BaseBackend
 
-ROTA_APPS = {"rota", "accounts"}
+ROTA_APPS = {"rota", "accounts", "feedback"}
 
 
 def _is_rota_admin(user):
