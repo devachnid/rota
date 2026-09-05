@@ -1,17 +1,20 @@
+import uuid
 from datetime import date, timedelta
 
 import pytest
 from django.contrib.auth import get_user_model
 from django.utils.html import escape
 
-from rota.models import RotaEntry, SwapRequest
+from rota.models import RotaEntry, RotaEntryLog, SwapRequest
 from rota.services import entries as entries_svc
 from rota.services import swaps as swaps_svc
-from tests.factories import MON, make_clinician, make_entry, make_session_type
+from tests.factories import (MON, make_absence, make_clinician, make_entry,
+                             make_session_type)
 
 pytestmark = pytest.mark.django_db
 User = get_user_model()
 TUE = MON + timedelta(days=1)
+FRI = MON + timedelta(days=4)
 
 
 @pytest.fixture
@@ -300,3 +303,137 @@ def test_the_colleague_sees_the_proposal_on_my_schedule(client, pair):
     req = SwapRequest.objects.get()
     assert f'action="/me/swap/{req.pk}/accept/"' in html
     assert f'action="/me/swap/{req.pk}/decline/"' in html
+
+
+# --------------------------------------------------------------------------
+# Two kinds of swap, told apart from the rota: WORK (both work both sessions,
+# what they do is traded) and PEOPLE (each works only their own, the sessions
+# change hands). Found on staging, where the first real proposal was the
+# PEOPLE kind and the app only knew WORK.
+# --------------------------------------------------------------------------
+
+@pytest.fixture
+def cover(db):
+    """Alice works Fri PM only (Research); Beth works Mon AM only (Routine):
+    the cover-for-each-other case, accepted and awaiting an admin."""
+    research, routine = make_session_type("Research"), make_session_type("Routine")
+    a, b = make_clinician("Alice Adams"), make_clinician("Beth Brown")
+    make_entry(a, day=FRI, part="PM", session_type=research)
+    make_entry(b, day=MON, part="AM", session_type=routine)
+    req = SwapRequest.objects.create(
+        proposer=a, proposer_day=FRI, proposer_part="PM",
+        colleague=b, colleague_day=MON, colleague_part="AM",
+        status=SwapRequest.Status.ACCEPTED)
+    return a, b, req
+
+
+def test_kind_is_work_when_both_work_both_sessions(scenario):
+    a, b, *_ = scenario
+    req = _swap(a, b)
+    assert swaps_svc.kind(req) == swaps_svc.WORK
+    assert swaps_svc.describe(req) == ("Alice Adams and Beth Brown trade what they do "
+                                       "on Mon 20 Jul AM/PM and Tue 21 Jul AM.")
+    assert swaps_svc.validate(req) == []
+
+
+def test_kind_is_people_when_each_works_only_their_own(cover):
+    a, b, req = cover
+    assert swaps_svc.kind(req) == swaps_svc.PEOPLE
+    assert swaps_svc.describe(req) == ("Beth Brown takes Alice Adams's Fri 24 Jul PM; "
+                                       "Alice Adams takes Beth Brown's Mon 20 Jul AM.")
+    assert swaps_svc.validate(req) == []
+
+
+def test_a_people_swap_changes_hands_and_keeps_what_each_session_is(cover, admin_user):
+    a, b, req = cover
+    swaps_svc.approve(admin_user, req)
+    fri = RotaEntry.objects.get(day=FRI, part="PM")
+    mon = RotaEntry.objects.get(day=MON, part="AM")
+    assert fri.clinician == b and fri.session_type.name == "Research" and fri.manually_set
+    assert mon.clinician == a and mon.session_type.name == "Routine" and mon.manually_set
+    assert RotaEntry.objects.count() == 2
+    log = {(row.day, row.part): row for row in RotaEntryLog.objects.filter(action="swapped")}
+    assert log[(FRI, "PM")].clinician_name == "Beth Brown"
+    assert log[(FRI, "PM")].detail == "took over from Alice Adams"
+    assert log[(MON, "AM")].clinician_name == "Alice Adams"
+    assert log[(MON, "AM")].detail == "took over from Beth Brown"
+    req.refresh_from_db()
+    assert req.status == SwapRequest.Status.APPROVED
+    assert req.decided_by == admin_user and req.decided_at is not None
+
+
+def test_a_full_duty_day_changes_hands_whole(admin_user):
+    duty, routine = make_session_type("Duty"), make_session_type("Routine")
+    a, b = make_clinician("Alice Adams"), make_clinician("Beth Brown")
+    entries_svc.assign_full_day(None, a, MON, duty, published=True)
+    make_entry(b, day=TUE, part="AM", session_type=routine)
+    req = SwapRequest.objects.create(
+        proposer=a, proposer_day=MON, proposer_part="PM",
+        colleague=b, colleague_day=TUE, colleague_part="AM",
+        status=SwapRequest.Status.ACCEPTED)
+    assert swaps_svc.kind(req) == swaps_svc.PEOPLE
+    assert swaps_svc.describe(req).startswith("Beth Brown takes Alice Adams's Mon 20 Jul AM/PM;")
+    swaps_svc.approve(admin_user, req)
+    mon = {e.part: e for e in RotaEntry.objects.filter(day=MON)}
+    assert mon["AM"].clinician == b and mon["PM"].clinician == b
+    assert mon["AM"].allocation_group is not None
+    assert mon["AM"].allocation_group == mon["PM"].allocation_group
+    assert RotaEntry.objects.get(day=TUE, part="AM").clinician == a
+
+
+def test_neither_pattern_is_refused_with_the_facts(scenario):
+    a, b, duty, routine = scenario
+    RotaEntry.objects.filter(clinician=b, day=MON, part="PM").delete()
+    req = _swap(a, b)
+    assert swaps_svc.kind(req) is None
+    [problem] = swaps_svc.validate(req)
+    assert problem.startswith("This swap fits neither pattern — ")
+    assert "Beth Brown already has a session on Mon 20 Jul AM" in problem
+    assert "Beth Brown has no session on Mon 20 Jul PM" in problem
+    assert "Alice Adams already has a session on Tue 21 Jul AM" in problem
+    assert problem.endswith("or neither works the other's and they cover for each other.")
+    assert swaps_svc.describe(req) == ""
+    with pytest.raises(ValueError):
+        req.status = SwapRequest.Status.ACCEPTED
+        swaps_svc.approve(None, req)
+
+
+def test_a_people_swap_is_refused_when_the_receiver_is_on_leave(cover):
+    a, b, req = cover
+    make_absence(b, FRI)  # Beth would be taking Alice's Friday
+    assert swaps_svc.validate(req) == [
+        "Beth Brown is on leave on Fri 24 Jul PM (from Breathe) and cannot take that session."]
+
+
+def test_a_paired_session_never_changes_hands(cover):
+    a, b, req = cover
+    RotaEntry.objects.filter(clinician=a, day=FRI).update(companion_group=uuid.uuid4())
+    assert swaps_svc.validate(req) == [
+        "Alice Adams's Fri 24 Jul PM is a paired session (mentoring) and cannot be swapped."]
+
+
+def test_a_session_that_has_gone_is_named_before_anything_else(cover):
+    a, b, req = cover
+    RotaEntry.objects.filter(clinician=a).delete()
+    assert swaps_svc.validate(req) == ["Alice Adams has no session on Fri 24 Jul PM."]
+
+
+def test_a_swap_that_fits_neither_pattern_is_refused_when_proposed(client, pair):
+    a, b, mine, theirs = pair
+    # Alice also has a session in Beth's slot: neither a trade nor a cover.
+    make_entry(a, day=theirs.day, part=theirs.part, session_type=theirs.session_type)
+    resp = client.post("/me/swap/new/", {"my_entry_id": mine.id,
+                                          "their_entry_id": theirs.id})
+    assert resp.status_code == 200
+    html = resp.content.decode()
+    assert "This swap fits neither pattern" in html
+    assert "Alice Adams already has a session on" in html
+    assert not SwapRequest.objects.exists()
+
+
+def test_the_requests_page_says_what_applying_would_do(admin_client, cover):
+    a, b, req = cover
+    html = admin_client.get("/requests/").content.decode()
+    assert escape("Beth Brown takes Alice Adams's Fri 24 Jul PM; "
+                  "Alice Adams takes Beth Brown's Mon 20 Jul AM.") in html
+    assert "disabled" not in html.split("Approve")[0].rsplit("<form", 1)[-1]

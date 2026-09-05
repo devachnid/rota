@@ -13,6 +13,7 @@
        &harr; <strong>{{ item.req.colleague.name }}</strong>
        ({{ item.req.colleague_day|date:"D j M" }} {{ item.req.colleague_part }}).
        {{ item.req.message }}</p>
+    {% if item.what %}<p>{{ item.what }}</p>{% endif %}
     {% for p in item.problems %}<p class="warn">{{ p }}</p>{% endfor %}
     <div class="form-actions">
       <form method="post" action="/requests/swap/{{ item.req.pk }}/approve/">
