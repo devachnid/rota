@@ -106,12 +106,15 @@ def test_bulk_mark_seen_and_done(admin_client, gp_user):
     assert Feedback.objects.get(pk=b.pk).status == "SEEN"
 
 
-def test_feedback_sits_under_records_in_the_sidebar(admin_client):
+def test_feedback_is_the_last_item_of_records_in_the_sidebar(admin_client, admin_user, rf):
+    from rota.admin_site import navigation
     from rota.models import PracticeSettings
     PracticeSettings.load()
-    html = admin_client.get("/admin/").content.decode()
-    records = html.split("Records", 1)[1]
-    assert 'href="/admin/feedback/feedback/"' in records
+    request = rf.get("/admin/")
+    request.user = admin_user
+    records = next(g for g in navigation(request) if g["title"] == "Records")
+    assert records["items"][-1]["title"] == "Feedback"
+    assert 'href="/admin/feedback/feedback/"' in admin_client.get("/admin/").content.decode()
 
 
 def test_the_dashboard_counts_unread_feedback_and_links_to_exactly_those_rows(admin_client, gp_user):

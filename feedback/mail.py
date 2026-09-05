@@ -27,21 +27,19 @@ def recipients():
                 .exclude(email="").order_by("email").values_list("email", flat=True))
 
 
-def _who(feedback):
-    return feedback.reporter.email if feedback.reporter_id else "someone who has left"
-
-
 def notify_admins(request, feedback):
     """Email the maintainers about a saved report. True when a message left;
     False when there was nobody to tell, no relay, or the relay refused —
     the admin list shows the report regardless."""
-    to = recipients()
-    if not to or not email_is_configured():
+    if not email_is_configured():
         return False
-    subject = f"[Rota] {feedback.kind_word.capitalize()} from {_who(feedback)}"
+    to = recipients()
+    if not to:
+        return False
+    subject = f"[Rota] {feedback.kind_word.capitalize()} from {feedback.reporter_label}"
     context = {
         "feedback": feedback,
-        "who": _who(feedback),
+        "who": feedback.reporter_label,
         "created": timezone.localtime(feedback.created_at),
         "admin_link": request.build_absolute_uri(
             reverse("admin:feedback_feedback_change", args=[feedback.pk])),

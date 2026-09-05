@@ -118,3 +118,11 @@ def test_reply_relay_failure_returns_the_reason_and_logs(configured, rf, report,
     with caplog.at_level(logging.ERROR, logger="feedback.mail"):
         assert send_reply(_request(rf, admin_user), report) == "relay down"
     assert "could not be sent" in caplog.text
+
+
+def test_a_reason_less_exception_is_named_by_its_class(configured, rf, report, admin_user, monkeypatch):
+    def send(self, fail_silently=False):
+        raise ConnectionError()
+    monkeypatch.setattr(EmailMessage, "send", send)
+    report.reply = "Hello"
+    assert send_reply(_request(rf, admin_user), report) == "ConnectionError"
