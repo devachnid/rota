@@ -19,7 +19,7 @@ This is the *reference* for what each setting means once you are in there.
 | [Availability](availability.md) | Pattern slots and the bulk editor, recurring commitments, closed days |
 | [Session types](session-types.md) | Every flag on a session type, and what each one drives |
 | [Coverage rules](coverage-rules.md) | The rules that tell the fill engine what must be staffed, plus trainee stage rules |
-| [Day to day](day-to-day.md) | Assisted fill, rota entries, day notes, locums, leave, swaps, the audit log |
+| [Day to day](day-to-day.md) | Assisted fill, rota entries, day notes, locums, leave, swaps, the audit log, feedback |
 | [Leave from Breathe](breathe.md) | Linking clinicians, the sync, what counts as off |
 | [Upgrading unfold](upgrading-unfold.md) | How to upgrade the admin package and what to test |
 

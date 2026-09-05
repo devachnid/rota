@@ -26,6 +26,21 @@ autofill v2 review processes had accumulated:
 
 ## Settled
 
+- **A Feedback control on every signed-in page** (2026-09-05; spec
+  `docs/superpowers/specs/2026-09-05-feedback-design.md`). A quiet button
+  beside Theme (and in the phone's More sheet) opens a form in the app's own
+  modal — *Something's wrong* or *An idea*, plus a message; the page, screen
+  size and browser are captured without asking. Reports land in a new
+  `feedback` app under Records in the admin with New/Seen/Done triage, a
+  private note, and **Send reply**, which emails the reporter with the admin
+  as Reply-To and quotes what they wrote. New reports email every active
+  superuser; the dashboard counts the unread ones. Built in-house after the
+  Django packages on PyPI proved stale or wrong-shaped and hosted widgets
+  would put a third-party script on pages showing staff rotas. Ten reports
+  per person per hour. Not done, on purpose: screenshots, mirroring into a
+  tracker, a reporter's own list. The shared modal target moved from the
+  grid template into `base.html` so every page has exactly one.
+
 - **SQLite transactions open with `BEGIN IMMEDIATE`** (2026-09-05). Django's
   default `DEFERRED` transaction takes the write lock only at the first write,
   and if another connection got there first — the Breathe sync every fifteen
