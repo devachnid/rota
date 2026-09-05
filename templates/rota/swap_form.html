@@ -10,7 +10,7 @@
 {% else %}
 <form method="post">
   {% csrf_token %}
-  {% if form.non_field_errors %}<p class="field-error" role="alert">{{ form.non_field_errors.0 }}</p>{% endif %}
+  {% for problem in form.non_field_errors %}<p class="field-error" role="alert">{{ problem }}</p>{% endfor %}
   <div class="field">
     <label for="id_my_entry_id">My session</label>
     <select name="my_entry_id" id="id_my_entry_id" required>

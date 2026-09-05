@@ -7,10 +7,11 @@ from django.db import router
 from django.shortcuts import redirect
 from django.urls import NoReverseMatch, path, reverse
 from django.utils import timezone
-from django.utils.html import format_html
+from django.utils.html import format_html, format_html_join
 from django.utils.text import capfirst
 
 from unfold.admin import ModelAdmin, StackedInline, TabularInline
+from unfold.decorators import action
 from unfold.contrib.filters.admin import RangeDateFilter
 
 from .models import (BreatheAbsence, BreatheLeaveMapping, BreatheSyncRun,
@@ -18,6 +19,7 @@ from .models import (BreatheAbsence, BreatheLeaveMapping, BreatheSyncRun,
                      DayNote, LocumRequirement,
                      PatternSlot, PracticeSettings, RecurringCommitment, RotaEntry, RotaEntryLog,
                      SessionType, Site, SwapRequest, TraineeProfile, TraineeStageRule)
+from .services import swaps as swaps_svc
 from .services.breathe import client as breathe_client, sync as breathe_sync
 from .admin_forms import WEEKDAYS, CoverageRuleForm, PracticeSettingsForm
 from .admin_widgets import (BreatheEmployeeSelect, TintSwatchSelect,
@@ -570,9 +572,90 @@ class LocumRequirementAdmin(ModelAdmin):
 
 @admin.register(SwapRequest)
 class SwapRequestAdmin(ModelAdmin):
-    list_display = ("proposer", "colleague", "status", "created_at")
+    """The same two decisions the Requests page offers, through the same
+    service. Everything but the admin's comment is read-only: the status
+    used to be an editable dropdown, and setting it to Applied by hand
+    relabelled the row without touching the rota."""
+    list_display = ("proposer", "colleague", "exchange", "status", "created_at",
+                    "decided_at")
     list_filter = ("status",)
     search_fields = ("proposer__name", "colleague__name")
+    list_select_related = ("proposer", "colleague")
+    readonly_fields = ("proposer", "gives", "colleague", "offers", "message",
+                       "created_at", "status", "checks", "decided_by", "decided_at")
+    fieldsets = (
+        ("Swap", {"fields": ("proposer", "gives", "colleague", "offers", "message",
+                             "created_at")}),
+        ("Decision", {
+            "fields": ("status", "checks", "admin_comment", "decided_by", "decided_at"),
+            "description": "Approve and apply changes the rota, exactly as the "
+                           "Requests page does; Decline closes the request and "
+                           "keeps the comment. The status follows from those — it "
+                           "cannot be set by hand.",
+        }),
+    )
+    actions_submit_line = ("approve_swap", "decline_swap")
+
+    def has_add_permission(self, request):
+        # A swap is proposed by a GP from My schedule; nobody types one in.
+        return False
+
+    @admin.display(description="Proposer's session")
+    def gives(self, obj):
+        return swaps_svc.when(obj.proposer_day, obj.proposer_part)
+
+    @admin.display(description="Colleague's session")
+    def offers(self, obj):
+        return swaps_svc.when(obj.colleague_day, obj.colleague_part)
+
+    @admin.display(description="Exchange")
+    def exchange(self, obj):
+        return f"{self.gives(obj)} ↔ {self.offers(obj)}"
+
+    @admin.display(description="Checks")
+    def checks(self, obj):
+        if obj.status == SwapRequest.Status.APPROVED:
+            return "Applied to the rota."
+        if obj.status == SwapRequest.Status.DECLINED:
+            return "Declined."
+        problems = swaps_svc.validate(obj)
+        if problems:
+            return format_html("<ul>{}</ul>", format_html_join(
+                "", "<li>{}</li>", ((p,) for p in problems)))
+        return f"{swaps_svc.describe(obj)} Ready to apply."
+
+    def get_actions_submit_line(self, request, object_id):
+        """Approve only while the colleague has accepted; Decline while the
+        request is still open. unfold runs only the actions this returns, so
+        a button name smuggled into the POST does nothing."""
+        obj = self.get_object(request, object_id)
+        if obj is None:
+            return []
+        allowed = set()
+        if obj.status == SwapRequest.Status.ACCEPTED:
+            allowed.add("approve_swap")
+        if obj.status in (SwapRequest.Status.PROPOSED, SwapRequest.Status.ACCEPTED):
+            allowed.add("decline_swap")
+        return [a for a in super().get_actions_submit_line(request, object_id)
+                if any(a.action_name.endswith("_" + name) for name in allowed)]
+
+    @action(description="Approve and apply")
+    def approve_swap(self, request, obj):
+        try:
+            swaps_svc.approve(request.user, obj)
+            messages.success(request, "Swap applied.")
+        except ValueError as e:
+            messages.error(request, f"Not applied: {e}")
+
+    @action(description="Decline")
+    def decline_swap(self, request, obj):
+        # Runs after unfold has saved the form, so obj.admin_comment is what
+        # was typed.
+        try:
+            swaps_svc.decline(request.user, obj, obj.admin_comment)
+            messages.success(request, "Swap declined.")
+        except ValueError as e:
+            messages.error(request, str(e))
 
 
 @admin.register(BreatheAbsence)

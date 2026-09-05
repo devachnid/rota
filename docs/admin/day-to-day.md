@@ -177,16 +177,44 @@ account yet*, link the accounts to their clinician records: People ›
 Clinicians › [User](people.md#user). Until then the page explains itself and
 offers nothing to submit.
 
-A decided swap cannot then be declined; once it is Applied or Declined it is
+### Two kinds of swap
+
+The app works out which kind a swap is from the rota — when it is proposed,
+and again when it is approved:
+
+- **Trading the work.** Both GPs already have sessions in every session
+  involved — you both work Monday morning and one of you has Duty. What each
+  does in them is exchanged: session type, site, note and full-day grouping.
+  The people stay where they are.
+- **Covering for each other.** Each GP has a session only in their own slot
+  and none in the other's — I do your Monday morning, you do my Friday
+  afternoon. The two entries change hands and keep what they are.
+
+Anything in between is refused with a sentence naming the fact that breaks
+both patterns (*Tom already has a session on Mon 7 Sep AM*). Whatever the
+kind, each GP must still have the session they put forward, no paired
+(mentoring) session may be involved, and neither GP may be on Breathe leave
+for a session they would take on. A full duty day counts as a whole on either
+side.
+
+The propose form runs the same checks, so a colleague is never asked about a
+swap that could not be applied as the rota stands.
+
+### Approving
+
+Two places do the same thing: the **Requests** page in the app's nav, and the
+swap's own page here. Both show what applying would do (*Edward takes Tom's
+Fri 11 Sep PM; Tom takes Edward's Mon 7 Sep AM*) or the problems standing in
+the way, and both offer **Approve and apply** — only once the colleague has
+accepted — and **Decline** with a comment. Approve changes the rota, writes an
+audit row per session and stamps who decided and when.
+
+The status is not editable by hand: it follows from those two buttons. A
+decided swap cannot then be declined; once it is Applied or Declined it is
 final, and a correction is a fresh change on the grid.
 
-Swaps exchange **session type, site, note and full-day grouping between the two
-entries** — the people stay where they are and the work moves. That is why both
-clinicians must normally work both sessions involved, and why a full duty day
-swaps as a whole rather than leaving someone with half of it.
-
-Both entries become **manually set** afterwards, so a later assisted fill cannot
-undo an agreed swap.
+Every entry a swap touches becomes **manually set**, so a later assisted fill
+cannot undo an agreed swap.
 
 ## The audit log
 

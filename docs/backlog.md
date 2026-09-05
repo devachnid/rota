@@ -26,6 +26,21 @@ autofill v2 review processes had accumulated:
 
 ## Settled
 
+- **Swaps apply, both kinds, and the admin cannot mislabel one** (2026-09-05;
+  spec `docs/superpowers/specs/2026-09-05-swaps-design.md`). The first real
+  proposal on staging — cover my Friday PM, I'll cover your Monday AM — was
+  refused, because the app knew only the duty-swap kind where both GPs work
+  both sessions and trade what they do. The service now tells the two kinds
+  apart from the rota: *trading the work* exchanges what each does; *covering
+  for each other* moves the two entries between the GPs, keeping what they
+  are and marking them manually set. Anything in between is refused with the
+  facts that break both patterns, at proposal time as well as approval, in
+  friendly dates. The admin's Swap requests page had exposed Status as an
+  editable dropdown, and setting it to Applied by hand relabelled the row
+  without touching the rota or the audit log; the record is now read-only
+  but for the admin's comment, shows the checks, and offers Approve and apply
+  / Decline through the same service as the Requests page.
+
 - **The propose-a-swap page explains an empty colleague list and checks its
   own input** (2026-09-05). Only a colleague with a login account can be asked
   for a swap, because they accept it themselves; on a practice where nobody

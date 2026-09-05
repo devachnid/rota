@@ -15,7 +15,7 @@ from rota.views.decorators import admin_required
 @admin_required
 def inbox(request):
     pending_swaps = [
-        {"req": r, "problems": swaps_svc.validate(r)}
+        {"req": r, "problems": swaps_svc.validate(r), "what": swaps_svc.describe(r)}
         for r in SwapRequest.objects.filter(
             status=SwapRequest.Status.ACCEPTED
         ).select_related("proposer", "colleague")
@@ -69,15 +69,22 @@ def swap_new(request):
     if form.is_valid():
         my_entry = form.cleaned_data["my_entry_id"]
         their_entry = form.cleaned_data["their_entry_id"]
-        SwapRequest.objects.create(
+        req = SwapRequest(
             proposer=clinician, proposer_day=my_entry.day,
             proposer_part=my_entry.part,
             colleague=their_entry.clinician, colleague_day=their_entry.day,
             colleague_part=their_entry.part,
             message=form.cleaned_data["message"],
         )
-        messages.success(request, "Swap proposed — awaiting your colleague.")
-        return redirect("/me/")
+        # Checked now as well as at approval, so a colleague is never asked
+        # about a swap that could not be applied as the rota stands.
+        problems = swaps_svc.validate(req)
+        if not problems:
+            req.save()
+            messages.success(request, "Swap proposed — awaiting your colleague.")
+            return redirect("/me/")
+        for problem in problems:
+            form.add_error(None, problem)
     return render(request, "rota/swap_form.html", {
         "form": form, "mine": mine, "theirs": theirs,
         "nothing_to_swap": _nothing_to_swap(clinician, mine, theirs),
