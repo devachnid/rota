@@ -169,6 +169,14 @@ Four states, labelled in the admin as you would read them:
 step. The colleague accepts first, then an admin approves — so nobody's rota
 changes without both the other clinician and an admin agreeing.
 
+A GP proposes from **My schedule › Propose a swap**. The colleague list on that
+page holds only clinicians with a login account — the colleague accepts the
+swap themselves, so someone who cannot sign in can never be asked. If a GP says
+the list is empty, or the page tells them *None of your colleagues has a login
+account yet*, link the accounts to their clinician records: People ›
+Clinicians › [User](people.md#user). Until then the page explains itself and
+offers nothing to submit.
+
 A decided swap cannot then be declined; once it is Applied or Declined it is
 final, and a correction is a fresh change on the grid.
 
