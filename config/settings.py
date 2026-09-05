@@ -87,7 +87,16 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": BASE_DIR / "db.sqlite3",
-        "OPTIONS": {"init_command": "PRAGMA journal_mode=WAL;"},
+        "OPTIONS": {
+            # WAL lets readers and the single writer proceed together.
+            "init_command": "PRAGMA journal_mode=WAL;",
+            # SQLite's default DEFERRED transaction only takes the write lock at
+            # the first write, and if another connection (the Breathe sync, the
+            # other gunicorn worker) got there first it fails at once with
+            # "database is locked" rather than waiting out the busy timeout.
+            # IMMEDIATE takes the lock at BEGIN, so writers queue instead.
+            "transaction_mode": "IMMEDIATE",
+        },
     }
 }
 
