@@ -1,0 +1,10 @@
+{% autoescape off %}{{ feedback.kind_word|capfirst }} from {{ who }}, {{ created|date:"D j M Y H:i" }}.
+
+Page: {{ feedback.page|default:"(not recorded)" }}
+Screen: {{ feedback.viewport|default:"(not recorded)" }}
+Browser: {{ feedback.user_agent|default:"(not recorded)" }}
+
+{{ feedback.message }}
+
+Open it in the admin: {{ admin_link }}
+{% endautoescape %}

@@ -1,0 +1,12 @@
+{% autoescape off %}Hello,
+
+{{ reply }}
+
+— {{ admin_email }}
+
+You wrote on {{ created|date:"j F" }}{% if page %} (on {{ page }}){% endif %}:
+
+{{ quoted }}
+
+Reply to this email to reach {{ admin_email }}.
+{% endautoescape %}
