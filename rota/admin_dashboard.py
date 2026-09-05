@@ -13,7 +13,7 @@ from feedback.models import Feedback
 from rota.admin_pages import clinicians_without_a_pattern, unmapped_absence_count
 from rota.models import (BreatheSyncRun, Clinician, ClinicianGroup, CoverageRule,
                          LocumRequirement, PracticeSettings, SessionType, Site,
-                         TraineeProfile)
+                         TraineeProfile, SwapRequest)
 from rota.services.calendar import is_open
 from rota.services.warnings import day_warnings
 
@@ -139,6 +139,9 @@ def health():
          "level": "warn"},
         {"label": "Trainee session types unset", "count": 1 if trainee_gap else 0,
          "url": reverse("admin:rota_practicesettings_change", args=[ps.pk]), "level": "warn"},
+        {"label": "Swaps awaiting your approval",
+         "count": SwapRequest.objects.filter(status=SwapRequest.Status.ACCEPTED).count(),
+         "url": reverse("inbox"), "level": "warn"},
         {"label": "Feedback not yet looked at",
          "count": Feedback.objects.filter(status=Feedback.Status.NEW).count(),
          "url": reverse("admin:feedback_feedback_changelist") + "?status__exact=NEW",

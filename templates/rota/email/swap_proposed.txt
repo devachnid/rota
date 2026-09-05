@@ -1,0 +1,11 @@
+{% autoescape off %}{{ req.proposer.name }} would like to swap a session with you.
+
+{{ what }}
+{% if req.message %}
+{{ req.proposer.name }} said:
+{{ message_quoted }}
+{% endif %}
+Accept or decline on My schedule: {{ my_schedule }}
+
+Once you have accepted, a rota admin applies the swap and you will both get an email.
+{% endautoescape %}

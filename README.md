@@ -88,10 +88,13 @@ mints a session per visit, so the table would otherwise only grow.
 
 Invitations and password-reset links go by email, and so do the two feedback
 emails: a note to every active superuser when someone sends a bug report or
-idea from the app, and an admin's reply to the reporter. Without a relay the
-app still works — an admin is shown each password link to copy into an email,
-feedback still lands in the admin, and the dashboard's *Outgoing email* step
-and `manage.py check --deploy` both say so. All of it uses the same `EMAIL_*`
+idea from the app, and an admin's reply to the reporter. Swap requests email
+too: the colleague when asked, the proposer when answered, every active rota
+admin when a swap awaits approval, and both GPs when an admin decides. Without
+a relay the app still works — an admin is shown each password link to copy
+into an email, feedback and swaps still land in the admin and the nav counts
+still show, and the dashboard's *Outgoing email* step and
+`manage.py check --deploy` both say so. All of it uses the same `EMAIL_*`
 keys below and nothing more.
 
 Mailjet is plain authenticated SMTP. In Mailjet: validate the sender (the

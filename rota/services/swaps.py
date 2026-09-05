@@ -185,12 +185,13 @@ def accept(req, user):
     req.save()
 
 
-def decline_by_colleague(req, user):
+def decline_by_colleague(req, user, comment=""):
     if req.colleague.user_id != user.id:
         raise PermissionError("Only the named colleague can decline this swap.")
     if req.status != SwapRequest.Status.PROPOSED:
         raise ValueError("Swap is no longer awaiting your response.")
     req.status = SwapRequest.Status.DECLINED
+    req.colleague_comment = comment
     req.save()
 
 
