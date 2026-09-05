@@ -62,7 +62,7 @@ def test_every_admin_registered_model_is_documented():
 
     undocumented = []
     for model in dj.site._registry:
-        if model._meta.app_label != "rota":
+        if model._meta.app_label not in ("rota", "feedback"):
             continue
         # Match on the human-readable name; the guide is written for admins,
         # who see "Coverage rule", not CoverageRule.

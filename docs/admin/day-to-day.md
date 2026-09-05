@@ -195,3 +195,33 @@ correctly after a clinician record changes. For a swap, one clinician's name is
 on the row and the other appears in the detail.
 
 Nothing writes to this except the app, and nothing should delete from it.
+
+## Feedback
+
+`/admin/feedback/feedback/` — the bug reports and ideas people send from the
+**Feedback** control in the app's header (or the **More** sheet on a phone).
+
+Each row records what they chose (*Something's wrong* or *An idea*), what they
+wrote, who they are, when, the page they were on, their screen size and
+browser. The app fills all of that in; none of it is editable here. Nobody
+can add a row from the admin — feedback comes from the app.
+
+**Status** is yours: **New** when it arrives, **Seen** once someone has read
+it, **Done** when it is dealt with. The dashboard counts the New ones. Select
+several rows and use **Mark as seen** or **Mark as done** to move them
+together.
+
+**Admin note** is for admins only. It is never sent to anyone.
+
+**Reply** is sent to the reporter by email when you press **Send reply**
+under the form. The email carries your reply, quotes what they wrote, and has
+your address as its Reply-To, so they can answer you directly. Sending does
+**not** change the status — set that in the same form if the item is done.
+If outgoing email is not set up the reply is saved but not sent, and the page
+says so. A record whose reporter's login has since been deleted has no Send
+reply button.
+
+When a report arrives, every active **superuser** with an email address is
+emailed (rota admins are not — they run the practice, not the code). With no
+outgoing email configured the report still lands here; only the email is
+skipped. One person can send at most ten reports an hour.
