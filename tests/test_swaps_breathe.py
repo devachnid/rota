@@ -35,14 +35,14 @@ def test_the_colleague_being_on_leave_for_the_session_they_would_receive_is_refu
     a, b, req = _swap()
     make_absence(b, MON)  # Bob would receive Ann's Monday AM, and is off Monday
     problems = swaps.validate(req)
-    assert any("Bob Baker is on leave on 2026-09-14 AM" in p for p in problems)
+    assert any("Bob Baker is on leave on Mon 14 Sep AM" in p for p in problems)
 
 
 def test_the_proposer_being_on_leave_for_the_session_they_would_receive_is_refused():
     a, b, req = _swap()
     make_absence(a, TUE, half_start=True, half_start_am_pm="PM")
     problems = swaps.validate(req)
-    assert any("Ann Able is on leave on 2026-09-15 PM" in p for p in problems)
+    assert any("Ann Able is on leave on Tue 15 Sep PM" in p for p in problems)
 
 
 def test_leave_on_the_other_half_of_the_day_does_not_block():
@@ -52,8 +52,9 @@ def test_leave_on_the_other_half_of_the_day_does_not_block():
 
 
 def test_leave_problems_come_after_the_existing_kinds():
-    """Existing tests pin the order of 'no session' then 'paired'; leave
-    problems append after both."""
+    """The order is: a session that has gone, the pattern, paired sessions,
+    then leave — and a leave problem is reported even when an earlier check
+    has already failed, so the list is the whole picture."""
     a, b, req = _swap()
     from rota.models import RotaEntry
     RotaEntry.objects.filter(clinician=b).delete()  # Bob now has no session
