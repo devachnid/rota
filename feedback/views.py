@@ -8,7 +8,6 @@ from urllib.parse import urlsplit
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 from django.utils import timezone
-from django.utils.safestring import mark_safe
 from django.views.decorators.http import require_POST
 
 from .forms import FeedbackForm
@@ -49,9 +48,7 @@ def feedback_send(request):
     since = timezone.now() - timedelta(hours=1)
     recent = Feedback.objects.filter(reporter=request.user, created_at__gte=since).count()
     if recent >= HOURLY_LIMIT:
-        # mark_safe: TOO_MANY is a fixed, developer-authored string with no
-        # user input — safe to skip escaping so the apostrophe survives.
-        form.add_error(None, mark_safe(TOO_MANY))
+        form.add_error(None, TOO_MANY)
         return render(request, "feedback/_form.html", {"form": form})
     feedback = Feedback.objects.create(
         kind=form.cleaned_data["kind"],
