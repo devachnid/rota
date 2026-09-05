@@ -9,6 +9,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounts.mail import email_is_configured
+from feedback.models import Feedback
 from rota.admin_pages import clinicians_without_a_pattern, unmapped_absence_count
 from rota.models import (BreatheSyncRun, Clinician, ClinicianGroup, CoverageRule,
                          LocumRequirement, PracticeSettings, SessionType, Site,
@@ -138,6 +139,10 @@ def health():
          "level": "warn"},
         {"label": "Trainee session types unset", "count": 1 if trainee_gap else 0,
          "url": reverse("admin:rota_practicesettings_change", args=[ps.pk]), "level": "warn"},
+        {"label": "Feedback not yet looked at",
+         "count": Feedback.objects.filter(status=Feedback.Status.NEW).count(),
+         "url": reverse("admin:feedback_feedback_changelist") + "?status__exact=NEW",
+         "level": "warn"},
     ]
 
 

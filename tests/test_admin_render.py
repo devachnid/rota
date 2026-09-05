@@ -27,6 +27,7 @@ def rows(admin_user):
                              ClosedDay, CoverageRule, DayNote, LocumRequirement,
                              PatternSlot, PracticeSettings, RotaEntryLog, SwapRequest,
                              TraineeStageRule)
+    from feedback.models import Feedback
     from tests.factories import make_absence
     group = make_group("Partners")
     make_group("Locum", is_locum_group=True, display_order=99)
@@ -56,11 +57,13 @@ def rows(admin_user):
         "breathesyncrun": BreatheSyncRun.objects.create(
             started=timezone.now(), finished=timezone.now(), ok=True),
         "user": admin_user,
+        "feedback": Feedback.objects.create(kind="BUG", message="Blank grid", reporter=admin_user),
     }
 
 
 def _models():
-    return [m for m in admin.site._registry if m._meta.app_label in ("rota", "accounts")]
+    return [m for m in admin.site._registry
+            if m._meta.app_label in ("rota", "accounts", "feedback")]
 
 
 def _clean(html, where):

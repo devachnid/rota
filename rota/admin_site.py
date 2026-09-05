@@ -142,7 +142,8 @@ def navigation(request):
             _item("Rota entries", "calendar_view_week", rl("admin:rota_rotaentry_changelist")),
             _item("Audit log", "history", rl("admin:rota_rotaentrylog_changelist")),
             _item("Locum requirements", "person_search", rl("admin:rota_locumrequirement_changelist")),
-            _item("Swap requests", "swap_calls", rl("admin:rota_swaprequest_changelist"))]},
+            _item("Swap requests", "swap_calls", rl("admin:rota_swaprequest_changelist")),
+            _item("Feedback", "rate_review", rl("admin:feedback_feedback_changelist"))]},
     ]
     if is_superuser(request):
         groups.append({"title": "System", "separator": True, "items": [
