@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     "axes",
     "accounts",
     "rota",
+    "feedback",
 ]
 
 MIDDLEWARE = [
