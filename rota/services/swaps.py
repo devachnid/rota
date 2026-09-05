@@ -116,32 +116,34 @@ def validate(req):
     p, c = req.proposer, req.colleague
     names = {p.id: p.name, c.id: c.name}
 
+    # In this order: a session that has gone, then the pattern, then paired
+    # sessions, then leave — every problem at once, so an admin reading the
+    # list sees the whole picture rather than one thing per attempt.
     problems = [f"{p.name} has no session on {when(*s)}."
                 for s in mine if (p.id, *s) not in have]
     problems += [f"{c.name} has no session on {when(*s)}."
                  for s in theirs if (c.id, *s) not in have]
-    if problems:
-        return problems
-
-    k = kind(req, have)
-    if k is None:
-        return [_neither(req, have, mine, theirs)]
-
-    # Paired sessions (mentoring) are two people's entries linked together;
-    # neither half moves or changes.
-    touched = [have[(p.id, *s)] for s in mine] + [have[(c.id, *s)] for s in theirs]
-    if k == WORK:
-        touched += [have[(c.id, *s)] for s in mine] + [have[(p.id, *s)] for s in theirs]
-    seen = set()
-    for e in touched:
-        if e.companion_group and e.pk not in seen:
-            seen.add(e.pk)
-            problems.append(
-                f"{names[e.clinician_id]}'s {when(e.day, e.part)} is a paired "
-                "session (mentoring) and cannot be swapped.")
+    if not problems:
+        k = kind(req, have)
+        if k is None:
+            problems.append(_neither(req, have, mine, theirs))
+        else:
+            # Paired sessions (mentoring) are two people's entries linked
+            # together; neither half moves or changes.
+            touched = [have[(p.id, *s)] for s in mine] + [have[(c.id, *s)] for s in theirs]
+            if k == WORK:
+                touched += [have[(c.id, *s)] for s in mine] + [have[(p.id, *s)] for s in theirs]
+            seen = set()
+            for e in touched:
+                if e.companion_group and e.pk not in seen:
+                    seen.add(e.pk)
+                    problems.append(
+                        f"{names[e.clinician_id]}'s {when(e.day, e.part)} is a paired "
+                        "session (mentoring) and cannot be swapped.")
 
     # Neither GP may be on Breathe leave for a session they would take on:
-    # the proposer takes on the colleague's side and vice versa.
+    # the proposer takes on the colleague's side and vice versa. Checked
+    # whatever came before, since it does not depend on the kind.
     people = [p, c]
     days = [d for d, _ in mine + theirs]
     resolver = availability.AvailabilityResolver(
