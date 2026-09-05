@@ -74,6 +74,16 @@ def test_long_headers_are_capped_and_a_bad_viewport_is_dropped(gp_client):
     assert len(fb.page) == 300 and len(fb.user_agent) == 300 and fb.viewport == ""
 
 
+def test_an_overlong_viewport_is_dropped_not_fatal(gp_client):
+    # A field-level max_length would fail validation before clean_viewport
+    # ran and refuse the whole report — silently, since the template shows
+    # no error for this field. The regex is the only gate.
+    resp = gp_client.post(SEND, {"kind": "BUG", "message": "real report", "viewport": "1" * 30})
+    assert resp.status_code == 200 and "Thanks" in resp.content.decode()
+    fb = Feedback.objects.get()
+    assert fb.message == "real report" and fb.viewport == ""
+
+
 def test_an_empty_message_re_renders_the_form_with_the_error(gp_client):
     resp = gp_client.post(SEND, {"kind": "IDEA", "message": "   "})
     assert resp.status_code == 200
