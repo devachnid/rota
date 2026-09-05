@@ -216,6 +216,26 @@ final, and a correction is a fresh change on the grid.
 Every entry a swap touches becomes **manually set**, so a later assisted fill
 cannot undo an agreed swap.
 
+### Who is told
+
+Each step emails the people it concerns, through the same relay as
+invitations (nothing is sent when no relay is set up; the swap still
+happens):
+
+| When | Who gets an email | Where it points |
+|---|---|---|
+| A GP proposes | the colleague, Reply-To the proposer | My schedule, to accept or decline |
+| The colleague accepts | the proposer; every active rota admin | My schedule; Requests |
+| The colleague declines | the proposer, with the colleague's comment | My schedule |
+| An admin applies or declines | both GPs, with the admin's comment | My schedule |
+
+A GP with no login account, or no email address, is skipped. In the app, a
+count appears on **My schedule** (and the phone's *Me* tab) while a swap awaits
+that person's answer, and on **Requests** (and *More*) for an admin while one
+awaits approval; the dashboard's Health card counts *Swaps awaiting your
+approval* and links to Requests. The colleague can add a comment when
+declining; the proposer sees it under *Your requests* on My schedule.
+
 ## The audit log
 
 `/admin/rota/rotaentrylog/` — **read-only**, every field.

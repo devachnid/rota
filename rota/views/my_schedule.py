@@ -167,10 +167,10 @@ def my_schedule(request):
             (cd.reason for cd in ClosedDay.objects.filter(day=today)), ""),
         "weeks": _blocks(clinician, today, open_weekdays, closed, entries_by,
                          resolver),
+        # Declined ones stay in the list: the answer, and the colleague's or
+        # admin's comment with it, is the thing the proposer is waiting for.
         "my_swaps": list(SwapRequest.objects.filter(
-            proposer=clinician
-        ).exclude(status=SwapRequest.Status.DECLINED
-                  ).select_related("colleague")[:10]),
+            proposer=clinician).select_related("colleague")[:10]),
         "to_accept": SwapRequest.objects.filter(
             colleague=clinician, status=SwapRequest.Status.PROPOSED
         ).select_related("proposer"),

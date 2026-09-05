@@ -24,7 +24,9 @@
         {% csrf_token %}<button type="submit" class="btn btn-primary">Accept</button>
       </form>
       <form method="post" action="/me/swap/{{ s.pk }}/decline/">
-        {% csrf_token %}<button type="submit" class="btn">Decline</button>
+        {% csrf_token %}
+        <input name="comment" placeholder="comment (optional)" aria-label="Comment for {{ s.proposer.name }}">
+        <button type="submit" class="btn">Decline</button>
       </form>
     </div>
   </div>
@@ -113,7 +115,10 @@
   <div class="ms-day">
     <span class="ms-date"><b>{{ s.proposer_day|date:"j M" }}</b></span>
     <span class="ms-cells">Swap with {{ s.colleague.name }}
-      <span class="ms-status">{{ s.get_status_display }}</span></span>
+      <span class="ms-status">{{ s.get_status_display }}</span>
+      {% if s.colleague_comment %}<span class="ms-note">{{ s.colleague.name }}: “{{ s.colleague_comment }}”</span>{% endif %}
+      {% if s.admin_comment %}<span class="ms-note">Admin: “{{ s.admin_comment }}”</span>{% endif %}
+    </span>
   </div>
   {% endfor %}
 </section>

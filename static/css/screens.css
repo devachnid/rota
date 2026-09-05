@@ -210,6 +210,8 @@
 .ms-today-cells .ms-note { color: var(--ink-soft); }
 
 .ms-status { color: var(--muted); font-size: var(--fs-sm); }
+/* A colleague's or admin's comment under a declined request. */
+.ms-note { display: block; color: var(--muted); font-size: var(--fs-sm); }
 
 /* ---------------------------------------------------------- day view --- */
 

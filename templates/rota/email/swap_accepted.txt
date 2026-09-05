@@ -1,0 +1,8 @@
+{% autoescape off %}{{ req.colleague.name }} accepted your swap.
+
+{{ what }}
+
+It is now with the rota admins to approve, and you will get an email when they decide.
+
+My schedule: {{ my_schedule }}
+{% endautoescape %}

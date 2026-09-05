@@ -6,6 +6,7 @@ from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from rota import mail as swap_mail
 from rota.forms import SwapForm
 from rota.models import Clinician, RotaEntry, SwapRequest
 from rota.services import swaps as swaps_svc
@@ -81,6 +82,7 @@ def swap_new(request):
         problems = swaps_svc.validate(req)
         if not problems:
             req.save()
+            swap_mail.swap_proposed(request, req)
             messages.success(request, "Swap proposed — awaiting your colleague.")
             return redirect("/me/")
         for problem in problems:
@@ -97,6 +99,7 @@ def swap_accept(request, pk):
     req = get_object_or_404(SwapRequest, pk=pk)
     try:
         swaps_svc.accept(req, request.user)
+        swap_mail.swap_accepted(request, req)
         messages.success(request, "Swap accepted — awaiting admin approval.")
     except (PermissionError, ValueError) as e:
         messages.error(request, str(e))
@@ -108,7 +111,8 @@ def swap_accept(request, pk):
 def swap_colleague_decline(request, pk):
     req = get_object_or_404(SwapRequest, pk=pk)
     try:
-        swaps_svc.decline_by_colleague(req, request.user)
+        swaps_svc.decline_by_colleague(req, request.user, request.POST.get("comment", ""))
+        swap_mail.swap_declined_by_colleague(request, req)
         messages.success(request, "Swap declined.")
     except (PermissionError, ValueError) as e:
         messages.error(request, str(e))
@@ -121,7 +125,9 @@ def swap_approve(request, pk):
     req = get_object_or_404(SwapRequest, pk=pk,
                             status=SwapRequest.Status.ACCEPTED)
     try:
+        what = swaps_svc.describe(req)
         swaps_svc.approve(request.user, req)
+        swap_mail.swap_decided(request, req, what=what)
         messages.success(request, "Swap applied.")
     except ValueError as e:
         messages.error(request, str(e))
@@ -137,6 +143,7 @@ def swap_decline(request, pk):
     )
     try:
         swaps_svc.decline(request.user, req, request.POST.get("comment", ""))
+        swap_mail.swap_decided(request, req)
         messages.success(request, "Swap declined.")
     except ValueError as e:
         messages.error(request, str(e))

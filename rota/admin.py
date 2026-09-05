@@ -19,6 +19,7 @@ from .models import (BreatheAbsence, BreatheLeaveMapping, BreatheSyncRun,
                      DayNote, LocumRequirement,
                      PatternSlot, PracticeSettings, RecurringCommitment, RotaEntry, RotaEntryLog,
                      SessionType, Site, SwapRequest, TraineeProfile, TraineeStageRule)
+from . import mail as swap_mail
 from .services import swaps as swaps_svc
 from .services.breathe import client as breathe_client, sync as breathe_sync
 from .admin_forms import WEEKDAYS, CoverageRuleForm, PracticeSettingsForm
@@ -642,7 +643,9 @@ class SwapRequestAdmin(ModelAdmin):
     @action(description="Approve and apply")
     def approve_swap(self, request, obj):
         try:
+            what = swaps_svc.describe(obj)
             swaps_svc.approve(request.user, obj)
+            swap_mail.swap_decided(request, obj, what=what)
             messages.success(request, "Swap applied.")
         except ValueError as e:
             messages.error(request, f"Not applied: {e}")
@@ -653,6 +656,7 @@ class SwapRequestAdmin(ModelAdmin):
         # was typed.
         try:
             swaps_svc.decline(request.user, obj, obj.admin_comment)
+            swap_mail.swap_decided(request, obj)
             messages.success(request, "Swap declined.")
         except ValueError as e:
             messages.error(request, str(e))

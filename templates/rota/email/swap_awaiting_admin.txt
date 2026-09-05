@@ -1,0 +1,12 @@
+{% autoescape off %}{{ req.proposer.name }} and {{ req.colleague.name }} have agreed a swap and it needs your approval.
+
+{{ what }}
+{% if req.message %}
+{{ req.proposer.name }} said:
+{{ message_quoted }}
+{% endif %}{% if problems %}
+As the rota stands it cannot be applied:
+{% for p in problems %}- {{ p }}
+{% endfor %}{% endif %}
+Approve or decline: {{ requests }}
+{% endautoescape %}

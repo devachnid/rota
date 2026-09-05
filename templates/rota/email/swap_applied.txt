@@ -1,0 +1,6 @@
+{% autoescape off %}The swap between {{ req.proposer.name }} and {{ req.colleague.name }} has been applied to the rota by {{ admin }}.
+
+{{ what }}
+
+My schedule: {{ my_schedule }}
+{% endautoescape %}

@@ -64,6 +64,8 @@ class SwapRequest(models.Model):
     colleague_day = models.DateField()
     colleague_part = models.CharField(max_length=2, choices=Part.choices)
     message = models.TextField(blank=True)
+    colleague_comment = models.TextField(
+        blank=True, help_text="What the colleague said when declining.")
     status = models.CharField(max_length=10, choices=Status.choices,
                               default=Status.PROPOSED)
     admin_comment = models.TextField(blank=True)

@@ -1,0 +1,9 @@
+{% autoescape off %}The swap between {{ req.proposer.name }} and {{ req.colleague.name }} was declined by {{ admin }}.
+
+{{ what }}
+{% if req.admin_comment %}
+{{ admin }} said:
+{{ comment_quoted }}
+{% endif %}
+My schedule: {{ my_schedule }}
+{% endautoescape %}

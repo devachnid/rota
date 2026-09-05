@@ -26,6 +26,19 @@ autofill v2 review processes had accumulated:
 
 ## Settled
 
+- **Swaps tell people** (2026-09-05; spec
+  `docs/superpowers/specs/2026-09-05-swaps-design.md`). Until now the only
+  trace of a swap was a card on My schedule, which the login landing page does
+  not point at; testing on staging, the colleague never knew they had been
+  asked. Each step now emails the people it concerns through the same door as
+  invitations and feedback — the colleague when asked (Reply-To the proposer),
+  the proposer when answered, every active rota admin when a swap awaits
+  approval (with the problems, if the rota has moved), both GPs when an admin
+  decides — and never raises into a page. The nav shows a count on My schedule
+  while a swap awaits your answer and on Requests while one awaits approval;
+  the dashboard's Health card counts the latter. The colleague can add a
+  comment when declining, shown to the proposer and carried in the email.
+
 - **Swaps apply, both kinds, and the admin cannot mislabel one** (2026-09-05;
   spec `docs/superpowers/specs/2026-09-05-swaps-design.md`). The first real
   proposal on staging — cover my Friday PM, I'll cover your Monday AM — was

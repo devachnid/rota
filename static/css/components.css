@@ -624,3 +624,21 @@ fieldset.field {
 
 .tabbar-user { color: var(--muted); font-size: var(--fs-sm); padding: 0 var(--sp-3); }
 
+/* A small count beside a nav label — swaps waiting for your answer, or (an
+   admin) for your approval. Solid --danger with the page surface as text:
+   the same "act on this" register as the POSSIBLE locum badge, on both
+   themes. The login landing page is the week grid; this is what tells
+   someone there that something is waiting on My schedule or Requests. */
+.nav-count {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 0 0.45em;
+  border-radius: 999px;
+  background: var(--danger);
+  color: var(--surface);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  line-height: 1.6;
+  text-align: center;
+  vertical-align: middle;
+}
