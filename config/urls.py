@@ -10,6 +10,7 @@ urlpatterns = [
     # manifest before anyone has signed in.
     path("manifest.webmanifest", manifest, name="manifest"),
     path("accounts/", include("accounts.urls")),
+    path("feedback/", include("feedback.urls")),
     path("", include("rota.urls")),
     path("", RedirectView.as_view(url="/rota/", permanent=False)),
 ]

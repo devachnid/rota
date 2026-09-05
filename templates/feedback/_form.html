@@ -1,0 +1,26 @@
+<form hx-post="{% url 'feedback-send' %}" hx-target="#modal" hx-swap="innerHTML"
+      hx-vals='js:{"viewport": window.innerWidth + "x" + window.innerHeight}'
+      hx-disabled-elt="find button[type=submit]">
+  <div class="modal-head">Feedback</div>
+  <div class="modal-body">
+    <fieldset class="field">
+      <legend>What is it?</legend>
+      <div class="radio-row">
+        <label><input type="radio" name="kind" value="BUG"{% if form.kind.value != "IDEA" %} checked{% endif %}> Something's wrong</label>
+        <label><input type="radio" name="kind" value="IDEA"{% if form.kind.value == "IDEA" %} checked{% endif %}> An idea</label>
+      </div>
+      {% if form.kind.errors %}<p class="field-error" role="alert">{{ form.kind.errors.0 }}</p>{% endif %}
+    </fieldset>
+    <div class="field">
+      <label for="id_message">Tell us what happened, or what would help</label>
+      <textarea name="message" id="id_message" rows="5" maxlength="2000" required autofocus
+                placeholder="What you did, what you expected, what you saw">{{ form.message.value|default:"" }}</textarea>
+      {% if form.message.errors %}<p class="field-error" role="alert">{{ form.message.errors.0 }}</p>{% endif %}
+    </div>
+    {% if form.non_field_errors %}<p class="field-error" role="alert">{{ form.non_field_errors.0 }}</p>{% endif %}
+  </div>
+  <div class="modal-actions">
+    <button type="submit" class="btn btn-primary">Send</button>
+    <button type="button" class="btn btn-quiet" onclick="document.getElementById('modal').innerHTML=''">Cancel</button>
+  </div>
+</form>
