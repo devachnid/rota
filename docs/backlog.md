@@ -26,6 +26,19 @@ autofill v2 review processes had accumulated:
 
 ## Settled
 
+- **SQLite transactions open with `BEGIN IMMEDIATE`** (2026-09-05). Django's
+  default `DEFERRED` transaction takes the write lock only at the first write,
+  and if another connection got there first — the Breathe sync every fifteen
+  minutes, the other gunicorn worker — SQLite fails at once with "database is
+  locked" instead of waiting out the five-second busy timeout. Every mutation
+  here runs inside `transaction.atomic()` and most read before they write, so
+  the window was real if small. `transaction_mode: IMMEDIATE` (Django 5.1+)
+  takes the lock at `BEGIN`, so a second writer queues behind the first;
+  `tests/test_deploy.py` captures the statement a real transaction issues. The
+  engine question was reviewed the same day and SQLite stays: one practice,
+  one host, two workers, no engine-specific ORM use, nightly `.backup` to
+  Proxmox Backup Server in-house and synced off-site.
+
 - **A stored weekday or month list that no longer parses stops at deploy**
   (2026-09-05). The post-deployment fixes (2026-08-31) gave
   `PracticeSettings.open_weekdays` and `CoverageRule.months` / `weekdays` /
