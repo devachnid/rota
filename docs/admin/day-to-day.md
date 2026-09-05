@@ -224,4 +224,5 @@ reply button.
 When a report arrives, every active **superuser** with an email address is
 emailed (rota admins are not — they run the practice, not the code). With no
 outgoing email configured the report still lands here; only the email is
-skipped. One person can send at most ten reports an hour.
+skipped. One person can send at most ten reports an hour — and each report
+is one email, so that is the ceiling on the inbox too.

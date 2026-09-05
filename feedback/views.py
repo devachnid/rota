@@ -3,9 +3,11 @@ Both render partials into #modal (templates/base.html) with no {% extends %},
 the same shape as the grid's cell and note forms."""
 
 from datetime import timedelta
+from functools import wraps
 from urllib.parse import urlsplit
 
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.views import redirect_to_login
+from django.http import HttpResponse
 from django.shortcuts import render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -32,12 +34,28 @@ def _page(request):
     return page[:300]
 
 
-@login_required
+def htmx_login_required(view):
+    """login_required, but an htmx request from a session that has expired
+    gets 204 + HX-Redirect to the login page instead of a 302 — htmx would
+    follow the 302 and swap the whole login document into the modal. `next`
+    is the page they were on (HX-Current-URL), not this endpoint."""
+    @wraps(view)
+    def wrapped(request, *args, **kwargs):
+        if request.user.is_authenticated:
+            return view(request, *args, **kwargs)
+        if request.headers.get("HX-Request") != "true":
+            return redirect_to_login(request.get_full_path())
+        back = _page(request) or "/"
+        return HttpResponse(status=204, headers={"HX-Redirect": redirect_to_login(back).url})
+    return wrapped
+
+
+@htmx_login_required
 def feedback_form(request):
     return render(request, "feedback/_form.html", {"form": FeedbackForm()})
 
 
-@login_required
+@htmx_login_required
 @require_POST
 def feedback_send(request):
     form = FeedbackForm(request.POST)

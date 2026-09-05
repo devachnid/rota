@@ -2,6 +2,7 @@
 modal it opens exists exactly once — in base.html, no longer in the grid."""
 
 import re
+from pathlib import Path
 
 import pytest
 
@@ -9,6 +10,7 @@ from tests.test_css_cascade import rule
 
 pytestmark = pytest.mark.django_db
 
+ROOT = Path(__file__).resolve().parents[1]
 MODAL = re.compile(r'id="modal"')
 TRIGGER = 'hx-get="/feedback/form/"'
 
@@ -26,7 +28,7 @@ def test_the_grid_no_longer_carries_its_own_modal(admin_client):
     PracticeSettings.load()
     html = admin_client.get("/rota/").content.decode()
     assert len(MODAL.findall(html)) == 1
-    assert 'id="modal"' not in open("templates/rota/grid.html").read()
+    assert 'id="modal"' not in (ROOT / "templates/rota/grid.html").read_text()
 
 
 def test_the_login_page_has_neither(client):

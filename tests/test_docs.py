@@ -76,6 +76,12 @@ def test_every_admin_registered_model_is_documented():
     )
 
 
+def test_the_feedback_section_is_a_heading_in_day_to_day():
+    """The tripwire above is satisfied by the word "feedback" appearing
+    anywhere; the guide promises a section."""
+    assert "## Feedback" in (DOCS / "day-to-day.md").read_text().splitlines()
+
+
 def test_the_guide_index_links_to_every_page():
     index = (DOCS / "README.md").read_text()
     for page in DOCS.glob("*.md"):

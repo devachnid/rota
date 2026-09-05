@@ -24,6 +24,18 @@ def test_anonymous_visitors_are_sent_to_log_in(client):
     assert Feedback.objects.count() == 0
 
 
+def test_an_expired_session_on_an_htmx_request_redirects_the_whole_page(client):
+    # htmx follows a 302 and would swap the login page into the modal; a 204
+    # with HX-Redirect makes it navigate instead, back to where they were.
+    resp = client.get(FORM, HTTP_HX_REQUEST="true",
+                      HTTP_HX_CURRENT_URL="http://testserver/rota/day/")
+    assert resp.status_code == 204
+    assert resp["HX-Redirect"] == "/accounts/login/?next=/rota/day/"
+    resp = client.post(SEND, {"kind": "BUG", "message": "x"}, HTTP_HX_REQUEST="true")
+    assert resp.status_code == 204 and resp["HX-Redirect"] == "/accounts/login/?next=/"
+    assert Feedback.objects.count() == 0
+
+
 def test_the_form_offers_both_kinds_with_bug_preselected(gp_client):
     html = gp_client.get(FORM).content.decode()
     assert 'type="radio" name="kind" value="BUG" checked' in html

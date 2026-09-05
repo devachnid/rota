@@ -55,7 +55,12 @@ class Feedback(models.Model):
         The choice labels are sentences, so they do not read in prose."""
         return KIND_WORDS[self.kind]
 
+    @property
+    def reporter_label(self):
+        """The reporter's email, or a phrase for a login since deleted — the
+        one place this wording lives (emails and __str__ both read it)."""
+        return self.reporter.email if self.reporter_id else "someone who has left"
+
     def __str__(self):
-        who = self.reporter.email if self.reporter_id else "someone who has left"
         when = f" on {timezone.localdate(self.created_at):%-d %b %Y}" if self.created_at else ""
-        return f"{self.kind_word.capitalize()} from {who}{when}"
+        return f"{self.kind_word.capitalize()} from {self.reporter_label}{when}"
