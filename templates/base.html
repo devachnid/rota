@@ -70,8 +70,8 @@
 </div>
 {% endif %}
 <main class="main">{% block content %}{% endblock %}</main>
-{# The one htmx modal target on the page: the grid's cell, note and locum
-   forms and the Feedback form all render into it. #modal:empty is hidden. #}
+{% comment %}The one htmx modal target on the page: the grid's cell, note and locum
+forms and the Feedback form all render into it. #modal:empty is hidden.{% endcomment %}
 {% if user.is_authenticated %}<div id="modal"></div>{% endif %}
 <nav class="tabbar" aria-label="Sections">
   <a href="/rota/" class="tabbar-item{% if request.path == '/rota/' %} is-active{% endif %}">Week</a>
