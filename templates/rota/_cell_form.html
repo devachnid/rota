@@ -4,7 +4,7 @@
   <div class="modal-body">
     <div class="field">
       <label for="id_session_type_id">Session</label>
-      <select name="session_type_id" id="id_session_type_id">
+      <select name="session_type_id" id="id_session_type_id"{% if mentoring_id %} onchange="document.getElementById('partner-field').hidden = this.value !== '{{ mentoring_id }}'"{% endif %}>
         {% for label, types in type_groups %}
         <optgroup label="{{ label }}">
           {% for t in types %}
@@ -14,6 +14,18 @@
         {% endfor %}
       </select>
     </div>
+    {% if mentoring_id %}
+    <div class="field" id="partner-field"{% if selected_id != mentoring_id %} hidden{% endif %}>
+      <label for="id_partner_id">With</label>
+      <select name="partner_id" id="id_partner_id">
+        <option value="">—</option>
+        {% for p in partners %}
+        <option value="{{ p.id }}"{% if p.id == partner_id %} selected{% endif %}>{{ p.name }}</option>
+        {% endfor %}
+      </select>
+      <p class="field-help">Mentoring is a pair: the same session goes on both rotas, linked, and clearing either clears both.</p>
+    </div>
+    {% endif %}
     <div class="field">
       <label for="id_site_id">Site</label>
       <select name="site_id" id="id_site_id"><option value="">—</option>
@@ -31,6 +43,7 @@
     </div>
   </div>
   {% if confirm %}<input type="hidden" name="confirm" value="1">{% endif %}
+  {% if replace %}<input type="hidden" name="replace" value="1">{% endif %}
   <input type="hidden" name="clinician_id" value="{{ clinician.id }}">
   <input type="hidden" name="day" value="{{ day|date:'Y-m-d' }}">
   <input type="hidden" name="part" value="{{ part }}">

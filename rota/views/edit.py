@@ -5,7 +5,8 @@ from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_POST
 
 from rota.models import (Clinician, DayNote, LocumRequirement, Part,
-                         PracticeSettings, RotaEntry, SessionType, Site)
+                         PracticeSettings, RotaEntry, SessionType, Site,
+                         TraineeProfile)
 from rota.services import entries as entries_svc
 from rota.services import locums as locums_svc
 from rota.views.decorators import admin_required, parse_errors_as_400
@@ -38,6 +39,26 @@ def type_groups():
     return [(SessionType.Category(c).label, ts) for c, ts in by_category.items() if ts]
 
 
+def _current_partner_id(entry):
+    """The other half of the pair this entry is in, if it is in one."""
+    if entry is None or not entry.companion_group:
+        return None
+    return (RotaEntry.objects.filter(companion_group=entry.companion_group)
+            .exclude(pk=entry.pk).values_list("clinician_id", flat=True).first())
+
+
+def _natural_partner_id(clinician):
+    """Who a mentoring session is most likely with: a trainee's trainer, or
+    a trainer's only trainee. None when there is no obvious answer."""
+    trainer_id = (TraineeProfile.objects.filter(clinician=clinician)
+                  .values_list("trainer_id", flat=True).first())
+    if trainer_id:
+        return trainer_id
+    trainees = list(TraineeProfile.objects.filter(trainer=clinician)
+                    .values_list("clinician_id", flat=True))
+    return trainees[0] if len(trainees) == 1 else None
+
+
 def _cell_context(clinician, day, part, note=None, site_id=None, **extra):
     groups = type_groups()
     types = [t for _, ts in groups for t in ts]
@@ -49,12 +70,23 @@ def _cell_context(clinician, day, part, note=None, site_id=None, **extra):
     # fill type — the thing most often being added.
     selected_id = (extra.pop("selected_type", None)
                    or (entry.session_type_id if entry else settings.default_fill_session_type_id))
+    # The "With" field for a mentoring session (only offered when the
+    # practice has named a mentoring type): what was just posted ("" is a
+    # deliberate blank), else the current pair, else the natural partner.
+    mentoring_id = settings.mentoring_session_type_id
+    partner_id = extra.pop("partner_id", None)
+    if mentoring_id and partner_id is None:
+        partner_id = _current_partner_id(entry) or _natural_partner_id(clinician)
     return {
         "clinician": clinician, "day": day, "part": part,
         "entry": entry,
         "type_groups": groups,
         "selected_id": selected_id,
         "ineligible_ids": [t.id for t in types if not t.is_eligible(clinician)],
+        "mentoring_id": mentoring_id,
+        "partner_id": partner_id,
+        "partners": (Clinician.objects.filter(active=True, group__is_locum_group=False)
+                     .exclude(pk=clinician.pk).order_by("name") if mentoring_id else []),
         "sites": Site.objects.all(),
         "note": note if note is not None else (entry.note if entry else ""),
         "site_id": site_id if site_id is not None else (entry.site_id if entry else None),
@@ -79,20 +111,48 @@ def assign(request):
     part = _clean_part(request.POST["part"])
     st = get_object_or_404(SessionType, pk=request.POST["session_type_id"])
     site = Site.objects.filter(pk=request.POST.get("site_id") or None).first()
-    if not st.is_eligible(clinician) and not request.POST.get("confirm"):
+    note = request.POST.get("note", "")
+    # A mentoring session is a pair. The partner is read only for the
+    # practice's mentoring type: the field is on the form whatever is
+    # selected (hidden, so a change of mind is not a lost choice).
+    partner = None
+    if st.id == PracticeSettings.load().mentoring_session_type_id and request.POST.get("partner_id"):
+        partner = get_object_or_404(Clinician, pk=request.POST["partner_id"], active=True)
+        if partner.pk == clinician.pk:
+            raise ValueError("A mentoring pair needs two different people.")
+
+    def again(warning, **flags):
         return render(request, "rota/_cell_form.html", _cell_context(
-            clinician, day, part,
-            note=request.POST.get("note", ""), site_id=site.id if site else None,
-            warning=f"{clinician.name} is not usually eligible for {st.name}. "
-                    "Save again to override.",
-            confirm=True, selected_type=st.id,
-        ))
+            clinician, day, part, note=note, site_id=site.id if site else None,
+            warning=warning, selected_type=st.id,
+            partner_id=partner.id if partner else "", **flags))
+
+    if not st.is_eligible(clinician) and not request.POST.get("confirm"):
+        return again(f"{clinician.name} is not usually eligible for {st.name}. "
+                     "Save again to override.",
+                     confirm=True, replace=bool(request.POST.get("replace")))
+    parts = ["AM", "PM"] if request.POST.get("full_day") else [part]
+    if partner is not None:
+        # Writing the pair overwrites whatever the partner holds in that
+        # slot, so anything other than the same type is asked about first.
+        held = (RotaEntry.objects.filter(clinician=partner, day=day, part__in=parts)
+                .exclude(session_type=st).select_related("session_type")
+                .order_by("part").first())
+        if held and not request.POST.get("replace"):
+            return again(f"{partner.name} already has {held.session_type.name} on "
+                         f"{day:%a %-d %b} {held.part}. Save again to replace it "
+                         f"with {st.name}.",
+                         confirm=bool(request.POST.get("confirm")), replace=True)
+        for p in parts:
+            entries_svc.assign_pair(request.user, day, p, clinician, partner, st,
+                                    site=site, note=note, manually_set=True)
+        return _refresh()
     if request.POST.get("full_day"):
         entries_svc.assign_full_day(request.user, clinician, day, st,
-                                    site=site, note=request.POST.get("note", ""), manually_set=True)
+                                    site=site, note=note, manually_set=True)
     else:
         entries_svc.assign(request.user, clinician, day, part, st, site=site,
-                           note=request.POST.get("note", ""), manually_set=True)
+                           note=note, manually_set=True)
     return _refresh()
 
 

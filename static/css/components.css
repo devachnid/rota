@@ -176,6 +176,12 @@ body {
   gap: var(--sp-1);
   margin-bottom: var(--sp-4);
 }
+/* display: flex above would otherwise beat the UA's [hidden] { display:
+   none } — the cell form hides its "With" field this way until Mentoring
+   is the session chosen. */
+.field[hidden] {
+  display: none;
+}
 .field label {
   font-weight: 700;
   font-size: var(--fs-sm);

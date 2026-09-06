@@ -71,6 +71,17 @@ to the rota entry log per deletion, naming the range and the counts.
 clicking a cell on the grid; the admin view is for bulk corrections and for
 seeing the fields the grid hides.
 
+On the grid, the cell you clicked is ringed while its form is open, so there
+is no doubt which one is being edited. The **Session** list is grouped
+Clinical / Non-clinical / Absence, and an empty cell opens on the practice's
+[default fill session type](practice-settings.md). Choose the practice's
+mentoring type and a **With** field appears: pick the other half of the pair
+(a trainee's trainer is offered first, and a trainer's only trainee) and the
+same session is written to both rotas, linked, exactly as assisted fill does
+it — the grid then shows "with …" on each cell and clearing either clears
+both. If the other person already holds something else in that slot the form
+says so and asks you to save again before replacing it.
+
 - **Day / Part / Clinician / Session type** — who is doing what, when.
 - **Site** — where. Auto-stamped from the commitment or the type's default site
   unless set by hand.
@@ -91,7 +102,7 @@ seeing the fields the grid hides.
 
 ## Warnings on the grid
 
-The red strips in a day's header come from **four separate sources**, so if you
+The red strips in a day's header come from **five separate sources**, so if you
 want to silence one, you need to know which:
 
 1. **Coverage warnings** — "No Duty cover (AM)". From coverage rules with
@@ -107,6 +118,11 @@ want to silence one, you need to know which:
    A published or drafted session on someone Breathe says is off. The cell
    itself is ringed for everyone; this header line is yours. See
    [Leave from Breathe](breathe.md).
+5. **Ceiling warnings** — "Too many Urgent (PM): 2, max 1" or "Too many
+   Urgent today: 3 sessions, max 2". From a session type's
+   [ceiling](session-types.md#ceiling). The per-week ceiling has no day to
+   sit on, so it appears on a line under the week toolbar instead: "Too many
+   LARC this week: 3 sessions, max 2".
 
 Closed days generate no warnings at all.
 
