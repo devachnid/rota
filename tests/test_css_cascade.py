@@ -390,6 +390,29 @@ def test_the_grid_has_its_horizontal_floor_on_the_table():
     assert wrap.declarations.get("overflow") == "auto", wrap.declarations
 
 
+def test_the_grid_pane_is_sized_by_layout_not_a_viewport_guess():
+    """The pane used to be capped at 75vh — a fixed guess at the chrome above
+    it that left ~100px empty under the grid on a desktop while the week
+    scrolled inside the pane. The week page now locks body to the viewport,
+    lets .main shrink to what the nav leaves, and stacks .main's children so
+    the pane takes what the toolbar leaves: as tall as the table when that
+    fits, shrinking when it does not. The floor-only body sizing every other
+    page relies on is untouched."""
+    wrap = rule(".grid-wrap")
+    assert "max-height" not in wrap.declarations, wrap.declarations
+    assert wrap.declarations.get("overflow") == "auto"
+    assert declares("body.page-grid", "height") == "100dvh"
+    bodies = [r for r in _read_all() if r.selector == "body"]
+    assert any(r.declarations.get("min-height") == "100dvh" for r in bodies)
+    assert not any("height" in r.declarations for r in bodies), bodies
+    main = rule(".page-grid .main").declarations
+    assert main.get("display") == "flex" and main.get("flex-direction") == "column"
+    assert main.get("min-height") == "0"
+    pane = rule(".page-grid .grid-wrap").declarations
+    assert pane.get("flex") == "0 1 auto"
+    assert re.fullmatch(r"\d+rem", pane.get("min-height", "")), pane
+
+
 # --------------------------------------------------------------------------
 # 6. the pinned header is opaque
 # --------------------------------------------------------------------------

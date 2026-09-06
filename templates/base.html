@@ -23,7 +23,7 @@
 <script src="{% static 'htmx.min.js' %}" defer></script>
 <script src="{% static 'js/passkeys.js' %}" defer></script>
 </head>
-<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+<body{% block body_attrs %}{% endblock %} hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
 <nav class="nav">
   <span class="nav-brand">Rota</span>
   <a href="/rota/" class="nav-link{% if request.path == '/rota/' %} is-active{% endif %}">Week</a>
