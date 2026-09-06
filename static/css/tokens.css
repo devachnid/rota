@@ -17,6 +17,11 @@
   --ground:      #FCFCFD;
   --surface:     #FFFFFF;
   --sunken:      #F7F8FA;
+  /* The "working, nothing allocated" chip on the week grid. --sunken was
+     invisible on the white cell in light mode (1.06:1); this is the one
+     grey that must read as a placeholder at a glance. tests/
+     test_chrome_contrast.py holds it apart from --surface in both themes. */
+  --slot:        #DDE0E6;
   --hairline:    #ECEDF1;
   /* Form-control boundaries, deliberately NOT --hairline. WCAG 1.4.11 holds
      the visible boundary of a UI component to 3:1, and --hairline (#ECEDF1)
@@ -95,6 +100,7 @@
     --ground:      #131519;
     --surface:     #1A1D23;
     --sunken:      #21252C;
+    --slot:        #262B33;
     --hairline:    #2C313A;
     /* 3.18:1 on the dark --surface, 3.38:1 on --ground. See the light block. */
     --field-border: #626C7D;
@@ -119,6 +125,7 @@
   --ground:      #131519;
   --surface:     #1A1D23;
   --sunken:      #21252C;
+  --slot:        #262B33;
   --hairline:    #2C313A;
   --field-border: #626C7D;
   --danger:      #F09A82;  --danger-soft:  #35201B;
