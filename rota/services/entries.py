@@ -71,12 +71,12 @@ def assign_full_day(actor, clinician, day, session_type, *, site=None, note="",
 
 @transaction.atomic
 def assign_pair(actor, day, part, first, second, session_type, *, site=None,
-                published=False, manually_set=True, fill_reason=""):
+                note="", published=False, manually_set=True, fill_reason=""):
     group = uuid.uuid4()
-    e1 = assign(actor, first, day, part, session_type, site=site,
+    e1 = assign(actor, first, day, part, session_type, site=site, note=note,
                 published=published, manually_set=manually_set,
                 fill_reason=fill_reason)
-    e2 = assign(actor, second, day, part, session_type, site=site,
+    e2 = assign(actor, second, day, part, session_type, site=site, note=note,
                 published=published, manually_set=manually_set,
                 fill_reason=fill_reason)
     RotaEntry.objects.filter(pk__in=[e1.pk, e2.pk]).update(companion_group=group)

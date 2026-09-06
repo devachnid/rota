@@ -2,7 +2,7 @@ import pytest
 
 from rota.models import DayNote, LocumRequirement, PracticeSettings, RotaEntry
 from tests.factories import (MON, make_clinician, make_entry, make_group,
-                             make_session_type, make_site)
+                             make_session_type, make_site, make_trainee)
 from rota.services import locums as locums_svc
 
 pytestmark = pytest.mark.django_db
@@ -227,3 +227,129 @@ def test_the_locum_form_groups_its_session_types_the_same_way(admin_client):
     _three_types()
     html = admin_client.get(f"/rota/locum/new/?day={MON.isoformat()}&part=AM").content.decode()
     assert html.index('<optgroup label="Clinical">') < html.index('<optgroup label="Absence">')
+
+
+# --------------------------------------------------------------------------
+# a mentoring session added by hand is a pair, like the one assisted fill
+# makes: a "With" partner, both rotas written and linked
+# --------------------------------------------------------------------------
+
+def _mentoring():
+    ment = make_session_type("Mentoring", code="Mentor", category="NON_CLINICAL")
+    PracticeSettings.objects.update_or_create(pk=1, defaults={"mentoring_session_type": ment})
+    return ment
+
+
+def _pair():
+    trainer = make_clinician("Tina Trainer", is_trainer=True)
+    trainee = make_clinician("Terry Trainee")
+    make_trainee(trainee, trainer=trainer)
+    return trainer, trainee
+
+
+def test_the_with_field_is_there_for_mentoring_and_preselects_the_natural_partner(admin_client):
+    _mentoring()
+    trainer, trainee = _pair()
+    html = admin_client.get(f"/rota/cell/{trainee.id}/{MON.isoformat()}/AM/").content.decode()
+    assert 'id="partner-field" hidden' in html  # nothing selected yet, so hidden
+    assert "getElementById('partner-field').hidden" in html
+    assert f'value="{trainer.id}" selected' in html
+    html = admin_client.get(f"/rota/cell/{trainer.id}/{MON.isoformat()}/AM/").content.decode()
+    assert f'value="{trainee.id}" selected' in html  # their only trainee
+
+
+def test_no_with_field_when_the_practice_has_no_mentoring_type(admin_client):
+    c = make_clinician()
+    html = admin_client.get(f"/rota/cell/{c.id}/{MON.isoformat()}/AM/").content.decode()
+    assert "partner-field" not in html and "partner_id" not in html
+
+
+def test_a_mentoring_session_with_a_partner_is_written_to_both_rotas_as_a_pair(admin_client):
+    ment = _mentoring()
+    trainer, trainee = _pair()
+    resp = admin_client.post("/rota/assign/", _assign_data(
+        trainee, ment, partner_id=trainer.id, note="First week"))
+    assert resp.status_code == 204
+    mine = RotaEntry.objects.get(clinician=trainee)
+    theirs = RotaEntry.objects.get(clinician=trainer)
+    assert mine.companion_group is not None
+    assert mine.companion_group == theirs.companion_group
+    assert theirs.session_type == ment and theirs.note == "First week" and theirs.manually_set
+    html = admin_client.get(f"/rota/?week={MON.isoformat()}").content.decode()
+    assert "with Tina Trainer" in html and "with Terry Trainee" in html
+    # Re-opening either cell shows the pair, field visible.
+    html = admin_client.get(f"/rota/cell/{trainer.id}/{MON.isoformat()}/AM/").content.decode()
+    assert 'id="partner-field">' in html
+    assert f'value="{trainee.id}" selected' in html
+
+
+def test_a_partner_holding_something_else_is_asked_about_then_replaced(admin_client):
+    ment = _mentoring()
+    routine = make_session_type("Routine")
+    trainer, trainee = _pair()
+    make_entry(trainer, day=MON, part="AM", session_type=routine)
+    resp = admin_client.post("/rota/assign/", _assign_data(trainee, ment, partner_id=trainer.id))
+    assert resp.status_code == 200
+    html = resp.content.decode()
+    assert ("Tina Trainer already has Routine on Mon 20 Jul AM. Save again to "
+            "replace it with Mentoring.") in html
+    assert 'name="replace" value="1"' in html
+    assert f'value="{trainer.id}" selected' in html
+    assert not RotaEntry.objects.filter(clinician=trainee).exists()
+    admin_client.post("/rota/assign/", _assign_data(trainee, ment, partner_id=trainer.id, replace="1"))
+    assert RotaEntry.objects.count() == 2
+    assert RotaEntry.objects.get(clinician=trainer).session_type == ment
+
+
+def test_a_partner_already_on_mentoring_is_linked_without_a_question(admin_client):
+    ment = _mentoring()
+    trainer, trainee = _pair()
+    make_entry(trainer, day=MON, part="AM", session_type=ment)
+    resp = admin_client.post("/rota/assign/", _assign_data(trainee, ment, partner_id=trainer.id))
+    assert resp.status_code == 204
+    groups = set(RotaEntry.objects.values_list("companion_group", flat=True))
+    assert len(groups) == 1 and None not in groups and RotaEntry.objects.count() == 2
+
+
+def test_a_partner_is_ignored_for_any_other_session_type(admin_client):
+    _mentoring()
+    routine = make_session_type("Routine")
+    trainer, trainee = _pair()
+    admin_client.post("/rota/assign/", _assign_data(trainee, routine, partner_id=trainer.id))
+    assert RotaEntry.objects.count() == 1
+    assert not RotaEntry.objects.filter(clinician=trainer).exists()
+
+
+def test_full_day_mentoring_pairs_both_halves(admin_client):
+    ment = _mentoring()
+    trainer, trainee = _pair()
+    admin_client.post("/rota/assign/", _assign_data(trainee, ment, partner_id=trainer.id, full_day="1"))
+    assert RotaEntry.objects.count() == 4
+    am = {e.clinician_id: e for e in RotaEntry.objects.filter(part="AM")}
+    pm = {e.clinician_id: e for e in RotaEntry.objects.filter(part="PM")}
+    assert am[trainee.id].companion_group == am[trainer.id].companion_group
+    assert pm[trainee.id].companion_group == pm[trainer.id].companion_group
+    assert am[trainee.id].companion_group != pm[trainee.id].companion_group
+
+
+def test_choosing_yourself_as_the_partner_is_refused(admin_client):
+    ment = _mentoring()
+    trainer, trainee = _pair()
+    resp = admin_client.post("/rota/assign/", _assign_data(trainee, ment, partner_id=trainee.id))
+    assert resp.status_code == 400 and not RotaEntry.objects.exists()
+
+
+def test_the_eligibility_question_keeps_the_partner_and_still_asks_about_a_held_slot(admin_client):
+    ment = _mentoring()
+    ment.allowed_clinicians.add(make_clinician("Someone Else"))
+    routine = make_session_type("Routine")
+    trainer, trainee = _pair()
+    make_entry(trainer, day=MON, part="AM", session_type=routine)
+    html = admin_client.post("/rota/assign/", _assign_data(trainee, ment, partner_id=trainer.id)).content.decode()
+    assert "not usually eligible" in html and f'value="{trainer.id}" selected' in html
+    html = admin_client.post("/rota/assign/", _assign_data(
+        trainee, ment, partner_id=trainer.id, confirm="1")).content.decode()
+    assert "already has Routine" in html and 'name="confirm" value="1"' in html
+    admin_client.post("/rota/assign/", _assign_data(
+        trainee, ment, partner_id=trainer.id, confirm="1", replace="1"))
+    assert RotaEntry.objects.count() == 2
