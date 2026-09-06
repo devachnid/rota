@@ -26,6 +26,17 @@ autofill v2 review processes had accumulated:
 
 ## Settled
 
+- **Five grid enhancements** (2026-09-06). A session type can carry a
+  ceiling — max per session, per day, per week, counted in sessions — and
+  the week grid warns when it is passed (day header for the first two, a line
+  under the toolbar for the week). The working-but-unallocated chip has its
+  own grey, visible in light mode. The Session dropdown is grouped Clinical /
+  Non-clinical / Absence and opens on the practice's default fill type. A
+  mentoring session added by hand takes a *With* partner and is written to
+  both rotas as a linked pair, warning first if the partner already holds
+  something else in that slot. The cell whose form is open is ringed.
+  Follow-up, not done: assisted fill does not read the ceilings.
+
 - **The week grid's pane takes the room the window actually has**
   (2026-09-06). The pane was capped at 75vh, a fixed guess at the chrome above
   it, so a desktop window kept ~100px empty under the grid while a full week

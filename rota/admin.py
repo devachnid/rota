@@ -386,6 +386,14 @@ class SessionTypeAdmin(ModelAdmin):
             "description": "A clinician holding this type on a day is not "
                            "auto-assigned any of these the same day.",
         }),
+        ("Ceiling", {
+            "fields": ("max_per_session", "max_per_day", "max_per_week"),
+            "description": "Warn on the week grid when more sessions of this type "
+                           "than these fall in one session, one day or one week. "
+                           "Blank means no limit. A full day counts as two sessions; "
+                           "to limit people per slot, set max per session. "
+                           "Warnings only — assisted fill does not read these.",
+        }),
         ("History", {"fields": ("legacy_colour",), "classes": ("collapse",)}),
     )
 

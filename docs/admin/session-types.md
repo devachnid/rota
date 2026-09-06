@@ -127,3 +127,20 @@ blocking type's coverage rule a **lower `priority` number** than the type it is
 meant to block.
 
 This trips people up because the setting looks symmetric and is not.
+
+## Ceiling
+
+Three optional numbers: **max per session**, **max per day**, **max per week**.
+Blank means no limit. When the week grid holds more sessions of this type than
+a ceiling allows, an admin sees a warning — per session and per day in the
+day's header, alongside the cover warnings (*Too many Urgent (PM): 2, max 1*);
+per week on a line under the week toolbar (*Too many LARC this week: 3
+sessions, max 2*).
+
+All three count **sessions**, the unit everything else here uses, so a full
+day counts as two. To limit *people* rather than sessions, set max per
+session: Duty with max per session 1 means at most one Duty in any AM and any
+PM, whatever shape the days are.
+
+Warnings only. Assisted fill does not read these yet; it will happily place
+past a ceiling and the grid will then say so.
