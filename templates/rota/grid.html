@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "base.html" %}{% load static %}
 {% block title %}Rota — week of {{ monday }}{% endblock %}
 {% block body_attrs %} class="page-grid"{% endblock %}
 {% block content %}
@@ -21,6 +21,7 @@
 {% if unlinked_count %}
 <div class="warn">{{ unlinked_count }} clinician{{ unlinked_count|pluralize }} not linked to Breathe — no leave is read for them. <a href="/admin/rota/clinician/?breathe=unlinked&amp;active__exact=1">Link them</a>.</div>
 {% endif %}
+<script src="{% static 'js/grid.js' %}" defer></script>
 <div class="grid-wrap">
 <table class="table-grid">
 <caption class="visually-hidden">Rota for the week of {{ monday|date:"j F Y" }}</caption>
