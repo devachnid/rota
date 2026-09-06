@@ -1,7 +1,9 @@
 import pytest
 
 from rota.models import CoverageRule, LocumRequirement, ClosedDay, PracticeSettings
-from rota.services.warnings import day_warnings
+from datetime import timedelta
+
+from rota.services.warnings import day_warnings, week_warnings
 from tests.factories import (MON, make_clinician, make_entry, make_group,
                              make_session_type)
 
@@ -116,3 +118,75 @@ def test_group_minimum_ignores_absences():
     leave = make_session_type("Annual leave", category="ABSENCE")
     make_entry(c, part="AM", session_type=leave)
     assert [w for w in day_warnings(MON) if w.code == "group" and w.part == "AM"]
+
+
+# --------------------------------------------------------------------------
+# ceilings on a session type: max per session / day / week
+# --------------------------------------------------------------------------
+
+def _quiet():
+    PracticeSettings.objects.update_or_create(pk=1, defaults={"min_clinical_per_session": 0})
+
+
+def _ceiling(w):
+    return [x for x in w if x.code == "ceiling"]
+
+
+def test_max_per_session_warns_per_part_when_exceeded():
+    _quiet()
+    urgent = make_session_type("Urgent", max_per_session=1)
+    a, b = make_clinician("Alice Adams"), make_clinician("Beth Brown")
+    make_entry(a, part="AM", session_type=urgent)
+    assert _ceiling(day_warnings(MON)) == []
+    make_entry(b, part="AM", session_type=urgent)
+    make_entry(b, part="PM", session_type=urgent)
+    [w] = _ceiling(day_warnings(MON))
+    assert (w.part, w.message) == ("AM", "Too many Urgent (AM): 2, max 1")
+
+
+def test_max_per_day_counts_sessions_so_a_full_day_is_two():
+    _quiet()
+    urgent = make_session_type("Urgent", max_per_day=2)
+    a, b = make_clinician("Alice Adams"), make_clinician("Beth Brown")
+    make_entry(a, part="AM", session_type=urgent)
+    make_entry(a, part="PM", session_type=urgent)
+    assert _ceiling(day_warnings(MON)) == []
+    make_entry(b, part="AM", session_type=urgent)
+    [w] = _ceiling(day_warnings(MON))
+    assert w.part is None and w.message == "Too many Urgent today: 3 sessions, max 2"
+
+
+def test_a_type_with_no_ceiling_never_warns():
+    _quiet()
+    routine = make_session_type("Routine")
+    for name in ("A One", "B Two", "C Three"):
+        make_entry(make_clinician(name), part="AM", session_type=routine)
+    assert _ceiling(day_warnings(MON)) == []
+
+
+def test_max_per_week_is_counted_over_the_open_days_shown():
+    _quiet()
+    larc = make_session_type("LARC", max_per_week=2)
+    days = [MON + timedelta(days=i) for i in range(5)]
+    a = make_clinician("Alice Adams")
+    make_entry(a, day=days[0], part="AM", session_type=larc)
+    make_entry(a, day=days[2], part="AM", session_type=larc)
+    assert week_warnings(days) == []
+    draft = make_entry(a, day=days[4], part="PM", session_type=larc, is_published=False)
+    [w] = week_warnings(days)
+    assert w.message == "Too many LARC this week: 3 sessions, max 2"
+    # A GP's view has no drafts, and no warning either.
+    assert week_warnings(days, include_drafts=False) == []
+    ClosedDay.objects.create(day=days[4], reason="Bank holiday")
+    assert week_warnings(days) == [], draft
+
+
+def test_the_week_ceiling_shows_under_the_toolbar_for_an_admin(admin_client, gp_client):
+    _quiet()
+    larc = make_session_type("LARC", max_per_week=1)
+    a = make_clinician("Alice Adams")
+    make_entry(a, day=MON, part="AM", session_type=larc)
+    make_entry(a, day=MON + timedelta(days=1), part="AM", session_type=larc)
+    html = admin_client.get(f"/rota/?week={MON.isoformat()}").content.decode()
+    assert "Too many LARC this week: 2 sessions, max 1" in html
+    assert "Too many LARC" not in gp_client.get(f"/rota/?week={MON.isoformat()}").content.decode()

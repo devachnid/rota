@@ -72,6 +72,24 @@ class SessionType(models.Model):
         help_text="A clinician holding this type on a day is not auto-assigned "
                   "any of these types the same day.",
     )
+    # Ceilings. Each counts sessions — the unit everything else here uses —
+    # so a full day is two. Warnings only: the fill engine does not read
+    # them (docs/admin/session-types.md).
+    max_per_session = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text="Warn on the week grid when more sessions of this type than "
+                  "this fall in one AM or PM. Blank means no limit.",
+    )
+    max_per_day = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text="Warn when more sessions of this type than this fall on one "
+                  "day (a full day counts as two). Blank means no limit.",
+    )
+    max_per_week = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text="Warn when more sessions of this type than this fall in the "
+                  "week shown. Blank means no limit.",
+    )
 
     class Meta:
         ordering = ["category", "name"]

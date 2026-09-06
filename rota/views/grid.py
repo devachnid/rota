@@ -9,7 +9,7 @@ from rota.models import (BreatheAbsence, BreatheLeaveMapping, Clinician,
                          PatternSlot, PracticeSettings, RotaEntry)
 from rota.services import availability
 from rota.services.cells import cell_state, shows_on_roster
-from rota.services.warnings import day_warnings
+from rota.services.warnings import day_warnings, week_warnings
 
 
 @login_required
@@ -131,6 +131,7 @@ def grid(request):
         "is_admin": is_admin,
         "has_clinician": has_clinician,
         "unlinked_count": unlinked_count,
+        "week_warnings": week_warnings(days, include_drafts=True) if is_admin else [],
         "colspan": len(days) * 2 + 1,
         # max(), for the same reason as the leave filter above: this is one
         # end of a date range (the Publish button posts monday..week_end into

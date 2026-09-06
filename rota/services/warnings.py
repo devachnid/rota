@@ -1,4 +1,7 @@
+from collections import Counter
 from dataclasses import dataclass
+
+from django.db.models import Q
 
 from rota.models import (BreatheAbsence, BreatheLeaveMapping, ClinicianGroup,
                          CoverageRule, LocumRequirement, PatternSlot,
@@ -104,6 +107,27 @@ def day_warnings(day, include_drafts=True, resolver=None):
                     + _locum_suffix(day, part, rule.session_type),
                 ))
 
+    # Ceilings on a session type (docs/admin/session-types.md). Sessions, not
+    # people: a full day is two, and "one Duty per day" is max_per_session
+    # = 1, which caps each AM and PM at one.
+    for st in SessionType.objects.filter(
+        Q(max_per_session__isnull=False) | Q(max_per_day__isnull=False)
+    ):
+        if st.max_per_session is not None:
+            for part in ["AM", "PM"]:
+                have = sum(1 for e in entries
+                           if e.part == part and e.session_type_id == st.id)
+                if have > st.max_per_session:
+                    warnings.append(Warning(
+                        "ceiling", part,
+                        f"Too many {st.name} ({part}): {have}, max {st.max_per_session}"))
+        if st.max_per_day is not None:
+            have = sum(1 for e in entries if e.session_type_id == st.id)
+            if have > st.max_per_day:
+                warnings.append(Warning(
+                    "ceiling", None,
+                    f"Too many {st.name} today: {have} sessions, max {st.max_per_day}"))
+
     for part in ["AM", "PM"]:
         clinical = sum(
             1 for e in entries
@@ -132,3 +156,22 @@ def day_warnings(day, include_drafts=True, resolver=None):
 
     warnings.extend(_breathe_conflicts(day, entries, resolver))
     return warnings
+
+
+def week_warnings(days, include_drafts=True):
+    """The one ceiling that only makes sense across a week: a session
+    type's max_per_week, over the open days shown. The grid has no week
+    header, so these render under the week toolbar."""
+    days = [d for d in days if calendar.is_open(d)]
+    types = list(SessionType.objects.filter(max_per_week__isnull=False))
+    if not days or not types:
+        return []
+    entries = RotaEntry.objects.filter(day__in=days, session_type__in=types)
+    if not include_drafts:
+        entries = entries.filter(is_published=True)
+    have = Counter(entries.values_list("session_type_id", flat=True))
+    return [
+        Warning("ceiling", None,
+                f"Too many {st.name} this week: {have[st.id]} sessions, max {st.max_per_week}")
+        for st in types if have[st.id] > st.max_per_week
+    ]
