@@ -26,6 +26,15 @@ autofill v2 review processes had accumulated:
 
 ## Settled
 
+- **The week grid's pane takes the room the window actually has**
+  (2026-09-06). The pane was capped at 75vh, a fixed guess at the chrome above
+  it, so a desktop window kept ~100px empty under the grid while a full week
+  scrolled inside the pane. The week page now locks the body to the viewport
+  and sizes the pane by flex layout — as tall as the table when that fits (no
+  inner scrollbar), shrinking to the space under the toolbar when it does
+  not — with a small floor for short phone windows. Sticky headers still
+  resolve against the pane; every other page scrolls as before.
+
 - **Swaps tell people** (2026-09-05; spec
   `docs/superpowers/specs/2026-09-05-swaps-design.md`). Until now the only
   trace of a swap was a card on My schedule, which the login landing page does

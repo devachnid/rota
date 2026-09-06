@@ -321,8 +321,8 @@ fieldset.field {
    phone case; above it the table sits at width: 100% and the day columns
    divide the slack equally again. 672px clears the 1208px available on the
    target 1080p screen with room to spare — even with the vertical scrollbar a
-   25-clinician week puts on .grid-wrap (25 x --row-h = 850px against its
-   75vh = 810px cap) — so the floor never bites on a desktop. min-width on the
+   week taller than the pane puts on .grid-wrap (the pane is the room left
+   under the toolbar, screens.css) — so the floor never bites on a desktop. min-width on the
    *cells* would have been the inert version of this: it is not an input to
    the fixed-layout algorithm. The floor is one length rather than per-column,
    so it is sized for the default five open weekdays

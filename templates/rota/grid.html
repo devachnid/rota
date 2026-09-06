@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Rota — week of {{ monday }}{% endblock %}
+{% block body_attrs %} class="page-grid"{% endblock %}
 {% block content %}
 <div class="toolbar">
   <a href="?week={{ prev_week|date:'Y-m-d' }}" class="btn">&larr; Prev</a>

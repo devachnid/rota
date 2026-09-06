@@ -10,12 +10,39 @@
    visible), so position: sticky inside it always resolves against the wrapper,
    never the page viewport. Giving the wrapper a real height bound is what makes
    that resolution useful — the sticky day header and sticky clinician column
-   both stick to the pane's edges. Do not remove max-height thinking it is
-   cosmetic; without it the vertical scroll range is zero and the header
-   silently stops sticking. */
+   both stick to the pane's edges. Without a bound the vertical scroll range
+   is zero and the header silently stops sticking.
+
+   The bound used to be max-height: 75vh — a guess at how much of the window
+   the chrome above the grid does not use, and a fixed one: on a 1050px-tall
+   desktop window the nav, toolbar and warning line take ~160px, the cap
+   allowed ~790px, and ~100px at the bottom sat empty while a 25-row week
+   scrolled inside the pane. The bound now comes from layout instead. The
+   week page (body.page-grid, set by grid.html) turns body's viewport floor
+   into a ceiling, lets .main shrink to exactly what the nav leaves, and
+   stacks .main's children in a column so the pane is handed exactly what
+   the toolbar and any warning leave. flex: 0 1 auto — as tall as the table
+   when that fits (no inner scrollbar at all), shrinking to the room left
+   when it does not. min-height: 0 on .main is what lets it shrink below
+   its content; without it the automatic flex minimum is content-based and
+   the ceiling never bites. The pane keeps a small floor of its own for a
+   short landscape phone window: there the page scrolls a little rather
+   than showing three rows. Every other page keeps body's floor-only
+   sizing and scrolls exactly as before. */
 .grid-wrap {
-  max-height: 75vh;
   overflow: auto;
+}
+body.page-grid {
+  height: 100dvh;
+}
+.page-grid .main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.page-grid .grid-wrap {
+  flex: 0 1 auto;
+  min-height: 12rem;
 }
 
 .grid-day {
