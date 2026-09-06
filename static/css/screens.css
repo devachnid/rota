@@ -45,6 +45,15 @@ body.page-grid {
   min-height: 12rem;
 }
 
+/* The cell whose form is open, set by static/js/grid.js. An inset ring in
+   the accent — the same register as the focus ring — so the modal and the
+   cell it belongs to read as one thing. Inset, because the table's
+   border-spacing leaves nowhere for an outline to go. */
+.table-grid td.is-editing,
+.table-grid th.is-editing {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
 .grid-day {
   font-size: var(--fs-lg);
   font-weight: 700;
