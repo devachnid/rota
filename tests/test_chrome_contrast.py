@@ -269,3 +269,30 @@ def test_form_controls_do_not_use_the_decorative_hairline_for_their_border():
             f"{theme}: --field-border and --hairline have converged on "
             f"{tokens['hairline']}; the boundary would fail 1.4.11 again"
         )
+
+
+# --------------------------------------------------------------------------
+# the empty-slot placeholder must read as a placeholder
+# --------------------------------------------------------------------------
+
+def _token_values(name: str) -> list[str]:
+    """Every value tokens.css gives `--name`, in file order: light first,
+    then the two dark blocks."""
+    css = _strip_comments((CSS_DIR / "tokens.css").read_text())
+    return re.findall(rf"--{name}:\s*(#[0-9A-Fa-f]{{6}})\s*;", css)
+
+
+def test_the_empty_slot_is_visibly_darker_than_the_cell_in_both_themes():
+    """`.chip.empty-slot` used --sunken, which measures 1.06:1 against the
+    light cell — not a placeholder anyone can see. The chip has its own
+    token now; this pins it apart from --surface in each theme, and pins
+    that it is in fact the token the chip uses."""
+    slots, surfaces = _token_values("slot"), _token_values("surface")
+    assert len(slots) == 3 and len(surfaces) == 3, (slots, surfaces)
+    light = palette.contrast_ratio(slots[0], surfaces[0])
+    dark = palette.contrast_ratio(slots[1], surfaces[1])
+    assert light >= 1.3, light
+    assert dark >= 1.15, dark
+    assert slots[1] == slots[2] and surfaces[1] == surfaces[2]
+    components = _strip_comments((CSS_DIR / "components.css").read_text())
+    assert "background: var(--slot)" in _block(components, ".chip.empty-slot")

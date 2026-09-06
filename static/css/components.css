@@ -380,12 +380,14 @@ fieldset.field {
 }
 /* The two empty states, reversed from what shipped. Blank now means "not
    working"; grey means "working, nothing allocated" — the state that wants
-   attention, so it is the one that carries weight. */
+   attention, so it is the one that carries weight. Its own token, not
+   --sunken: --sunken is a panel ground and sits at 1.06:1 on the white cell
+   in light mode, which is to say invisible (tokens.css). */
 .chip.is-off {
   background: transparent;
 }
 .chip.empty-slot {
-  background: var(--sunken);
+  background: var(--slot);
 }
 
 /* Drafts stay hatched so they read as provisional at a glance. --wash rather
