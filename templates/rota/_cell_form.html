@@ -5,11 +5,12 @@
     <div class="field">
       <label for="id_session_type_id">Session</label>
       <select name="session_type_id" id="id_session_type_id">
-        {% for t in session_types %}
-        <option value="{{ t.id }}"
-          {% if selected_type == t.id or entry.session_type_id == t.id %}selected{% endif %}>
-          {{ t.name }}{% if t.id in ineligible_ids %} (not usual){% endif %}
-        </option>
+        {% for label, types in type_groups %}
+        <optgroup label="{{ label }}">
+          {% for t in types %}
+          <option value="{{ t.id }}"{% if t.id == selected_id %} selected{% endif %}>{{ t.name }}{% if t.id in ineligible_ids %} (not usual){% endif %}</option>
+          {% endfor %}
+        </optgroup>
         {% endfor %}
       </select>
     </div>

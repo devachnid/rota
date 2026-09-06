@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_POST
 
 from rota.models import (Clinician, DayNote, LocumRequirement, Part,
-                         RotaEntry, SessionType, Site)
+                         PracticeSettings, RotaEntry, SessionType, Site)
 from rota.services import entries as entries_svc
 from rota.services import locums as locums_svc
 from rota.views.decorators import admin_required, parse_errors_as_400
@@ -23,14 +23,37 @@ def _clean_part(part):
     return part
 
 
+CATEGORY_ORDER = (SessionType.Category.CLINICAL, SessionType.Category.NON_CLINICAL,
+                  SessionType.Category.ABSENCE)
+
+
+def type_groups():
+    """Session types for a dropdown, grouped Clinical / Non-clinical /
+    Absence — the order someone adding a session thinks in — each by name.
+    SessionType.Meta.ordering sorts the category *values*, and "ABSENCE"
+    sorts first, which is how leave came to head the list."""
+    by_category = {c: [] for c in CATEGORY_ORDER}
+    for t in SessionType.objects.order_by("name"):
+        by_category.setdefault(t.category, []).append(t)
+    return [(SessionType.Category(c).label, ts) for c, ts in by_category.items() if ts]
+
+
 def _cell_context(clinician, day, part, note=None, site_id=None, **extra):
-    types = SessionType.objects.all().order_by("category", "name")
+    groups = type_groups()
+    types = [t for _, ts in groups for t in ts]
     entry = RotaEntry.objects.filter(
         clinician=clinician, day=day, part=part).first()
+    settings = PracticeSettings.load()
+    # What the Session dropdown opens on: what was just posted (a warning
+    # re-render), else what the cell holds, else the practice's default
+    # fill type — the thing most often being added.
+    selected_id = (extra.pop("selected_type", None)
+                   or (entry.session_type_id if entry else settings.default_fill_session_type_id))
     return {
         "clinician": clinician, "day": day, "part": part,
         "entry": entry,
-        "session_types": types,
+        "type_groups": groups,
+        "selected_id": selected_id,
         "ineligible_ids": [t.id for t in types if not t.is_eligible(clinician)],
         "sites": Site.objects.all(),
         "note": note if note is not None else (entry.note if entry else ""),
@@ -120,7 +143,7 @@ def _locum_form_context(req=None, day=None, part=None):
         "req": req,
         "day": req.day if req else day,
         "part": req.part if req else part,
-        "session_types": SessionType.objects.all(),
+        "type_groups": type_groups(),
         "locums": Clinician.objects.filter(active=True,
                                            group__is_locum_group=True),
         "coverable": Clinician.objects.filter(

@@ -1,6 +1,6 @@
 import pytest
 
-from rota.models import DayNote, LocumRequirement, RotaEntry
+from rota.models import DayNote, LocumRequirement, PracticeSettings, RotaEntry
 from tests.factories import (MON, make_clinician, make_entry, make_group,
                              make_session_type, make_site)
 from rota.services import locums as locums_svc
@@ -177,3 +177,53 @@ def test_the_covering_dropdown_offers_no_locums(admin_client):
     covering = html[html.index('id="id_covering_id"'):html.index("</select>", html.index('id="id_covering_id"'))]
     assert "Cara Covered" in covering
     assert "Larry Locum" not in covering
+
+
+# --------------------------------------------------------------------------
+# the Session dropdown: grouped Clinical / Non-clinical / Absence, opening
+# on the practice's default fill type for an empty cell
+# --------------------------------------------------------------------------
+
+def _three_types():
+    routine = make_session_type("Routine")
+    meeting = make_session_type("Meeting", code="MTG", category="NON_CLINICAL")
+    leave = make_session_type("Annual Leave", code="AL", category="ABSENCE")
+    return routine, meeting, leave
+
+
+def test_the_session_dropdown_is_grouped_clinical_first(admin_client):
+    routine, meeting, leave = _three_types()
+    c = make_clinician()
+    html = admin_client.get(f"/rota/cell/{c.id}/{MON.isoformat()}/AM/").content.decode()
+    clinical = html.index('<optgroup label="Clinical">')
+    non_clinical = html.index('<optgroup label="Non-clinical">')
+    absence = html.index('<optgroup label="Absence">')
+    assert clinical < non_clinical < absence
+    assert clinical < html.index(f'value="{routine.id}"') < non_clinical
+    assert non_clinical < html.index(f'value="{meeting.id}"') < absence
+    assert absence < html.index(f'value="{leave.id}"')
+
+
+def test_an_empty_cell_opens_on_the_default_fill_type_and_a_held_cell_on_its_own(admin_client):
+    routine, meeting, leave = _three_types()
+    PracticeSettings.objects.update_or_create(pk=1, defaults={"default_fill_session_type": routine})
+    c = make_clinician()
+    html = admin_client.get(f"/rota/cell/{c.id}/{MON.isoformat()}/AM/").content.decode()
+    assert f'value="{routine.id}" selected' in html
+    make_entry(c, day=MON, part="PM", session_type=meeting)
+    html = admin_client.get(f"/rota/cell/{c.id}/{MON.isoformat()}/PM/").content.decode()
+    assert f'value="{meeting.id}" selected' in html
+    assert f'value="{routine.id}" selected' not in html
+
+
+def test_without_a_default_fill_type_nothing_is_preselected(admin_client):
+    routine, meeting, leave = _three_types()
+    c = make_clinician()
+    html = admin_client.get(f"/rota/cell/{c.id}/{MON.isoformat()}/AM/").content.decode()
+    assert " selected" not in html.split('name="site_id"')[0]
+
+
+def test_the_locum_form_groups_its_session_types_the_same_way(admin_client):
+    _three_types()
+    html = admin_client.get(f"/rota/locum/new/?day={MON.isoformat()}&part=AM").content.decode()
+    assert html.index('<optgroup label="Clinical">') < html.index('<optgroup label="Absence">')
