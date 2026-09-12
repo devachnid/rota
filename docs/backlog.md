@@ -324,10 +324,14 @@ Deliberate choices, recorded so they stop being re-reported by each review pass.
 - **Frontend Phase 1 — done** (`f82033c`, 2026-08-24): the design system on
   every screen, browser-verified. **Phase 2 — done** (PR #5, 2026-09-01): the
   day view at `/rota/day/`, My Schedule rebuilt for a phone, the tab bar below
-  640px; installable to a home screen (2026-09-01), with a service worker
-  deliberately deferred because offline caching of an authenticated rota is a
-  decision for after living with standalone mode. **Phase 3 is specced and not
-  started:** grid interaction — drag-and-drop assignment, keyboard navigation,
+  640px; installable to a home screen (2026-09-01). A service worker was
+  deferred then because offline caching of an authenticated rota is a
+  decision, not a default; it was added on 2026-09-12 with that decision made
+  explicit — the worker at `/sw.js` precaches only the offline page and
+  intercepts only navigations, so nothing authenticated is ever stored on the
+  device. It exists because Chrome on Android offers "Install app" only to a
+  site with a fetch-handling worker; without one it offers a shortcut.
+  **Phase 3 is specced and not started:** grid interaction — drag-and-drop assignment, keyboard navigation,
   inline editing.
 
 - **Admin overhaul — done** (PR #8, 2026-09-04): django-unfold, the setup

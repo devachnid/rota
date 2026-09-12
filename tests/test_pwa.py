@@ -259,3 +259,100 @@ def test_the_deploy_check_covers_the_manifest_icons():
             f"{path} is served by the manifest but is not under the deploy "
             f"check, so a missing icon would 500 at request time instead"
         )
+
+
+# --------------------------------------------------------------------------
+# the service worker, which is what Chrome on Android wants before it will
+# offer "Install app" rather than a shortcut
+# --------------------------------------------------------------------------
+
+# Read inside each test, not at import: a missing file must fail the test
+# that needs it, not pass it against an empty string.
+def _sw_source() -> str:
+    return (ROOT / "static" / "js" / "sw.js").read_text()
+
+
+def _offline_html() -> str:
+    return (ROOT / "templates" / "offline.html").read_text()
+
+
+@pytest.mark.django_db
+def test_the_service_worker_is_served_at_the_site_root_without_a_login():
+    """A worker's scope can be no wider than its own URL, so `/static/js/sw.js`
+    could never control `/`. It is registered from the login page too, before
+    anyone has a session."""
+    resp = Client().get("/sw.js")
+    assert resp.status_code == 200
+
+
+@pytest.mark.django_db
+def test_the_service_worker_is_javascript_the_browser_must_revalidate():
+    """Chrome honours Cache-Control on a worker script for up to a day. With
+    no-cache, a deploy that changes the worker reaches every phone on its next
+    visit instead of tomorrow."""
+    resp = Client().get("/sw.js")
+    assert resp["Content-Type"].startswith("application/javascript")
+    assert "no-cache" in resp["Cache-Control"]
+
+
+@pytest.mark.django_db
+def test_the_served_worker_is_the_file_in_the_source_tree():
+    """One source of truth: the view serves static/js/sw.js byte for byte, so
+    there is no second copy to drift."""
+    assert Client().get("/sw.js").content.decode() == _sw_source()
+
+
+@pytest.mark.django_db
+def test_the_offline_page_is_served_without_a_login():
+    """The worker precaches it at install, which happens on whatever page the
+    worker was registered from — usually the login page."""
+    resp = Client().get("/offline/")
+    assert resp.status_code == 200
+    assert b"offline" in resp.content.lower()
+
+
+def test_the_offline_page_is_self_contained():
+    """It is the one page served from cache, so it cannot depend on a hashed
+    static URL that a later deploy renames — nor extend base.html, whose
+    stylesheets are exactly those URLs."""
+    html = _offline_html()
+    assert "{% static" not in html
+    assert "{% extends" not in html
+    assert "<link" not in html
+    assert 'src="' not in html
+
+
+def test_the_worker_precaches_only_the_offline_page():
+    """The parked decision, made explicit: nothing authenticated is ever
+    stored on the device. The precache list is the offline page and nothing
+    else."""
+    precached = re.search(r"PRECACHE\s*=\s*\[([^\]]*)\]", _sw_source())
+    assert precached, "the worker names what it precaches in a PRECACHE list"
+    urls = re.findall(r"""["']([^"']+)["']""", precached.group(1))
+    assert urls == ["/offline/"]
+
+
+def test_the_worker_only_intercepts_navigations():
+    """Every htmx partial, form post and API call must reach the network
+    untouched. The fetch handler is gated on request.mode === 'navigate' and
+    never calls respondWith outside that gate."""
+    handler = re.search(r"addEventListener\(\s*['\"]fetch['\"].*", _sw_source(), re.S)
+    assert handler, "the worker handles fetch — without it Chrome offers a shortcut, not an install"
+    body = handler.group(0)
+    assert "mode !== 'navigate'" in body or 'mode !== "navigate"' in body
+    assert body.count("respondWith") == 1
+
+
+def test_the_page_registers_the_worker_from_the_site_root():
+    assert "navigator.serviceWorker.register('/sw.js')" in BASE_HTML
+    # A browser without workers is not an error condition.
+    assert "'serviceWorker' in navigator" in BASE_HTML
+
+
+@pytest.mark.django_db
+def test_the_manifest_carries_a_stable_id():
+    """Chrome keys an installed app on `id`, falling back to start_url. Naming
+    it means start_url can change later without every phone seeing a second
+    app."""
+    data = json.loads(Client().get("/manifest.webmanifest").content)
+    assert data["id"] == "/"

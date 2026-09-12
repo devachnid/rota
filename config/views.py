@@ -9,7 +9,11 @@ before the app is installed at all — so putting it there would have meant
 weakening a security invariant to accommodate a JSON file.
 """
 
-from django.http import JsonResponse
+from pathlib import Path
+
+from django.contrib.staticfiles import finders
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import render
 from django.templatetags.static import static
 
 # Kept in step with static/css/tokens.css by
@@ -43,6 +47,10 @@ def manifest(request):
     """
     return JsonResponse(
         {
+            # Chrome keys an installed app on this, falling back to
+            # start_url; naming it lets start_url move without every phone
+            # seeing a second app.
+            "id": "/",
             "name": "Practice Rota",
             "short_name": "Rota",
             "description": "Who is on, and when you are.",
@@ -75,3 +83,30 @@ def manifest(request):
         },
         content_type="application/manifest+json",
     )
+
+
+def service_worker(request):
+    """The service worker, at /sw.js.
+
+    Served by a view for the same reason as the manifest, plus one of its
+    own: a worker can only control URLs at or below its script's path, so
+    `/static/js/sw.js` could never control `/`. The source stays in
+    static/js/ with the other scripts and is served byte for byte from there.
+
+    no-cache, because a browser may otherwise keep a worker script for a day
+    before checking for a new one.
+    """
+    source = Path(finders.find("js/sw.js")).read_bytes()
+    resp = HttpResponse(source, content_type="application/javascript")
+    resp["Cache-Control"] = "no-cache"
+    return resp
+
+
+def offline(request):
+    """What a navigation gets when the network is down.
+
+    The worker stores this at install and serves nothing else from cache, so
+    the page is self-contained: no `{% static %}` URL (they change hash on
+    deploy) and no base.html (its stylesheets are those URLs).
+    """
+    return render(request, "offline.html")
