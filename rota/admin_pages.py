@@ -17,6 +17,7 @@ from unfold.views import UnfoldModelAdminViewMixin
 from rota.models import (BreatheAbsence, BreatheLeaveMapping, BreatheSyncRun,
                          Clinician, Part, PatternSlot)
 from rota.services.breathe import client as breathe_client
+from rota.services.breathe.links import unlinked_clinicians
 from rota.services.patterns import bulk_set_pattern, current_pattern
 
 WEEKDAY_LABELS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday",
@@ -156,9 +157,7 @@ class BreatheStatusView(UnfoldModelAdminViewMixin, TemplateView):
             configured=breathe_client.from_settings() is not None,
             last_ok=last_ok,
             last_error=last if (last and not last.ok) else None,
-            unlinked=Clinician.objects.filter(active=True, group__is_locum_group=False,
-                                              breathe_employee_id=None)
-                                      .order_by("name"),
+            unlinked=unlinked_clinicians(),
             unmapped_count=unmapped_absence_count(),
             runs=BreatheSyncRun.objects.all()[:20],
             **kwargs)

@@ -8,6 +8,8 @@ from rota.models import (BreatheAbsence, BreatheLeaveMapping, Clinician,
                          ClinicianGroup, ClosedDay, DayNote, LocumRequirement,
                          PatternSlot, PracticeSettings, RotaEntry)
 from rota.services import availability
+from rota.services.breathe.links import (unlinked_changelist_url,
+                                         unlinked_clinicians)
 from rota.services.cells import cell_state, shows_on_roster
 from rota.services.warnings import day_warnings, week_warnings
 
@@ -23,8 +25,7 @@ def grid(request):
     days = [monday + timedelta(days=i) for i in settings.open_weekday_list()]
     is_admin = request.user.is_rota_admin
     has_clinician = getattr(request.user, "clinician", None) is not None
-    unlinked_count = (Clinician.objects.filter(active=True, breathe_employee_id=None).count()
-                      if is_admin else 0)
+    unlinked_count = unlinked_clinicians().count() if is_admin else 0
 
     entries = RotaEntry.objects.filter(day__in=days).select_related(
         "session_type", "clinician", "site"
@@ -131,6 +132,7 @@ def grid(request):
         "is_admin": is_admin,
         "has_clinician": has_clinician,
         "unlinked_count": unlinked_count,
+        "unlinked_url": unlinked_changelist_url(),
         "week_warnings": week_warnings(days, include_drafts=True) if is_admin else [],
         "colspan": len(days) * 2 + 1,
         # max(), for the same reason as the leave filter above: this is one

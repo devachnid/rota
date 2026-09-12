@@ -98,7 +98,10 @@ ticked.
 Which BreatheHR employee this clinician is. A dropdown of your Breathe
 employees; pick one and save. **Unlinked clinicians have no leave read for
 them and are treated as available** — the sync status page and the week grid
-both warn admins about them. See [Leave from Breathe](breathe.md).
+both warn admins about them. Leave it blank for a locum: Breathe holds
+employees, not contractors, so locums are left out of that warning and the
+list shows "locum — not on Breathe" for them. See [Leave from
+Breathe](breathe.md).
 
 ## Login accounts
 
