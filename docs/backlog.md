@@ -26,6 +26,17 @@ autofill v2 review processes had accumulated:
 
 ## Settled
 
+- **A one-off import from the old Google Sheets rota** (2026-09-12).
+  `scripts/old_rota_to_csv.py` reads a year tab of the .xlsx export into a
+  long CSV (cell comments as notes); `manage.py import_rota` maps rows and
+  labels through a `.toml` file and writes drafts through the grid's own
+  services — full duty days, mentoring pairs, locum rows as Booked /
+  Possibly needed requirements, an audit row per session — refusing to run
+  while anything is unmapped, listing occupied cells as conflicts, and
+  updating its own earlier work on a re-run rather than duplicating it.
+  Real names live only in the mapping and CSV, which stay out of the repo
+  (`docs/admin/old-rota-import.md`).
+
 - **Five grid enhancements** (2026-09-06). A session type can carry a
   ceiling — max per session, per day, per week, counted in sessions — and
   the week grid warns when it is passed (day header for the first two, a line

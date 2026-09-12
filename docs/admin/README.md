@@ -22,6 +22,7 @@ This is the *reference* for what each setting means once you are in there.
 | [Day to day](day-to-day.md) | Assisted fill, rota entries, day notes, locums, leave, swaps, the audit log, feedback |
 | [Leave from Breathe](breathe.md) | Linking clinicians, the sync, what counts as off |
 | [Upgrading unfold](upgrading-unfold.md) | How to upgrade the admin package and what to test |
+| [Importing the old rota](old-rota-import.md) | The one-off move from the Google Sheet: sheet to CSV, the mapping, the dry run |
 
 ## The mental model
 

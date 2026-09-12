@@ -1,0 +1,76 @@
+# Mapping for `manage.py import_rota`: how the old sheet's rows and labels
+# become the app's clinicians, session types and locum requirements. Copy
+# this, fill in the real names, and keep the copy out of the repo — it
+# names people. Every row and every label in the CSV must be accounted for
+# here or the import refuses to run.
+
+[window]
+start = 2026-09-21
+end = 2026-10-23
+
+# A row that is a person on the rota: sheet name -> app clinician name.
+[people]
+"Alice Adams" = "Alice Adams"
+"Dr Beth Brown " = "Beth Brown"
+"ST2 - Terry Trainee" = "Terry Trainee"
+
+# Rows expected to hold nothing but Off in the window (someone who has
+# left, a placeholder row). Anything else in them stops the import.
+[skip]
+rows = ["Locum 3", "FY2"]
+
+# Rows dropped without looking: the sheet's own totals under the people.
+[ignore]
+rows = ["ROUTINEs (incl locums, EXCL PA,STs)"]
+
+# Rows whose cells hold a locum's name, or the words below meaning one is
+# still wanted. Each name becomes a Booked requirement for that session
+# type, with the locum created in the locum group if need be; each
+# "needed" becomes a Possibly needed one.
+[locum_rows]
+rows = ["Locum 1", "Locum 2"]
+session_type = "Routine"
+needed = ["Locum needed"]
+
+# A row that is itself a locum — the cells hold session types, as for a
+# person, but the sessions are booked as locum cover. Sheet name -> locum's
+# name in the app.
+[locum_people]
+"Dr Larry Locum" = "Larry Locum"
+
+# Locum names as they appear in the locum rows -> the name to record.
+[locum_names]
+"Dr Laura Locum" = "Laura Locum"
+"dr larry locum " = "Larry Locum"
+
+# Labels -> app session type names. "" drops the cell.
+[labels]
+"Routine" = "Routine"
+"Duty" = "Duty"
+"PMC - Urgent" = "Urgent"
+"PMC - Routine" = "PMC Routine"
+"Meeting" = "Meeting"
+"SDL" = "SDL"
+"VTS" = "VTS"
+"Vas Clinic" = "Vasectomy"
+"Non Clinical" = "Management"
+"Proactive" = "Proactive"
+"Mentoring" = "Mentoring"
+"Baby Clinic" = "Baby Clinic"
+"Occ Health" = "Occupational Health"
+"USW" = "USW"
+"Ward Round" = "Ward Round"
+"Vision" = "Routine"
+"Leave" = "Annual leave"
+"Maternity Leave" = "Other leave"
+"Off" = ""
+
+# Session types whose AM + PM on one day are one full day (allocation
+# group), as the grid's "Apply to full day" makes.
+[full_day]
+types = ["Duty"]
+
+# Session types that are a pair: two people holding one in the same slot
+# are linked (companion group), as assisted fill's mentoring is.
+[pairs]
+types = ["Mentoring"]
