@@ -219,4 +219,16 @@ from rota.services.cells import shows_on_roster
     (True, True, True),
 ])
 def test_only_an_idle_locum_is_hidden(is_locum, has_entry, shown):
-    assert shows_on_roster(is_locum=is_locum, has_entry=has_entry) is shown
+    assert shows_on_roster(is_locum=is_locum, has_entry=has_entry,
+                           in_service=True) is shown
+
+
+@pytest.mark.parametrize("is_locum,has_entry", [
+    (False, False), (False, True), (True, False), (True, True),
+])
+def test_nobody_outside_their_window_gets_a_row(is_locum, has_entry):
+    """A clinician who has not started, or has finished, for the whole
+    period shown is not on the roster at all -- an entry there (a leftover
+    from before the window was set) does not bring them back."""
+    assert shows_on_roster(is_locum=is_locum, has_entry=has_entry,
+                           in_service=False) is False

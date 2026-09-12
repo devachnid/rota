@@ -96,9 +96,8 @@ def day_view(request, day=None):
     roster, on_leave, not_in = [], [], []
     for c in active:
         if not shows_on_roster(is_locum=c.group.is_locum_group,
-                               has_entry=c.id in by_clinician):
-            continue
-        if not resolver.in_service(c.id, target):
+                               has_entry=c.id in by_clinician,
+                               in_service=resolver.in_service(c.id, target)):
             continue
         mine = by_clinician.get(c.id, {})
         cells = [

@@ -137,3 +137,40 @@ def test_a_booked_locum_has_a_row_that_week(admin_client):
     make_entry(busy, day=MON, part="AM", session_type=make_session_type("Routine"))
     html = admin_client.get(URL).content.decode()
     assert 'title="Busy Locum"' in html
+
+
+# ----------------------------------------------------- start / end dates ---
+
+def test_a_clinician_who_has_finished_has_no_row_that_week(admin_client):
+    PracticeSettings.load()
+    make_clinician("Gone Gardner", end_date=MON - timedelta(days=1))
+    html = admin_client.get(URL).content.decode()
+    assert "Gone Gardner" not in html
+
+
+def test_a_clinician_who_has_not_started_has_no_row_that_week(admin_client):
+    PracticeSettings.load()
+    make_clinician("Future Fox", start_date=MON + timedelta(days=7))
+    html = admin_client.get(URL).content.decode()
+    assert "Future Fox" not in html
+
+
+def test_a_clinician_who_starts_mid_week_has_a_row(admin_client):
+    """The window is tested against the whole week, not its Monday: a
+    Wednesday starter is on the grid for their first week, with Monday and
+    Tuesday blank."""
+    PracticeSettings.load()
+    make_clinician("Wendy Wednesday", start_date=MON + timedelta(days=2))
+    html = admin_client.get(URL).content.decode()
+    assert 'title="Wendy Wednesday"' in html
+
+
+def test_a_finished_clinician_with_a_stray_entry_is_still_hidden(admin_client):
+    """The same rule the day view applies: the window wins over a leftover
+    entry. The admin was warned about the entry when the end date was saved
+    (see test_clinician_lifecycle); the grid does not keep a row for it."""
+    PracticeSettings.load()
+    c = make_clinician("Left Lastweek", end_date=MON - timedelta(days=1))
+    make_entry(c, day=MON, part="AM", session_type=make_session_type("Routine"))
+    html = admin_client.get(URL).content.decode()
+    assert "Left Lastweek" not in html
