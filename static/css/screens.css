@@ -317,6 +317,9 @@ body.page-grid {
 
 .day-roster tbody th { font-weight: 500; }
 .day-roster td { width: 38%; }
+/* A whole-day chip spans both session columns; keep their combined share so
+   a table of all-day rows does not hand the space to the name column. */
+.day-roster td[colspan] { width: 76%; }
 
 .day-partner, .day-note-text {
   display: block;

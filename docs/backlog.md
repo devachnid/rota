@@ -37,6 +37,11 @@ autofill v2 review processes had accumulated:
   Real names live only in the mapping and CSV, which stay out of the repo
   (`docs/admin/old-rota-import.md`).
 
+- **Day view whole-day chips** (2026-09-12). The day view's roster and
+  on-leave tables merge matching AM and PM halves into one chip across both
+  columns, by the grid's own `one_block` rule; the pinned block shows one
+  "All day" line for a person holding a pinned type both halves.
+
 - **No row for a clinician outside their dates** (2026-09-12). The week grid
   hides a clinician whose start date is after the week or whose end date is
   before it, as the day view already did for its one day. A session of

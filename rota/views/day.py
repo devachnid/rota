@@ -7,7 +7,8 @@ from rota.models import (BreatheAbsence, BreatheLeaveMapping, Clinician,
                          ClosedDay, DayNote, PatternSlot, PracticeSettings,
                          RotaEntry, SessionType)
 from rota.services import availability
-from rota.services.cells import cell_state, shows_on_roster
+from rota.services.cells import (cell_state, day_note, one_block,
+                                 shows_on_roster)
 
 _STEP_LIMIT = 14  # a fortnight: enough to clear Christmas, short enough to end
 
@@ -82,14 +83,8 @@ def day_view(request, day=None):
     resolver = availability.AvailabilityResolver(
         pattern_rows, active, absences, BreatheLeaveMapping.as_dict())
 
-    # Every entry here belongs to a clinician the roster loop below lists:
-    # an entry earns its clinician a row whatever their dates say.
-    pinned = sorted(
-        (e for e in entries if e.session_type.pin_on_day_view),
-        key=lambda e: (e.session_type.name, e.clinician.name, e.part),
-    )
-
     roster, on_leave, not_in = [], [], []
+    shown_cells = []  # every listed clinician's cells, for the pinned block
     for c in active:
         if not shows_on_roster(is_locum=c.group.is_locum_group,
                                has_entry=c.id in by_clinician,
@@ -123,8 +118,17 @@ def day_view(request, day=None):
             or (cell["entry"] and cell["entry"].session_type.category == absence)
             for cell in worked_cells
         )
+        # Drawn as the grid draws it: matching halves are one chip across
+        # both columns, with the two notes folded into one line.
+        am, pm = cells
+        if one_block(am, pm):
+            drawn = [{**am, "part": "DAY", "merged": True,
+                      "note": day_note(am, pm)}]
+        else:
+            drawn = [{**am, "merged": False}, {**pm, "merged": False}]
+        shown_cells.append((c, drawn))
         if is_on_leave:
-            on_leave.append({"clinician": c, "cells": cells})
+            on_leave.append({"clinician": c, "cells": drawn})
         elif mine or any(not cell["off"] or cell["absence"]
                           for cell in cells):
             # cell["absence"] alone (off True, no entry) is the "no pattern
@@ -134,9 +138,23 @@ def day_view(request, day=None):
             # would drop the integrity warning and assert a lie — that they
             # do not work this day — when the truth is nobody has entered
             # their pattern.
-            roster.append({"clinician": c, "cells": cells})
+            roster.append({"clinician": c, "cells": drawn})
         else:
             not_in.append(c)
+
+    # Built from the drawn cells rather than the raw entries so a pinned
+    # type one person holds all day is one row saying so, not an AM row
+    # and a PM row. Every entry belongs to a listed clinician (an entry
+    # earns its clinician a row whatever their dates say), so nothing is
+    # lost by starting from the rows.
+    pinned = sorted(
+        ({"clinician": c, "entry": cell["entry"], "note": cell["note"],
+          "part": "All day" if cell["merged"] else cell["part"]}
+         for c, drawn in shown_cells for cell in drawn
+         if cell["entry"] and cell["entry"].session_type.pin_on_day_view),
+        key=lambda r: (r["entry"].session_type.name, r["clinician"].name,
+                       r["entry"].part),
+    )
 
     # A closure statement is true and worth showing, but it is not a reason
     # to withhold rostered work: when the day carries real RotaEntry rows,
