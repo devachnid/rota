@@ -15,9 +15,9 @@ is off and assisted fill never assigns them.
    ```
    and restart gunicorn. The key never goes in a file in the repository.
 2. **Migrate.** `python manage.py migrate`.
-3. **Link every clinician.** `/admin/rota/clinician/` — each clinician's
-   **Breathe employee** field is a dropdown of your Breathe employees. Pick the
-   right one and save. Where a clinician's login email matches a Breathe
+3. **Link every clinician except locums.** `/admin/rota/clinician/` — each
+   clinician's **Breathe employee** field is a dropdown of your Breathe
+   employees. Pick the right one and save. Where a clinician's login email matches a Breathe
    employee's email, that person is pre-selected; you still have to save.
 4. **Run the first sync.** `/admin/rota/breathesyncrun/` → **Refresh now**, or
    `python manage.py breathe_sync`. Add `--dry-run` to fetch and count without
@@ -73,7 +73,9 @@ this has already happened to.
 most recent error if a run failed, how many stored absences currently have no
 mapping and render as empty cells, and **every clinician not linked to
 Breathe**. Unlinked clinicians have no leave read for them and are treated as
-available; the week grid warns admins about them too.
+available; the week grid and the dashboard warn admins about them too. Locums
+are never counted: Breathe holds employees, not contractors, so a locum has no
+record to link to and their Breathe field stays blank.
 
 **Refresh now** runs a sync immediately — useful the moment leave has just been
 approved in Breathe and you want to fill the gap. It refuses if a sync ran in

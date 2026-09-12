@@ -22,6 +22,7 @@ from .models import (BreatheAbsence, BreatheLeaveMapping, BreatheSyncRun,
 from . import mail as swap_mail
 from .services import swaps as swaps_svc
 from .services.breathe import client as breathe_client, sync as breathe_sync
+from .services.breathe.links import expects_link
 from .admin_forms import WEEKDAYS, CoverageRuleForm, PracticeSettingsForm
 from .admin_widgets import (BreatheEmployeeSelect, TintSwatchSelect,
                             breathe_employees, employee_label)
@@ -145,7 +146,9 @@ class ClinicianAdmin(ModelAdmin):
         ("Leave from Breathe", {
             "fields": ("breathe_employee_id",),
             "description": "Leave is read from Breathe for linked clinicians only. "
-                           "An unlinked clinician is treated as always available.",
+                           "An unlinked clinician is treated as always available. "
+                           "Locums are not on Breathe (it holds employees, not "
+                           "contractors) — leave this blank for them.",
         }),
     )
 
@@ -233,8 +236,11 @@ class ClinicianAdmin(ModelAdmin):
     @admin.display(description="Breathe")
     def breathe_link(self, obj):
         if obj.breathe_employee_id is None:
+            # A locum has no Breathe record to link to (contractors are not
+            # employees), so "not linked" would read as something to fix.
             return format_html(
-                '<span style="color: var(--color-base-500)">{}</span>', "not linked")
+                '<span style="color: var(--color-base-500)">{}</span>',
+                "not linked" if expects_link(obj) else "locum — not on Breathe")
         employees = breathe_employees() or []
         e = next((x for x in employees if x["id"] == obj.breathe_employee_id), None)
         return employee_label(e) if e else f"#{obj.breathe_employee_id}"

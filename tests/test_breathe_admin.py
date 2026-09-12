@@ -8,7 +8,7 @@ import pytest
 from django.core.cache import cache
 
 from rota.models import Clinician
-from tests.factories import make_clinician
+from tests.factories import make_clinician, make_group
 
 pytestmark = pytest.mark.django_db
 
@@ -113,3 +113,14 @@ def test_the_list_shows_linked_name_and_filters(staff_client):
     assert "Anya Sharma" in html and "not linked" in html.lower()
     assert "Linked" in linked and "Loose" not in linked
     assert "Loose" in loose and "Linked" not in loose
+
+
+def test_the_list_does_not_call_a_locum_unlinked(staff_client):
+    """A locum is a contractor with no Breathe record to link to, so the
+    column says so instead of flagging something to fix."""
+    locums = make_group("Locum GPs", is_locum_group=True, display_order=99)
+    make_clinician("Laura Locum", group=locums)
+    with _with(FakeClient()):
+        html = staff_client.get("/admin/rota/clinician/").content.decode()
+    assert "locum — not on Breathe" in html
+    assert "not linked" not in html.lower()

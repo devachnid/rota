@@ -14,6 +14,8 @@ from rota.admin_pages import clinicians_without_a_pattern, unmapped_absence_coun
 from rota.models import (BreatheSyncRun, Clinician, ClinicianGroup, CoverageRule,
                          LocumRequirement, PracticeSettings, SessionType, Site,
                          TraineeProfile, SwapRequest)
+from rota.services.breathe.links import (unlinked_changelist_url,
+                                         unlinked_clinicians)
 from rota.services.calendar import is_open
 from rota.services.warnings import day_warnings
 
@@ -25,15 +27,10 @@ def _cl(name, **params):
     return url
 
 
-def _unlinked():
-    return Clinician.objects.filter(active=True, group__is_locum_group=False,
-                                    breathe_employee_id=None)
-
-
 def setup_steps():
     ps = PracticeSettings.load()
     missing_patterns = clinicians_without_a_pattern().count()
-    unlinked = _unlinked().count()
+    unlinked = unlinked_clinicians().count()
     any_active = Clinician.objects.filter(active=True).exists()
     has_key = bool(settings.BREATHE_API_KEY)
     synced = BreatheSyncRun.objects.filter(ok=True).exists()
@@ -78,9 +75,7 @@ def setup_steps():
         {"title": "Breathe",
          "done": has_key and synced and unlinked == 0,
          "detail": breathe_detail,
-         "url": (_cl("clinician", breathe="unlinked", active__exact=1,
-                     group__is_locum_group__exact=0)
-                 if has_key and synced
+         "url": (unlinked_changelist_url() if has_key and synced
                  else reverse("admin:rota_breathesyncrun_status"))},
         # Server configuration, not a database row, so nothing to link to.
         {"title": "Outgoing email", "done": email_ok,
@@ -120,9 +115,9 @@ def health():
         {"label": "Clinicians with no working pattern",
          "count": clinicians_without_a_pattern().count(),
          "url": reverse("admin:rota_patternslot_bulk") + "?missing=1", "level": "warn"},
-        {"label": "Clinicians not linked to Breathe", "count": _unlinked().count(),
-         "url": _cl("clinician", breathe="unlinked", active__exact=1,
-                    group__is_locum_group__exact=0), "level": "warn"},
+        {"label": "Clinicians not linked to Breathe",
+         "count": unlinked_clinicians().count(),
+         "url": unlinked_changelist_url(), "level": "warn"},
         {"label": "Breathe sync", "count": None, "detail": breathe[0],
          "url": reverse("admin:rota_breathesyncrun_status"), "level": breathe[1]},
         {"label": "Absences with no mapping", "count": unmapped_absence_count(),

@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from rota.models import (BreatheAbsence, BreatheLeaveMapping, BreatheSyncRun,
                          PracticeSettings)
-from tests.factories import make_clinician, make_session_type
+from tests.factories import make_clinician, make_group, make_session_type
 
 pytestmark = pytest.mark.django_db
 
@@ -84,10 +84,23 @@ def test_refresh_now_says_so_when_unconfigured(staff_client):
 def test_admins_see_an_unlinked_warning_on_the_grid(admin_client):
     PracticeSettings.load()
     make_clinician("A"); make_clinician("B", breathe_employee_id=1)
+    # Breathe holds employees, not contractors: an unlinked locum is not
+    # someone to link, so neither the count nor the list it offers has them.
+    locums = make_group("Locum GPs", is_locum_group=True, display_order=99)
+    make_clinician("Laura Locum", group=locums)
     html = admin_client.get("/rota/").content.decode()
     assert "1 clinician not linked to Breathe" in html
-    # The count is of active clinicians, so the list it offers must be too.
-    assert "?breathe=unlinked&amp;active__exact=1" in html
+    # The count is of active non-locum clinicians, so the list it offers must be too.
+    assert ("?breathe=unlinked&amp;active__exact=1&amp;group__is_locum_group__exact=0"
+            in html)
+
+
+def test_a_practice_whose_only_unlinked_clinicians_are_locums_gets_no_warning(admin_client):
+    PracticeSettings.load()
+    make_clinician("A", breathe_employee_id=1)
+    locums = make_group("Locum GPs", is_locum_group=True, display_order=99)
+    make_clinician("Laura Locum", group=locums)
+    assert "not linked to Breathe" not in admin_client.get("/rota/").content.decode()
 
 
 def test_gps_do_not_see_the_unlinked_warning(gp_client, gp_user):
