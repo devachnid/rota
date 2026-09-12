@@ -74,7 +74,8 @@ class IntListCheckboxField(forms.MultipleChoiceField):
 
 
 class CoverageRuleForm(forms.ModelForm):
-    weekdays = IntListCheckboxField(choices=WEEKDAYS, label="Weekdays")
+    weekdays = IntListCheckboxField(choices=WEEKDAYS, label="Weekdays",
+                                    help_text="None ticked means every open day.")
     months = IntListCheckboxField(choices=MONTHS, label="Months",
                                   help_text="None ticked means all year.")
     preferred_weekdays = IntListCheckboxField(

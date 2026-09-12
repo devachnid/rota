@@ -101,10 +101,13 @@ def day_warnings(day, include_drafts=True, resolver=None):
                 if e.part == part and e.session_type_id == rule.session_type_id
             )
             if have < rule.count:
+                # Say how short: "No Routine cover" at three of four was
+                # untrue, and the difference is what decides who to chase.
+                text = (f"No {rule.session_type.name} cover ({part})" if have == 0
+                        else f"{rule.session_type.name} {have}/{rule.count} ({part})")
                 warnings.append(Warning(
                     "coverage", part,
-                    f"No {rule.session_type.name} cover ({part})"
-                    + _locum_suffix(day, part, rule.session_type),
+                    text + _locum_suffix(day, part, rule.session_type),
                 ))
 
     # Ceilings on a session type (docs/admin/session-types.md). Sessions, not

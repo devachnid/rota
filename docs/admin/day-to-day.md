@@ -117,7 +117,8 @@ says so and asks you to save again before replacing it.
 The red strips in a day's header come from **five separate sources**, so if you
 want to silence one, you need to know which:
 
-1. **Coverage warnings** — "No Duty cover (AM)". From coverage rules with
+1. **Coverage warnings** — "No Duty cover (AM)", or "Routine 3/4 (AM)" when
+   some but not all of the count are placed. From coverage rules with
    frequency **Per slot** only; per-week and per-month rules are not checked
    this way, because being short one session on a Tuesday is not a problem when
    the quota is weekly.
