@@ -82,8 +82,9 @@ def grid(request):
         for clinician in group.clinicians.all():
             has_entry = any((clinician.id, d, part) in cell_map
                             for d in days for part in ("AM", "PM"))
+            in_service = any(resolver.in_service(clinician.id, d) for d in days)
             if not shows_on_roster(is_locum=group.is_locum_group,
-                                   has_entry=has_entry):
+                                   has_entry=has_entry, in_service=in_service):
                 continue
             cells = []
             for d in days:

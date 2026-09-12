@@ -165,6 +165,13 @@ A **booked** requirement is protected: it cannot be unbooked or rebooked out
 from under itself by a later fill. Requirements at the earlier three statuses can
 step back freely.
 
+A clinician who **has not yet started, or has finished** — their start date is
+after the week, or their end date before it — has no row on the grid for that
+week, and is not on the day view for a day outside their dates. Someone who
+starts mid-week is on that week's grid with the earlier days blank. A leftover
+session outside the dates does not bring the row back; the admin is warned
+about it when the dates are saved.
+
 Locums appear on the grid and the day view **only in a period where they hold
 a session**. An idle locum is neither a blank row nor a name on the "Not in"
 line. The booking form and the admin still list every locum. Because an idle

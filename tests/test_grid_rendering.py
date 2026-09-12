@@ -247,14 +247,17 @@ def test_a_clinician_with_no_pattern_gets_no_ghosts_outside_their_window(
     """The no-pattern chip clause never consulted the date window, so a new
     joiner whose start_date is a month away — and who has no pattern rows yet,
     which is exactly the state a new joiner is in — got a chip on all ten
-    sessions of a week they are not employed for."""
+    sessions of a week they are not employed for. Since the grid stopped
+    listing anyone outside their window for the whole week, the joiner has
+    no row here at all; the absence must still not surface anywhere."""
     c = make_clinician("Joiner", initials="JO",
                        start_date=MON + timedelta(days=30))
     make_absence(c, MON, MON + timedelta(days=4))
     html = _cells(admin_client)
     n = html.count("from Breathe")
     assert n == 0, f"showed {n} absence chips before the clinician's start date"
-    assert set(_chips(html).values()) == {"is-off"}
+    assert "Joiner" not in html
+    assert _chips(html) == {}
 
 
 @pytest.mark.django_db

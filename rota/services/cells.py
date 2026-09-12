@@ -117,17 +117,27 @@ def day_note(am, pm):
     return f"AM: {a} — PM: {b}"
 
 
-def shows_on_roster(*, is_locum, has_entry):
+def shows_on_roster(*, is_locum, has_entry, in_service):
     """Whether a clinician gets a row on a roster screen at all.
 
-    Many locums are defined and few are booked in any given week, so an
-    idle locum is a blank row on the grid and a name on the day view's
-    "Not in" line — noise, on every screen, for every locum, every day.
-    A locum is listed only while they hold a session in the period shown.
-    Everyone else is listed regardless: a salaried GP's empty week is
-    information (nothing allocated yet), a locum's is not.
+    Nobody is listed for a period they were never one of ours: `in_service`
+    is whether the clinician is active and inside their contractual window
+    on any day the screen shows (the one day, for the day view; any open
+    day of the week, for the grid — so a Wednesday starter is on their
+    first week's grid with Monday and Tuesday blank). A leftover entry
+    outside the window does not bring the row back; the admin was warned
+    about it when the window was saved.
+
+    Then the locum rule. Many locums are defined and few are booked in any
+    given week, so an idle locum is a blank row on the grid and a name on
+    the day view's "Not in" line — noise, on every screen, for every locum,
+    every day. A locum is listed only while they hold a session in the
+    period shown. Everyone else is listed regardless: a salaried GP's empty
+    week is information (nothing allocated yet), a locum's is not.
 
     The grid and the day view both ask this; admin dropdowns and the
     booking form do not — they need every locum.
     """
+    if not in_service:
+        return False
     return has_entry or not is_locum
