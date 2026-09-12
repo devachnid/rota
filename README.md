@@ -24,7 +24,9 @@ the admin is shown each invitation link on screen instead of it being sent.
 CI (`.github/workflows/tests.yml`) runs `ruff check .` (pyflakes only — see
 `ruff.toml`), `makemigrations --check`, the suite, and `collectstatic` +
 `check --deploy` against a throwaway environment; the master ruleset requires
-it green and up to date. Locally: `pip install ruff==0.16.6 && ruff check .`.
+it green and up to date. A second job runs the suite on Python 3.14 as an
+early warning for the next interpreter; it is not a required check. Locally:
+`pip install ruff==0.16.6 && ruff check .`.
 
 ## Admin guide
 
