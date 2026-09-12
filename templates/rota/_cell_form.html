@@ -1,5 +1,5 @@
 <form hx-post="/rota/assign/" hx-target="#modal">
-  <div class="modal-head">{{ clinician.name }} — {{ day|date:"D j M" }} {{ part }}</div>
+  <div class="modal-head">{{ clinician.name }} — {{ day|date:"D j M" }} {{ part_label }}</div>
   {% if warning %}<div class="warn">{{ warning }}</div>{% endif %}
   <div class="modal-body">
     <div class="field">
@@ -38,15 +38,19 @@
       <label for="id_note">Note</label>
       <input name="note" id="id_note" value="{{ note|default:'' }}" maxlength="200">
     </div>
-    <div class="field">
-      <label><input type="checkbox" name="full_day" value="1"> Apply to full day (AM+PM)</label>
-    </div>
+    <fieldset class="field">
+      <legend>Applies to</legend>
+      <div class="radio-row">
+        <label><input type="radio" name="part" value="DAY"{% if part == "DAY" %} checked{% endif %}> Whole day</label>
+        <label><input type="radio" name="part" value="AM"{% if part == "AM" %} checked{% endif %}> AM</label>
+        <label><input type="radio" name="part" value="PM"{% if part == "PM" %} checked{% endif %}> PM</label>
+      </div>
+    </fieldset>
   </div>
   {% if confirm %}<input type="hidden" name="confirm" value="1">{% endif %}
   {% if replace %}<input type="hidden" name="replace" value="1">{% endif %}
   <input type="hidden" name="clinician_id" value="{{ clinician.id }}">
   <input type="hidden" name="day" value="{{ day|date:'Y-m-d' }}">
-  <input type="hidden" name="part" value="{{ part }}">
   <div class="modal-actions">
     <button type="submit" class="btn btn-primary">Save</button>
     {% if entry %}

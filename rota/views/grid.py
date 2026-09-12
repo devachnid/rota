@@ -10,7 +10,7 @@ from rota.models import (BreatheAbsence, BreatheLeaveMapping, Clinician,
 from rota.services import availability
 from rota.services.breathe.links import (unlinked_changelist_url,
                                          unlinked_clinicians)
-from rota.services.cells import cell_state, shows_on_roster
+from rota.services.cells import cell_state, day_note, one_block, shows_on_roster
 from rota.services.warnings import day_warnings, week_warnings
 
 
@@ -87,22 +87,20 @@ def grid(request):
                 continue
             cells = []
             for d in days:
-                am = cell_map.get((clinician.id, d, "AM"))
-                pm = cell_map.get((clinician.id, d, "PM"))
-                merged = bool(am and pm and am.allocation_group
-                              and am.allocation_group == pm.allocation_group)
-                for part, entry in (("AM", am), ("PM", pm)):
-                    if merged and part == "PM":
-                        continue
-                    cells.append({
-                        **cell_state(
-                            clinician.id, d, part, entry=entry,
-                            resolver=resolver, closed=d in closed,
-                            partner=companion_partner.get(
-                                (clinician.id, d, part)),
-                        ),
-                        "merged": merged and part == "AM",
-                    })
+                am, pm = (cell_state(
+                    clinician.id, d, part,
+                    entry=cell_map.get((clinician.id, d, part)),
+                    resolver=resolver, closed=d in closed,
+                    partner=companion_partner.get((clinician.id, d, part)),
+                ) for part in ("AM", "PM"))
+                if one_block(am, pm):
+                    # One chip across both columns; its form edits the
+                    # whole day (part "DAY") unless the admin picks a half.
+                    cells.append({**am, "part": "DAY", "merged": True,
+                                  "note": day_note(am, pm)})
+                else:
+                    cells.append({**am, "merged": False})
+                    cells.append({**pm, "merged": False})
             rows.append({
                 "clinician": clinician,
                 "mine": clinician.user_id == request.user.id,

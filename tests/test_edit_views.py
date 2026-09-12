@@ -31,7 +31,7 @@ def test_assign_creates_draft_entry(admin_client):
 def test_assign_full_day_makes_pair(admin_client):
     c = make_clinician()
     duty = make_session_type("Duty", fairness_tracked=True)
-    admin_client.post("/rota/assign/", _assign_data(c, duty, full_day="1"))
+    admin_client.post("/rota/assign/", _assign_data(c, duty, part="DAY"))
     assert RotaEntry.objects.count() == 2
     groups = set(RotaEntry.objects.values_list("allocation_group", flat=True))
     assert len(groups) == 1 and None not in groups
@@ -323,7 +323,7 @@ def test_a_partner_is_ignored_for_any_other_session_type(admin_client):
 def test_full_day_mentoring_pairs_both_halves(admin_client):
     ment = _mentoring()
     trainer, trainee = _pair()
-    admin_client.post("/rota/assign/", _assign_data(trainee, ment, partner_id=trainer.id, full_day="1"))
+    admin_client.post("/rota/assign/", _assign_data(trainee, ment, partner_id=trainer.id, part="DAY"))
     assert RotaEntry.objects.count() == 4
     am = {e.clinician_id: e for e in RotaEntry.objects.filter(part="AM")}
     pm = {e.clinician_id: e for e in RotaEntry.objects.filter(part="PM")}

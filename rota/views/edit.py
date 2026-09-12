@@ -1,5 +1,6 @@
 from datetime import date
 
+from django.db import transaction
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_POST
@@ -22,6 +23,23 @@ def _clean_part(part):
     if part not in Part.values:
         raise ValueError(f"Invalid part: {part!r}")
     return part
+
+
+# What a cell form applies to: one half of the day, or both. "DAY" is the
+# form's own value — the grid opens a whole-day chip on it, and the
+# "Applies to" choice posts it — never a RotaEntry.part.
+DAY = "DAY"
+PART_LABELS = {"AM": "AM", "PM": "PM", DAY: "all day"}
+
+
+def _clean_scope(part):
+    if part not in PART_LABELS:
+        raise ValueError(f"Invalid part: {part!r}")
+    return part
+
+
+def _parts(scope):
+    return ["AM", "PM"] if scope == DAY else [scope]
 
 
 CATEGORY_ORDER = (SessionType.Category.CLINICAL, SessionType.Category.NON_CLINICAL,
@@ -60,10 +78,13 @@ def _natural_partner_id(clinician):
 
 
 def _cell_context(clinician, day, part, note=None, site_id=None, **extra):
+    part = _clean_scope(part)
     groups = type_groups()
     types = [t for _, ts in groups for t in ts]
+    # A whole-day form is prefilled from the morning: the grid only opens
+    # one when the two halves match in everything but the note.
     entry = RotaEntry.objects.filter(
-        clinician=clinician, day=day, part=part).first()
+        clinician=clinician, day=day, part=_parts(part)[0]).first()
     settings = PracticeSettings.load()
     # What the Session dropdown opens on: what was just posted (a warning
     # re-render), else what the cell holds, else the practice's default
@@ -79,6 +100,7 @@ def _cell_context(clinician, day, part, note=None, site_id=None, **extra):
         partner_id = _current_partner_id(entry) or _natural_partner_id(clinician)
     return {
         "clinician": clinician, "day": day, "part": part,
+        "part_label": PART_LABELS[part],
         "entry": entry,
         "type_groups": groups,
         "selected_id": selected_id,
@@ -108,7 +130,8 @@ def cell_form(request, clinician_id, day, part):
 def assign(request):
     clinician = get_object_or_404(Clinician, pk=request.POST["clinician_id"])
     day = date.fromisoformat(request.POST["day"])
-    part = _clean_part(request.POST["part"])
+    part = _clean_scope(request.POST["part"])
+    parts = _parts(part)
     st = get_object_or_404(SessionType, pk=request.POST["session_type_id"])
     site = Site.objects.filter(pk=request.POST.get("site_id") or None).first()
     note = request.POST.get("note", "")
@@ -131,7 +154,6 @@ def assign(request):
         return again(f"{clinician.name} is not usually eligible for {st.name}. "
                      "Save again to override.",
                      confirm=True, replace=bool(request.POST.get("replace")))
-    parts = ["AM", "PM"] if request.POST.get("full_day") else [part]
     if partner is not None:
         # Writing the pair overwrites whatever the partner holds in that
         # slot, so anything other than the same type is asked about first.
@@ -147,7 +169,7 @@ def assign(request):
             entries_svc.assign_pair(request.user, day, p, clinician, partner, st,
                                     site=site, note=note, manually_set=True)
         return _refresh()
-    if request.POST.get("full_day"):
+    if part == DAY:
         entries_svc.assign_full_day(request.user, clinician, day, st,
                                     site=site, note=note, manually_set=True)
     else:
@@ -161,9 +183,10 @@ def assign(request):
 @require_POST
 def clear(request):
     clinician = get_object_or_404(Clinician, pk=request.POST["clinician_id"])
-    entries_svc.clear(request.user, clinician,
-                      date.fromisoformat(request.POST["day"]),
-                      _clean_part(request.POST["part"]))
+    day = date.fromisoformat(request.POST["day"])
+    with transaction.atomic():
+        for p in _parts(_clean_scope(request.POST["part"])):
+            entries_svc.clear(request.user, clinician, day, p)
     return _refresh()
 
 

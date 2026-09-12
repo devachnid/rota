@@ -72,7 +72,16 @@ clicking a cell on the grid; the admin view is for bulk corrections and for
 seeing the fields the grid hides.
 
 On the grid, the cell you clicked is ringed while its form is open, so there
-is no doubt which one is being edited. The **Session** list is grouped
+is no doubt which one is being edited. A day whose AM and PM would show the
+same chip — same session type, same site, both published or both drafts, the
+same leave clash and the same mentoring partner — is drawn as **one chip across
+both columns**, however the two halves came to be (assisted fill, the import,
+or placed one at a time); only the notes may differ, and then the tooltip
+gives both. Click it and the form is for the whole day. The **Applies to**
+choice at the foot of every cell form — Whole day / AM / PM — opens on the
+whole day for such a chip and on the half you clicked otherwise; to split a
+day, pick the half to change and save, and the other half is left as it was.
+Clear follows the same choice. The **Session** list is grouped
 Clinical / Non-clinical / Absence, and an empty cell opens on the practice's
 [default fill session type](practice-settings.md). Choose the practice's
 mentoring type and a **With** field appears: pick the other half of the pair
@@ -94,7 +103,8 @@ says so and asks you to save again before replacing it.
   not delete or overwrite it.** Set automatically when an admin edits a cell; if
   you want the fill engine to take an entry back over, untick this.
 - **Allocation group** — links one clinician's AM and PM into a full day, so
-  changing one half correctly splits the pair.
+  changing one half correctly splits the pair. The grid does not read it:
+  a whole-day chip is drawn whenever the two halves match, grouped or not.
 - **Companion group** — links **two clinicians'** entries in a paired session,
   such as a trainee and their trainer in mentoring. Distinct from allocation
   group, which is one person's two halves.

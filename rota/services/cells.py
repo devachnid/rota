@@ -74,6 +74,7 @@ def cell_state(clinician_id, day, part, *, entry, resolver, closed,
         "day_str": day.isoformat(),
         "part": part,
         "entry": entry,
+        "note": entry.note if entry else "",
         "off": entry is None and not works,
         "absence": leave_type if showable else None,
         "on_leave": on_leave,
@@ -82,6 +83,38 @@ def cell_state(clinician_id, day, part, *, entry, resolver, closed,
         "closed": closed,
         "partner": partner,
     }
+
+
+def one_block(am, pm):
+    """Whether a clinician's AM and PM cells read as one whole-day chip.
+
+    They do when both hold an entry and the two chips would look the same:
+    same session type, same site (the chip shows its letter), both drafts or
+    both published (the hatch is per chip), the same leave clash (the ring
+    is too) and the same mentoring partner. Notes may differ — `day_note`
+    folds them into one tooltip. Purely how the grid draws the day: the
+    allocation group that assisted fill and "Apply to full day" write is
+    not consulted, so a day placed one half at a time, or imported, merges
+    the same way, and nothing about the entries changes.
+    """
+    a, b = am["entry"], pm["entry"]
+    return (a is not None and b is not None
+            and a.session_type_id == b.session_type_id
+            and a.site_id == b.site_id
+            and a.is_published == b.is_published
+            and am["clash"] == pm["clash"]
+            and am["partner"] == pm["partner"])
+
+
+def day_note(am, pm):
+    """The tooltip text for a whole-day chip: the one note when the halves
+    agree (or only one has a note), both labelled when they differ."""
+    a, b = am["note"], pm["note"]
+    if a == b or not b:
+        return a
+    if not a:
+        return b
+    return f"AM: {a} — PM: {b}"
 
 
 def shows_on_roster(*, is_locum, has_entry):
