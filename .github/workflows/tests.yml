@@ -41,3 +41,20 @@ jobs:
           CSRF_TRUSTED_ORIGINS: https://ci
           EMAIL_HOST: smtp.example
           DEFAULT_FROM_EMAIL: Rota <rota@example.org>
+
+  # The same suite on the next Python, so a pin that quietly drops 3.13 or
+  # breaks on 3.14 is seen on the pull request that introduces it, not at
+  # upgrade time. Deliberately NOT in the master ruleset's required checks:
+  # a 3.14-only failure in a dependency's wheels shows red here but never
+  # blocks a rota fix. Lint, the migrations check and the deploy check are
+  # not repeated -- none of them depends on the interpreter version.
+  tests-next-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: python -m pytest -q

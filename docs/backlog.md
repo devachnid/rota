@@ -37,6 +37,10 @@ autofill v2 review processes had accumulated:
   Real names live only in the mapping and CSV, which stay out of the repo
   (`docs/admin/old-rota-import.md`).
 
+- **CI also runs the suite on Python 3.14** (2026-09-12). A second,
+  non-required job in `tests.yml`; staging runs 3.13 on Debian 13 and the
+  suite already passed on 3.14 (1425 passed) with the current pins.
+
 - **Blank weekdays on a coverage rule meant never** (2026-09-12). The
   admin's checkbox field saved "" for no ticks and `applies_on` said no to
   every day, so the rule was neither checked nor filled — on staging the
