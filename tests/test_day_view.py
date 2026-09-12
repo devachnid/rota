@@ -283,18 +283,27 @@ def test_a_pinned_type_with_nobody_on_it_shows_no_block(gp_client, gp_user):
     assert "day-pinned" not in _html(gp_client)
 
 
-def test_a_clinician_past_their_end_date_with_a_stray_pinned_entry_appears_nowhere(
+def test_a_clinician_past_their_end_date_with_a_session_today_is_shown(
         gp_client, gp_user):
-    """The roster loop skips anyone failing resolver.in_service(); the pinned
-    block must apply the same test. Otherwise a clinician whose end_date has
-    passed but who still has a leftover entry for a pinned session type shows
-    up in the pinned block while correctly appearing in none of
-    roster / on-leave / not-in."""
+    """A session on the screen must always be reachable, so a leftover entry
+    past the end date earns its clinician a roster row and a place in the
+    pinned block for that day. Without the entry they are on neither
+    (see the test below)."""
     make_clinician("Viewer", user=gp_user)
     c = make_clinician("Fatima Iqbal", end_date=date(2026, 9, 1))
     make_pattern(c)
     duty = make_session_type("Duty", code="DUTY", pin_on_day_view=True)
     make_entry(c, day=TUE, part="AM", session_type=duty)  # TUE is after end_date
+    html = _html(gp_client)
+    assert "day-roster" in html and "Fatima Iqbal" in html
+    assert "day-pinned" in html
+
+
+def test_a_clinician_past_their_end_date_with_no_session_today_appears_nowhere(
+        gp_client, gp_user):
+    make_clinician("Viewer", user=gp_user)
+    c = make_clinician("Fatima Iqbal", end_date=date(2026, 9, 1))
+    make_pattern(c)
     html = _html(gp_client)
     assert "Fatima Iqbal" not in html
 

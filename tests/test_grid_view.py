@@ -165,12 +165,25 @@ def test_a_clinician_who_starts_mid_week_has_a_row(admin_client):
     assert 'title="Wendy Wednesday"' in html
 
 
-def test_a_finished_clinician_with_a_stray_entry_is_still_hidden(admin_client):
-    """The same rule the day view applies: the window wins over a leftover
-    entry. The admin was warned about the entry when the end date was saved
-    (see test_clinician_lifecycle); the grid does not keep a row for it."""
+def test_a_finished_clinician_with_a_session_that_week_keeps_their_row(admin_client):
+    """A session on the grid must always be reachable: a leftover entry past
+    the end date would otherwise be impossible to review, move or remove
+    from the grid. The row comes back for exactly the weeks that hold one."""
     PracticeSettings.load()
     c = make_clinician("Left Lastweek", end_date=MON - timedelta(days=1))
-    make_entry(c, day=MON, part="AM", session_type=make_session_type("Routine"))
+    make_entry(c, day=MON, part="AM", session_type=make_session_type("Routine", code="ROUT"))
     html = admin_client.get(URL).content.decode()
+    assert 'title="Left Lastweek"' in html
+    assert "ROUT" in html
+
+
+def test_a_gp_does_not_see_a_finished_clinician_for_a_draft_alone(gp_client):
+    """The entry that earns the row is one the viewer can see. A draft on a
+    finished clinician brings the row back for the admin, who can act on
+    it, but not for a GP, to whom the draft is invisible."""
+    PracticeSettings.load()
+    c = make_clinician("Left Lastweek", end_date=MON - timedelta(days=1))
+    make_entry(c, day=MON, part="AM", is_published=False,
+               session_type=make_session_type("Routine"))
+    html = gp_client.get(URL).content.decode()
     assert "Left Lastweek" not in html
