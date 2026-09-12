@@ -74,6 +74,8 @@ setting matters as much as this one.
 
 Puts this type in its own block at the **top of the day view**, above the
 roster, so "who is on Duty today" is answered without reading every row.
+One person holding the type for both halves of the day is one line, marked
+**All day**, rather than an AM line and a PM line.
 
 Leave it off for the bulk of the rota. Pinning Routine would put most of the
 practice in the pinned block and defeat the point of having one. If nothing is

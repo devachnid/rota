@@ -77,7 +77,9 @@ same chip — same session type, same site, both published or both drafts, the
 same leave clash and the same mentoring partner — is drawn as **one chip across
 both columns**, however the two halves came to be (assisted fill, the import,
 or placed one at a time); only the notes may differ, and then the tooltip
-gives both. Click it and the form is for the whole day. The **Applies to**
+gives both. The day view draws such a day the same way, one chip across
+its AM and PM columns. Click it on the grid and the form is for the whole
+day. The **Applies to**
 choice at the foot of every cell form — Whole day / AM / PM — opens on the
 whole day for such a chip and on the half you clicked otherwise; to split a
 day, pick the half to change and save, and the other half is left as it was.

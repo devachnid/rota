@@ -5,6 +5,7 @@ either role. A GP reading a roster can judge cover themselves, and an app
 that says "covered" when it is not is worse than one that says nothing.
 """
 
+import re
 from datetime import date
 
 import pytest
@@ -59,14 +60,17 @@ def _on_leave_tbody(html):
 
 
 def test_a_clinician_working_the_day_appears_with_both_parts(gp_client, gp_user):
+    """Two different halves, so each is checked for on its own; matching
+    halves merge into one chip (see the whole-day tests at the end)."""
     c = make_clinician("Emma Hall", user=gp_user)
     make_pattern(c)
-    rout = make_session_type("Routine", code="ROUT")
-    make_entry(c, day=TUE, part="AM", session_type=rout)
-    make_entry(c, day=TUE, part="PM", session_type=rout)
+    make_entry(c, day=TUE, part="AM",
+               session_type=make_session_type("Routine", code="ROUT"))
+    make_entry(c, day=TUE, part="PM",
+               session_type=make_session_type("Duty", code="DUTY"))
     html = _html(gp_client)
     assert "Emma Hall" in html
-    assert html.count("ROUT") >= 2
+    assert "ROUT" in html and "DUTY" in html
 
 
 def test_a_chip_with_a_site_carries_the_site_marker(gp_client, gp_user):
@@ -521,3 +525,88 @@ def test_a_locum_with_a_session_is_on_the_roster(gp_client, gp_user):
     make_entry(busy, day=TUE, part="AM",
                session_type=make_session_type("Routine", code="ROUT"))
     assert "Busy Locum" in _roster_tbody(_html(gp_client))
+
+
+# ------------------------------------------------------------ whole day ---
+
+def _tds(tbody):
+    return re.findall(r"<td.*?</td>", tbody, flags=re.S)
+
+
+def test_matching_halves_are_one_cell_on_the_roster(gp_client, gp_user):
+    """Like the week grid: a day whose AM and PM chips would look the same
+    is one chip across both columns."""
+    make_clinician("Viewer", user=gp_user)
+    c = make_clinician("Emma Hall")
+    make_pattern(c)
+    rout = make_session_type("Routine", code="ROUT")
+    make_entry(c, day=TUE, part="AM", session_type=rout)
+    make_entry(c, day=TUE, part="PM", session_type=rout)
+    tds = _tds(_roster_tbody(_html(gp_client)))
+    assert len(tds) == 1 and 'colspan="2"' in tds[0]
+    assert tds[0].count("ROUT") == 1
+
+
+def test_differing_halves_stay_two_cells_on_the_roster(gp_client, gp_user):
+    make_clinician("Viewer", user=gp_user)
+    c = make_clinician("Emma Hall")
+    make_pattern(c)
+    make_entry(c, day=TUE, part="AM",
+               session_type=make_session_type("Routine", code="ROUT"))
+    make_entry(c, day=TUE, part="PM",
+               session_type=make_session_type("Duty", code="DUTY"))
+    tds = _tds(_roster_tbody(_html(gp_client)))
+    assert len(tds) == 2 and all("colspan" not in td for td in tds)
+
+
+def test_a_whole_day_cell_tells_both_notes(gp_client, gp_user):
+    make_clinician("Viewer", user=gp_user)
+    c = make_clinician("Emma Hall")
+    make_pattern(c)
+    rout = make_session_type("Routine", code="ROUT")
+    make_entry(c, day=TUE, part="AM", session_type=rout, note="late start")
+    make_entry(c, day=TUE, part="PM", session_type=rout, note="leaves at 5")
+    tds = _tds(_roster_tbody(_html(gp_client)))
+    assert len(tds) == 1
+    assert "AM: late start — PM: leaves at 5" in tds[0]
+
+
+def test_matching_halves_are_one_cell_in_the_on_leave_group_too(gp_client, gp_user):
+    make_clinician("Viewer", user=gp_user)
+    c = make_clinician("Anwer Al-Hasani")
+    make_pattern(c)
+    al = make_session_type("Annual Leave", code="AL", category="ABSENCE")
+    make_entry(c, day=TUE, part="AM", session_type=al)
+    make_entry(c, day=TUE, part="PM", session_type=al)
+    tds = _tds(_on_leave_tbody(_html(gp_client)))
+    assert len(tds) == 1 and 'colspan="2"' in tds[0]
+
+
+def test_a_pinned_type_held_all_day_by_one_person_is_one_row(gp_client, gp_user):
+    make_clinician("Viewer", user=gp_user)
+    c = make_clinician("Amjad Mahmood")
+    make_pattern(c)
+    duty = make_session_type("Duty", code="DUTY", pin_on_day_view=True)
+    make_entry(c, day=TUE, part="AM", session_type=duty)
+    make_entry(c, day=TUE, part="PM", session_type=duty)
+    html = _html(gp_client)
+    block = html[html.index("day-pinned"):html.index("day-roster")]
+    assert block.count("day-pin-row") == 1
+    assert "All day" in block
+    assert ">AM<" not in block and ">PM<" not in block
+
+
+def test_a_pinned_type_split_between_two_people_is_two_rows(gp_client, gp_user):
+    make_clinician("Viewer", user=gp_user)
+    a = make_clinician("Amjad Mahmood")
+    b = make_clinician("Beatrice Okafor")
+    make_pattern(a)
+    make_pattern(b)
+    duty = make_session_type("Duty", code="DUTY", pin_on_day_view=True)
+    make_entry(a, day=TUE, part="AM", session_type=duty)
+    make_entry(b, day=TUE, part="PM", session_type=duty)
+    html = _html(gp_client)
+    block = html[html.index("day-pinned"):html.index("day-roster")]
+    assert block.count("day-pin-row") == 2
+    assert "All day" not in block
+    assert block.index("Amjad") < block.index("Beatrice")
