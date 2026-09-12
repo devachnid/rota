@@ -168,9 +168,10 @@ step back freely.
 A clinician who **has not yet started, or has finished** — their start date is
 after the week, or their end date before it — has no row on the grid for that
 week, and is not on the day view for a day outside their dates. Someone who
-starts mid-week is on that week's grid with the earlier days blank. A leftover
-session outside the dates does not bring the row back; the admin is warned
-about it when the dates are saved.
+starts mid-week is on that week's grid with the earlier days blank. A session
+of theirs in the period shown brings the row back, so it can be reviewed,
+moved or removed: the admin is warned about such sessions when the dates are
+saved, and the grid is where they are dealt with.
 
 Locums appear on the grid and the day view **only in a period where they hold
 a session**. An idle locum is neither a blank row nor a name on the "Not in"

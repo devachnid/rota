@@ -39,8 +39,9 @@ autofill v2 review processes had accumulated:
 
 - **No row for a clinician outside their dates** (2026-09-12). The week grid
   hides a clinician whose start date is after the week or whose end date is
-  before it, as the day view already did for its one day. The rule lives in
-  `shows_on_roster` alongside the idle-locum rule.
+  before it, as the day view already did for its one day. A session of
+  theirs in the period shown brings the row back so it stays reachable. The
+  rule lives in `shows_on_roster` alongside the idle-locum rule.
 
 - **Five grid enhancements** (2026-09-06). A session type can carry a
   ceiling — max per session, per day, per week, counted in sessions — and

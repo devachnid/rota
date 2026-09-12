@@ -82,14 +82,10 @@ def day_view(request, day=None):
     resolver = availability.AvailabilityResolver(
         pattern_rows, active, absences, BreatheLeaveMapping.as_dict())
 
-    # Filtered by the same in-service test the roster loop below applies —
-    # otherwise a clinician past their end_date with a stray entry for a
-    # pinned session type would appear here despite belonging to none of
-    # roster / on-leave / not-in.
+    # Every entry here belongs to a clinician the roster loop below lists:
+    # an entry earns its clinician a row whatever their dates say.
     pinned = sorted(
-        (e for e in entries
-         if e.session_type.pin_on_day_view
-         and resolver.in_service(e.clinician_id, target)),
+        (e for e in entries if e.session_type.pin_on_day_view),
         key=lambda e: (e.session_type.name, e.clinician.name, e.part),
     )
 

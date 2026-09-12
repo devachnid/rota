@@ -223,12 +223,15 @@ def test_only_an_idle_locum_is_hidden(is_locum, has_entry, shown):
                            in_service=True) is shown
 
 
-@pytest.mark.parametrize("is_locum,has_entry", [
-    (False, False), (False, True), (True, False), (True, True),
+@pytest.mark.parametrize("is_locum,has_entry,shown", [
+    (False, False, False),
+    (False, True, True),
+    (True, False, False),
+    (True, True, True),
 ])
-def test_nobody_outside_their_window_gets_a_row(is_locum, has_entry):
+def test_outside_the_window_only_an_entry_earns_a_row(is_locum, has_entry, shown):
     """A clinician who has not started, or has finished, for the whole
-    period shown is not on the roster at all -- an entry there (a leftover
-    from before the window was set) does not bring them back."""
+    period shown has no row -- unless a session of theirs is on the screen,
+    which must stay reachable so it can be reviewed, moved or removed."""
     assert shows_on_roster(is_locum=is_locum, has_entry=has_entry,
-                           in_service=False) is False
+                           in_service=False) is shown
