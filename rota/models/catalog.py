@@ -204,8 +204,8 @@ class CoverageRule(models.Model):
         help_text="Per-session rules only; ignored for full-day rules.",
     )
     weekdays = models.CharField(
-        max_length=20, default="0,1,2,3,4",
-        help_text="Days this rule applies on.",
+        max_length=20, blank=True, default="0,1,2,3,4",
+        help_text="Days this rule applies on. Blank means every open day.",
     )
     count = models.PositiveIntegerField(
         default=1,
@@ -248,10 +248,15 @@ class CoverageRule(models.Model):
         validate_int_list(self.preferred_weekdays, 0, 6, "preferred_weekdays")
 
     def applies_on(self, day):
+        """Whether this rule is in force on `day`. Blank months is all year
+        and blank weekdays is every day, so a rule saved with nothing
+        ticked is not silently dead. Callers restrict to open days."""
         if self.months:
             if day.month not in parse_int_list(self.months):
                 return False
-        return day.weekday() in parse_int_list(self.weekdays)
+        if self.weekdays:
+            return day.weekday() in parse_int_list(self.weekdays)
+        return True
 
     def preferred_weekday_list(self):
         return parse_int_list(self.preferred_weekdays)

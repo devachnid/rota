@@ -65,7 +65,8 @@ mornings only in summer is two rules, one with parts AM.
 
 ### Weekdays
 
-Comma-separated, **Monday = 0**. Default `0,1,2,3,4`.
+Comma-separated, **Monday = 0**. Default `0,1,2,3,4`. **Blank means every
+open day**, like blank months means all year.
 
 Which days the rule applies on at all. A rule that only applies Tuesdays and
 Thursdays is `1,3`.

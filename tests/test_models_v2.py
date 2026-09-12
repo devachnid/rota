@@ -267,3 +267,13 @@ def test_without_a_mapping_it_still_queries_for_itself():
     with CaptureQueriesContext(connection) as ctx:
         assert t.stage_rule() is not None
     assert len(ctx) == 1
+
+
+def test_blank_weekdays_means_every_day_like_blank_months():
+    """Saving a rule with no weekday ticked stored "" and applies_on() then
+    said no to every day, so the rule silently checked and filled nothing.
+    Blank now reads as every day, the way blank months reads as all year;
+    the callers already restrict to open days."""
+    r = _rule(weekdays="")
+    assert r.applies_on(date(2026, 10, 20))  # a Tuesday
+    assert r.applies_on(date(2026, 10, 24))  # a Saturday: open days are the caller's job

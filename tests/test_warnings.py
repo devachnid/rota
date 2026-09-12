@@ -28,6 +28,26 @@ def test_missing_duty_warns_per_part(duty_rule):
     assert "No Duty cover" in warnings[0].message
 
 
+def test_a_shortfall_says_how_many_of_how_many():
+    """"No Routine cover" was the message even at three of four placed,
+    which is not what it said. Zero keeps the plain wording; a shortfall
+    counts."""
+    PracticeSettings.objects.update_or_create(pk=1, defaults={"min_clinical_per_session": 0})
+    rout = make_session_type("Routine")
+    CoverageRule.objects.create(session_type=rout, count=4)
+    for name in ("Ann Ash", "Ben Birch", "Cal Cedar"):
+        make_entry(make_clinician(name), part="AM", session_type=rout)
+    msgs = {w.part: w.message for w in day_warnings(MON) if w.code == "coverage"}
+    assert msgs["AM"] == "Routine 3/4 (AM)"
+    assert msgs["PM"] == "No Routine cover (PM)"
+
+
+def test_a_rule_with_blank_weekdays_is_checked_every_open_day(duty_rule):
+    PracticeSettings.objects.update_or_create(pk=1, defaults={"min_clinical_per_session": 0})
+    CoverageRule.objects.filter(session_type=duty_rule).update(weekdays="")
+    assert [w.part for w in day_warnings(MON) if w.code == "coverage"] == ["AM", "PM"]
+
+
 def test_locum_status_appended(duty_rule):
     PracticeSettings.objects.update_or_create(pk=1, defaults={"min_clinical_per_session": 0})
     LocumRequirement.objects.create(

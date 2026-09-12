@@ -37,6 +37,14 @@ autofill v2 review processes had accumulated:
   Real names live only in the mapping and CSV, which stay out of the repo
   (`docs/admin/old-rota-import.md`).
 
+- **Blank weekdays on a coverage rule meant never** (2026-09-12). The
+  admin's checkbox field saved "" for no ticks and `applies_on` said no to
+  every day, so the rule was neither checked nor filled — on staging the
+  Routine (4 per slot), LARCs and Minor Surgery rules were all dead. Blank
+  now means every open day, matching blank months. The coverage warning
+  also says how short it is ("Routine 3/4 (AM)") instead of "No Routine
+  cover" for any shortfall.
+
 - **Day view whole-day chips** (2026-09-12). The day view's roster and
   on-leave tables merge matching AM and PM halves into one chip across both
   columns, by the grid's own `one_block` rule; the pinned block shows one
