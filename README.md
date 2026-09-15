@@ -6,7 +6,7 @@ autofill v2 (trainees, commitments, demand-driven clinics, PMC branch cover);
 the frontend's first phase; the post-deployment fixes; the frontend's second
 phase (mobile); leave from Breathe; the admin overhaul; the grid and locum
 enhancements; and account access — invitations, self-service passwords,
-passkeys. The implementation plans are in `docs/superpowers/plans/`.
+passkeys; the grid and fill round 2 — the eight-week grid, ticking mode, the suggested fill week, clinician order and the OFF chip. The implementation plans are in `docs/superpowers/plans/`.
 
 ## Develop
 
