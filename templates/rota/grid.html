@@ -46,10 +46,11 @@
   <th class="grid-clin"></th>
   {% for h in day_headers %}
   <th colspan="2" scope="colgroup" class="grid-day{% if h.closed %} closed{% endif %}{% if h.week_start %} week-start{% endif %}{% if h.today %} is-today{% endif %}"
-      {% if is_admin %}hx-get="/rota/daynote/{{ h.day|date:'Y-m-d' }}/" hx-target="#modal"{% endif %}>
+      {% if is_admin %}hx-get="/rota/daynote/{{ h.day|date:'Y-m-d' }}/" hx-target="#modal"{% endif %}{% if h.tooltip %} title="{{ h.tooltip }}"{% endif %}>
     {{ h.day|date:"D j M" }}
     {% if h.note %}<div class="daynote">{{ h.note.text }}</div>{% endif %}
-    {% for w in h.warnings %}<div class="warn">{{ w.message }}</div>{% endfor %}
+    {% for w in h.shown %}<div class="warn">{{ w.message }}</div>{% endfor %}
+    {% if h.more %}<div class="warn warn-more">+{{ h.more }} more</div>{% endif %}
   </th>
   {% endfor %}
 </tr>

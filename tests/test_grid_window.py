@@ -157,3 +157,38 @@ def test_query_count_does_not_grow_with_weeks_of_entries(admin_client, admin_use
         f"{len(one_week)} queries with one week of entries, "
         f"{len(eight_weeks)} with eight")
     assert len(one_week) <= 30, len(one_week)
+
+
+def _day_cell(html, day):
+    start = html.index(f'hx-get="/rota/daynote/{day}/"')
+    return html[html.rindex("<th", 0, start):html.index("</th>", start)]
+
+
+def test_a_day_header_shows_two_warnings_and_counts_the_rest(admin_client):
+    """A table row is as tall as its tallest cell, and the sticky header
+    row now spans forty days. An unfilled week at the far end carried a
+    dozen warning lines per day, so the whole header grew to 435px and
+    swallowed the pane. Two lines and a count keep the height bounded;
+    the full list stays in the cell's tooltip."""
+    from rota.models import CoverageRule
+    PracticeSettings.objects.update_or_create(
+        pk=1, defaults={"min_clinical_per_session": 0})
+    for name in ("Duty", "Urgent", "Routine"):
+        CoverageRule.objects.create(session_type=make_session_type(name, code=name[:4].upper()))
+    cell = _day_cell(_page(admin_client), MON)
+    assert cell.count('<div class="warn">') == 2
+    assert "+4 more" in cell
+    assert 'title="' in cell
+    for name in ("Duty", "Urgent", "Routine"):
+        for part in ("AM", "PM"):
+            assert f"No {name} cover ({part})" in cell
+
+
+def test_a_day_with_two_warnings_shows_both_and_no_count(admin_client):
+    from rota.models import CoverageRule
+    PracticeSettings.objects.update_or_create(
+        pk=1, defaults={"min_clinical_per_session": 0})
+    CoverageRule.objects.create(session_type=make_session_type("Duty", code="DUTY"))
+    cell = _day_cell(_page(admin_client), MON)
+    assert cell.count('<div class="warn">') == 2
+    assert "more" not in cell
