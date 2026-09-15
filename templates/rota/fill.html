@@ -15,6 +15,10 @@
         <label for="id_fill_end">To</label>
         <input type="date" name="end" id="id_fill_end" value="{{ end|date:'Y-m-d' }}">
       </div>
+      <p class="field-help">
+        {% if suggestion.found %}Suggested from {{ suggestion.monday|date:"D j M" }} — the first week under half filled ({{ suggestion.filled }} of {{ suggestion.working }} sessions). Change the dates if you want a different run.
+        {% else %}No week to {{ suggestion.horizon_end|date:"j M" }} is under half filled; defaulting to next Monday.{% endif %}
+      </p>
       <div class="field">
         {% if default_type %}
         <label><input type="checkbox" name="fill_default" value="1" checked>

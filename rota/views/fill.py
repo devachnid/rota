@@ -5,7 +5,7 @@ from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
 from rota.models import PracticeSettings
-from rota.services import entries as entries_svc
+from rota.services import entries as entries_svc, next_week
 from rota.services.fill import run_fill
 from rota.views.decorators import admin_required, parse_errors_as_400
 
@@ -50,11 +50,11 @@ def _group_unfilled(unfilled):
 
 
 def _base_context():
-    today = date.today()
-    next_monday = today + timedelta(days=(7 - today.weekday()) % 7 or 7)
+    suggestion = next_week.suggest(date.today())
     return {
-        "start": next_monday,
-        "end": next_monday + timedelta(days=27),
+        "start": suggestion.monday,
+        "end": suggestion.monday + timedelta(days=27),
+        "suggestion": suggestion,
         "result": None,
         "default_type": PracticeSettings.load().default_fill_session_type,
     }
