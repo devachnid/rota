@@ -38,7 +38,8 @@ class WarningBundle:
     @classmethod
     def load(cls, days, include_drafts=True):
         entries = RotaEntry.objects.filter(day__in=days).select_related(
-            "session_type", "clinician", "clinician__group")
+            "session_type", "clinician", "clinician__group",
+            "entered_by", "entered_by__clinician")
         if not include_drafts:
             entries = entries.filter(is_published=True)
         by_day = {}
@@ -129,6 +130,8 @@ def _breathe_conflicts(day, entries, resolver=None):
 
 
 def day_warnings(day, include_drafts=True, resolver=None, bundle=None):
+    """With a bundle, `include_drafts` is ignored: the bundle was already
+    filtered to published-only (or not) at WarningBundle.load()."""
     if bundle is not None:
         if not bundle.is_open(day):
             return []
@@ -139,7 +142,8 @@ def day_warnings(day, include_drafts=True, resolver=None, bundle=None):
         if not calendar.is_open(day):
             return []
         entries = RotaEntry.objects.filter(day=day).select_related(
-            "session_type", "clinician", "clinician__group"
+            "session_type", "clinician", "clinician__group",
+            "entered_by", "entered_by__clinician"
         )
         if not include_drafts:
             entries = entries.filter(is_published=True)

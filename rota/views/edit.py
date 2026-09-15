@@ -255,8 +255,8 @@ def _locum_form_context(req=None, day=None, part=None):
         "day": req.day if req else day,
         "part": req.part if req else part,
         "type_groups": type_groups(),
-        "locums": Clinician.objects.filter(active=True,
-                                           group__is_locum_group=True),
+        "locums": Clinician.objects.filter(
+            active=True, group__is_locum_group=True).order_by("name"),
         "coverable": Clinician.objects.filter(
             active=True, group__is_locum_group=False).order_by("name"),
         "statuses": LocumRequirement.Status.choices,
