@@ -66,7 +66,7 @@
   function today() {
     var link = document.getElementById("grid-today");
     var cell = table.querySelector("thead .grid-day.is-today");
-    if (!link || !cell) return;
+    if (!link || !link.dataset.scroll || !cell) return;
     link.addEventListener("click", function (e) {
       e.preventDefault();
       scrollToCell(cell);

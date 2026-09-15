@@ -53,7 +53,7 @@ def day_view(request, day=None):
                  or target.weekday() not in open_weekdays)
 
     entries = RotaEntry.objects.filter(day=target).select_related(
-        "session_type", "clinician", "site")
+        "session_type", "clinician", "site", "entered_by", "entered_by__clinician")
     if not request.user.is_rota_admin:
         entries = entries.filter(is_published=True)
     entries = list(entries)

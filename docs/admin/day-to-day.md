@@ -93,10 +93,11 @@ a session marks it as entered and strikes its code through, clicking again
 unmarks it, and a whole-day chip marks both halves. Nothing else on the
 grid changes and the page does not reload. Switch it off to edit cells
 again. The mark records when and by whom (the cell's tooltip says), and it
-is **cleared automatically** when the session's type or site is changed,
-when a swap moves it, or when assisted fill replaces a draft — because the
-appointment screen would need redoing. Only admins see the strike; GPs see
-the session as usual.
+is **cleared automatically** when the session's type or site is changed
+from the grid, when a swap moves it, or when assisted fill replaces a
+draft — because the appointment screen would need redoing. Editing the
+entry's fields in the admin does not clear it. Only admins see the strike;
+GPs see the session as usual.
 
 On the grid, the cell you clicked is ringed while its form is open, so there
 is no doubt which one is being edited. A day whose AM and PM would show the

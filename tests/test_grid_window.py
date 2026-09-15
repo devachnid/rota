@@ -7,8 +7,10 @@ from datetime import date, timedelta
 import pytest
 
 from rota.models import PracticeSettings
+from rota.services import entries as entries_svc
 from rota.services import grid as grid_svc
-from tests.factories import MON, make_clinician, make_entry, make_pattern, make_session_type
+from tests.factories import (MON, make_absence, make_clinician, make_entry,
+                             make_pattern, make_session_type)
 
 pytestmark = pytest.mark.django_db
 
@@ -129,21 +131,26 @@ def test_the_table_declares_its_column_count_and_start(admin_client):
     assert f'data-start="{MON - timedelta(days=7)}"' in html
 
 
-def test_query_count_does_not_grow_with_weeks_of_entries(admin_client):
+def test_query_count_does_not_grow_with_weeks_of_entries(admin_client, admin_user):
     from django.db import connection
     from django.test.utils import CaptureQueriesContext
     PracticeSettings.load()
     c = make_clinician()
     make_pattern(c)
     duty = make_session_type("Duty", code="DUTY")
-    make_entry(c, day=MON, part="AM", session_type=duty)
+    # A Breathe clash too, so _breathe_conflicts runs through the bundle
+    # like every other warning source this test guards.
+    make_absence(c, MON)
+    entry = make_entry(c, day=MON, part="AM", session_type=duty)
+    entries_svc.set_entered(admin_user, entry, True)
     with CaptureQueriesContext(connection) as one_week:
         admin_client.get(f"/rota/?week={MON}")
     for w in range(-1, 7):
         for d in range(5):
             if (w, d) != (0, 0):
-                make_entry(c, day=MON + timedelta(days=7 * w + d), part="AM",
-                           session_type=duty)
+                entry = make_entry(c, day=MON + timedelta(days=7 * w + d), part="AM",
+                                   session_type=duty)
+                entries_svc.set_entered(admin_user, entry, True)
     with CaptureQueriesContext(connection) as eight_weeks:
         admin_client.get(f"/rota/?week={MON}")
     assert len(eight_weeks) == len(one_week), (

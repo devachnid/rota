@@ -382,6 +382,10 @@ fieldset.field {
    position/top/left/z-index (tests/test_css_cascade.py). */
 .table-grid .week-start { border-left: 2px solid var(--muted); }
 .table-grid thead th.is-today { background: var(--accent-soft); }
+/* Two side edges, not a box per row: inset 1px 0 0 draws the left edge and
+   inset -1px 0 0 draws the right, and with no top/bottom edge one row's
+   right edge sits flush against the next row's left, so the marker reads
+   as one stripe down the column rather than a box per row. */
 .table-grid td.is-today {
   box-shadow: inset 1px 0 0 var(--accent), inset -1px 0 0 var(--accent);
 }

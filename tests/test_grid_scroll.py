@@ -14,6 +14,7 @@ def test_the_script_anchors_restores_and_jumps():
     assert '".grid-week.is-anchor"' in js
     assert "pagehide" in js and "htmx:beforeRequest" in js
     assert 'getElementById("grid-today")' in js and ".grid-day.is-today" in js
+    assert "dataset.scroll" in js
     assert "preventDefault" in js and "scrollLeft" in js
 
 

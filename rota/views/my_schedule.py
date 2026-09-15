@@ -112,7 +112,7 @@ def my_schedule(request):
 
     entries = RotaEntry.objects.filter(
         clinician=clinician, is_published=True, day__range=(monday, last),
-    ).select_related("session_type", "site")
+    ).select_related("session_type", "site", "entered_by", "entered_by__clinician")
     entries_by = {(e.day, e.part): e for e in entries}
 
     pattern_rows = list(PatternSlot.objects.filter(clinician=clinician))

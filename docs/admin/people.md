@@ -60,7 +60,9 @@ any session type restricted by `allowed_groups`.
 **Default: 100.** Lower sorts first, within the group; ties are
 alphabetical by name. The grid and the day view follow it. Dropdowns and
 reports stay alphabetical, because a list you scan for a name should be
-in name order. Edit it inline on the clinician list — leave gaps (10, 20,
+in name order. The admin's own clinician dropdowns (a rota entry's
+clinician, a trainee's trainer) follow it too, since an admin set it.
+Edit it inline on the clinician list — leave gaps (10, 20,
 30) so someone new can be slotted in without renumbering.
 
 ### User
