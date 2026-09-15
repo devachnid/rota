@@ -401,13 +401,14 @@ def test_week_boundary_and_today_marks_do_not_touch_positioning():
     """Both classes land on header cells inside the sticky <thead> and on
     the frozen .grid-clin's neighbours; a position/top/left/z-index on
     either would fight the sticky rules."""
-    for selector in (".table-grid .week-start", ".table-grid thead th.is-today",
-                      ".table-grid td.is-today"):
+    for selector in (".table-grid .week-start", ".table-grid thead th.is-today"):
         decl = rule(selector).declarations
         assert not {"position", "top", "left", "z-index"} & set(decl), (selector, decl)
     assert declares(".table-grid .week-start", "border-left").startswith("2px solid var(--")
     assert declares(".table-grid thead th.is-today", "background") == "var(--accent-soft)"
-    assert declares(".table-grid td.is-today", "box-shadow").startswith("inset")
+    # Body cells carry no today mark: per-cell edges drew a bar at each side
+    # of the AM/PM pair and a double bar between them on staging.
+    assert not [r for r in RULES if r.selector == ".table-grid td.is-today"]
 
 
 def test_the_grid_pane_is_sized_by_layout_not_a_viewport_guess():

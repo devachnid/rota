@@ -38,7 +38,7 @@ def _cells(client, day=MON):
 # The admin grid puts a per-cell hx-get on every <td>, which is the only thing
 # in the markup that says which clinician, day and part a chip belongs to.
 _CELL_RE = re.compile(
-    r"/rota/cell/(?P<cid>\d+)/(?P<day>\d{4}-\d\d-\d\d)/(?P<part>AM|PM)/"
+    r"/rota/cell/(?P<cid>\d+)/(?P<day>\d{4}-\d\d-\d\d)/(?P<part>AM|PM|DAY)/"
     r'.*?<span class="chip(?P<classes>[^"]*)"(?P<rest>[^>]*)>',
     re.S,
 )
@@ -61,7 +61,11 @@ def _chips(html):
         classes = m["classes"].strip()
         if not classes and "from Breathe" in m["rest"]:
             classes = "absence"
-        out[(int(m["cid"]), m["day"], m["part"])] = classes
+        # A whole day drawn as one chip opens on part DAY; it stands for
+        # both halves here, so per-cell assertions read the same either way.
+        parts = ("AM", "PM") if m["part"] == "DAY" else (m["part"],)
+        for part in parts:
+            out[(int(m["cid"]), m["day"], part)] = classes
     return out
 
 
@@ -445,3 +449,20 @@ def test_a_note_marks_its_chip_and_a_fill_reason_alone_does_not(admin_client):
     chips = _chips(_cells(admin_client))
     assert "has-note" in chips[(noted.id, _iso(0), "AM")]
     assert "has-note" not in chips[(plain.id, _iso(0), "AM")]
+
+
+@pytest.mark.django_db
+def test_a_whole_day_off_is_one_chip_across_both_columns(admin_client):
+    """OFF AM beside OFF PM read as two chips per day off, twenty rows of
+    them on staging. A whole day off is one chip, like a matching pair of
+    sessions; a day with one worked half keeps two cells."""
+    c = make_clinician("Dayoff", initials="DO")
+    _pattern(c, 0, "AM")            # works Monday AM only
+    html = _cells(admin_client)
+    mon = html.index(f'hx-get="/rota/cell/{c.id}/{_iso(0)}/AM/"')
+    assert 'colspan="2"' not in html[html.rindex("<td", 0, mon):mon]
+    tue = html.index(f'hx-get="/rota/cell/{c.id}/{_iso(1)}/DAY/"')
+    assert 'colspan="2"' in html[html.rindex("<td", 0, tue):tue]
+    assert f'/rota/cell/{c.id}/{_iso(1)}/AM/' not in html
+    chips = _chips(html)
+    assert chips[(c.id, _iso(1), "AM")] == chips[(c.id, _iso(1), "PM")] == "is-off is-not-working"

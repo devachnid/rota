@@ -78,11 +78,13 @@ clicking a cell on the grid; the admin view is for bulk corrections and for
 seeing the fields the grid hides.
 
 The grid shows **eight weeks at once** — one before the week you asked for
-and six after — in one sideways-scrolling table. Each week has its own
-header cell with the week's date, its **Publish** button (shown only while
-the week holds drafts, and publishing only that week), and any per-week
-ceiling warning. A heavier line marks where each week starts; today's
-column is tinted. **Earlier** and **Later** move the window four weeks;
+and six after — in one sideways-scrolling table. While a week holds
+drafts, a row above the dates carries that week's **Publish week of …**
+button (publishing only that week) and any per-week ceiling warning; with
+nothing to publish the row is not there. A heavier line marks where each
+week starts; today's date is tinted in the header. A whole day off, or a
+whole day of the same Breathe leave, is one chip across both columns.
+**Earlier** and **Later** move the window four weeks;
 **Today** scrolls to today's column, or reloads on this week when today
 is off the page; the date box jumps to any week. After you save a cell the
 page comes back where you left it.

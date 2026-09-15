@@ -15,6 +15,7 @@ def grid(request):
     anchor = grid_svc.parse_anchor(request.GET.get("week"))
     window = grid_svc.Window(anchor, is_admin, request.user)
     step = timedelta(days=7 * grid_svc.STEP_WEEKS)
+    weeks = window.weeks()
     return render(request, "rota/grid.html", {
         "anchor": anchor,
         "start": window.start,
@@ -23,7 +24,10 @@ def grid(request):
         "later": anchor + step,
         "today": window.today,
         "today_shown": window.today in window.days,
-        "weeks": window.weeks(),
+        "weeks": weeks,
+        # The week row carries only Publish buttons and week ceiling
+        # warnings, so it is rendered only when some week has one.
+        "show_week_row": is_admin and any(w["drafts"] or w["warnings"] for w in weeks),
         "day_headers": window.day_headers(),
         "sections": window.sections(),
         "locum_cells": window.locum_cells(),

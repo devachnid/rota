@@ -295,3 +295,62 @@ def test_a_marked_half_does_not_merge_with_an_unmarked_half(admin_user):
     entries_svc.set_entered(admin_user, pm, True)
     p = cell_state(c.id, TUE, "PM", entry=pm, resolver=r, closed=False)
     assert one_block(a, p)
+
+
+def test_a_whole_day_off_reads_as_one_block():
+    from rota.services.cells import one_empty_block
+    c = make_clinician()
+    _works(c, weekday=0)  # Mondays only
+    r = _resolver([c])
+    am = cell_state(c.id, TUE, "AM", entry=None, resolver=r, closed=False)
+    pm = cell_state(c.id, TUE, "PM", entry=None, resolver=r, closed=False)
+    assert one_empty_block(am, pm)
+
+
+def test_an_off_half_beside_a_worked_half_does_not_merge():
+    from rota.services.cells import one_empty_block
+    c = make_clinician()
+    _works(c)
+    _works(c, weekday=1, part="AM", works=False) if False else None
+    r = _resolver([c])
+    am = cell_state(c.id, TUE, "AM", entry=None, resolver=r, closed=False)
+    pm = cell_state(c.id, TUE, "PM", entry=None, resolver=r, closed=False)
+    assert not one_empty_block(am, pm), "two grey working cells are not a day off"
+
+
+def test_the_same_absence_on_both_halves_reads_as_one_block():
+    from rota.services.cells import one_empty_block
+    c = make_clinician()
+    _works(c)
+    absence = make_absence(c, TUE)
+    r = _resolver([c], [absence])
+    am = cell_state(c.id, TUE, "AM", entry=None, resolver=r, closed=False)
+    pm = cell_state(c.id, TUE, "PM", entry=None, resolver=r, closed=False)
+    assert am["absence"] is not None
+    assert one_empty_block(am, pm)
+
+
+def test_an_absence_half_beside_an_off_half_does_not_merge():
+    from rota.services.cells import one_empty_block
+    c = make_clinician()
+    _works(c, weekday=1)          # Tuesdays, both halves
+    r0 = _resolver([c])
+    assert cell_state(c.id, TUE, "PM", entry=None, resolver=r0, closed=False)["off"] is False
+    from rota.models import PatternSlot
+    PatternSlot.objects.filter(clinician=c, weekday=1, part="PM").update(works=False)
+    absence = make_absence(c, TUE)
+    r = _resolver([c], [absence])
+    am = cell_state(c.id, TUE, "AM", entry=None, resolver=r, closed=False)
+    pm = cell_state(c.id, TUE, "PM", entry=None, resolver=r, closed=False)
+    assert am["absence"] is not None and pm["absence"] is None
+    assert not one_empty_block(am, pm)
+
+
+def test_a_closed_day_does_not_merge_into_an_off_block():
+    from rota.services.cells import one_empty_block
+    c = make_clinician()
+    _works(c, weekday=0)
+    r = _resolver([c])
+    am = cell_state(c.id, TUE, "AM", entry=None, resolver=r, closed=True)
+    pm = cell_state(c.id, TUE, "PM", entry=None, resolver=r, closed=True)
+    assert not one_empty_block(am, pm)

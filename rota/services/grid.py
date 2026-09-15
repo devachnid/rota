@@ -15,7 +15,8 @@ from rota.models import (BreatheAbsence, BreatheLeaveMapping, Clinician,
                          ClinicianGroup, ClosedDay, DayNote, LocumRequirement,
                          PatternSlot, PracticeSettings, RotaEntry)
 from rota.services import availability
-from rota.services.cells import cell_state, day_note, one_block, shows_on_roster
+from rota.services.cells import (cell_state, day_note, one_block, one_empty_block,
+                                 shows_on_roster)
 from rota.services.warnings import WarningBundle, day_warnings, week_warnings
 
 WEEKS_BEFORE = 1
@@ -69,6 +70,11 @@ class Window:
             in_week = [d for d in self.days if week_monday(d) == m]
             if in_week:
                 self.week_starts.add(min(in_week))
+        # The day the script scrolls to on load: the anchor week's first
+        # open day (the week row is not always rendered, so the mark lives
+        # on a day header).
+        in_anchor = [d for d in self.days if week_monday(d) == anchor]
+        self.anchor_day = min(in_anchor) if in_anchor else None
         self._bundle = None
         self._load()
 
@@ -145,6 +151,7 @@ class Window:
             out.append({
                 "day": d, "closed": d in self.closed, "note": self.notes.get(d),
                 "week_start": d in self.week_starts, "today": d == self.today,
+                "anchor": d == self.anchor_day,
                 "warnings": warnings,
                 "shown": warnings[:HEADER_WARNING_LINES],
                 "more": max(len(warnings) - HEADER_WARNING_LINES, 0),
@@ -171,7 +178,7 @@ class Window:
                 partner=self.companion_partner.get((clinician.id, d, part)),
             ) for part in ("AM", "PM"))
             flags = {"week_start": d in self.week_starts, "today": d == self.today}
-            if one_block(am, pm):
+            if one_block(am, pm) or one_empty_block(am, pm):
                 # One chip across both columns; its form edits the whole
                 # day (part "DAY") unless the admin picks a half.
                 cells.append({**am, "part": "DAY", "merged": True,

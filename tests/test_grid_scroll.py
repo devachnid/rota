@@ -11,7 +11,7 @@ def test_the_script_anchors_restores_and_jumps():
     js = (ROOT / "static/js/grid.js").read_text()
     assert "sessionStorage" in js and '"grid-scroll:"' in js
     assert "dataset.start" in js
-    assert '".grid-week.is-anchor"' in js
+    assert '".grid-day.is-anchor"' in js
     assert "pagehide" in js and "htmx:beforeRequest" in js
     assert 'getElementById("grid-today")' in js and ".grid-day.is-today" in js
     assert "dataset.scroll" in js

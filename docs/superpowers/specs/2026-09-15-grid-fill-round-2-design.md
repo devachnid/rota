@@ -91,6 +91,20 @@ a time, and every page has to be re-read from the left edge.
   with it.
 - The page `<h2>` and the table caption read "Weeks of 7 Sep – 26 Oct".
 
+### Amended on staging, 2026-09-15
+
+Four changes after the first look at the built page, each approved in
+conversation: a day header shows at most two warning lines and "+N more"
+(the full list in its tooltip), because an unfilled week's days carried a
+dozen lines each and the sticky header grew to 435px; today is marked by
+the tinted header cells only, because an inset edge on each body cell drew
+a bar at each side of the AM/PM pair and a double bar between them; a
+whole day off, or the same Breathe absence on both halves, is one chip
+across both columns; and the week row has no "Week of" label and renders
+only while a week has drafts to publish or a week ceiling warning, its
+button reading "Publish week of 14 Sep · N drafts". The anchor mark the
+script scrolls to moved to the anchor week's first day header.
+
 ### Week markers
 
 - The `<thead>` gains a **third row above the two it has**, one `<th
