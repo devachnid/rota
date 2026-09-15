@@ -9,6 +9,7 @@ from rota.models import (Clinician, DayNote, LocumRequirement, Part,
                          PracticeSettings, RotaEntry, SessionType, Site,
                          TraineeProfile)
 from rota.services import entries as entries_svc
+from rota.services import grid as grid_svc
 from rota.services import locums as locums_svc
 from rota.views.decorators import admin_required, parse_errors_as_400
 
@@ -198,6 +199,33 @@ def publish(request):
                               date.fromisoformat(request.POST["start"]),
                               date.fromisoformat(request.POST["end"]))
     return _refresh()
+
+
+@admin_required
+@parse_errors_as_400
+@require_POST
+def entered(request):
+    """Ticking mode's click. Marks every entry in the parts given as
+    entered in the clinical system — or, when all of them already are,
+    unmarks them — and answers with the clinician's re-rendered row, so
+    the pane does not move."""
+    clinician = get_object_or_404(Clinician.objects.select_related("group"),
+                                  pk=request.POST["clinician_id"])
+    day = date.fromisoformat(request.POST["day"])
+    parts = _parts(_clean_scope(request.POST["part"]))
+    with transaction.atomic():
+        held = list(RotaEntry.objects.filter(
+            clinician=clinician, day=day, part__in=parts).select_related("session_type"))
+        on = not (held and all(e.entered_at for e in held))
+        for e in held:
+            entries_svc.set_entered(request.user, e, on)
+    anchor = grid_svc.parse_anchor(request.POST.get("week"))
+    window = grid_svc.Window(anchor, True, request.user)
+    row = window.build_row(clinician, clinician.group.is_locum_group)
+    if row is None:
+        return _refresh()
+    return render(request, "rota/_grid_row.html",
+                  {"row": row, "is_admin": True, "tick": True, "anchor": anchor})
 
 
 @admin_required
