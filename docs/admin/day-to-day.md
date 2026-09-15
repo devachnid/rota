@@ -7,7 +7,13 @@ entries exist for correcting things and for looking at history.
 
 ## Assisted fill
 
-`/rota/fill/` — pick a date range, run it.
+`/rota/fill/` — pick a date range, run it. The **From** date opens on the
+first week, from next Monday, that is under half filled — working sessions
+(by pattern, minus Breathe leave) against entries, drafts included — and
+the line under the dates says which week and why. A few advance bookings
+leave a week under half, so it is still offered. When no week in the next
+26 is under half, the form says so and opens on next Monday. **To** is
+four weeks on; both are editable.
 
 **What it does first:** deletes every entry in the range that is **unpublished
 and not manually set** — that is, its own previous drafts. It never touches a
