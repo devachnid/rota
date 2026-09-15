@@ -69,6 +69,17 @@ def cell_state(clinician_id, day, part, *, entry, resolver, closed,
                        and resolver.in_service(clinician_id, day))
     showable = (works or no_pattern_here) and not closed
 
+    # A usual non-working half-day, as distinct from blank for any other
+    # reason. The grid prints OFF on the former and nothing on the latter:
+    # a closed day stays blank so a bank holiday never reads as everyone
+    # being off; a clinician outside their dates has no pattern in force;
+    # and a clinician with no pattern rows at all must not read OFF on
+    # every session when the truth is nobody has entered their pattern
+    # (the dashboard counts those).
+    off_pattern = (entry is None and not works and not closed
+                   and resolver.has_pattern(clinician_id)
+                   and resolver.in_service(clinician_id, day))
+
     return {
         "day": day,
         "day_str": day.isoformat(),
@@ -76,6 +87,7 @@ def cell_state(clinician_id, day, part, *, entry, resolver, closed,
         "entry": entry,
         "note": entry.note if entry else "",
         "off": entry is None and not works,
+        "off_pattern": off_pattern,
         "absence": leave_type if showable else None,
         "on_leave": on_leave,
         "leave_label": leave_label(*covering) if covering else None,

@@ -62,6 +62,8 @@
             style="--chip-bg: var(--tint-{{ cell.absence.tint.key }}-bg); --chip-fg: var(--tint-{{ cell.absence.tint.key }}-fg);">
         {{ cell.absence.code }}
       </span>
+    {% elif cell.off_pattern %}
+      <span class="chip is-off is-not-working" title="Not a working session">OFF</span>
     {% elif cell.off %}
       <span class="chip is-off">&nbsp;</span>
     {% else %}

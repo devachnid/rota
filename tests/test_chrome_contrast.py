@@ -89,7 +89,7 @@ PAIRS = [
     ("ink-soft", "sunken", ".btn:hover, .btn-quiet:hover"),
     ("muted", "ground", ".empty, .field-help, .stat-label on the page ground"),
     ("muted", "surface", ".nav-user, .btn-quiet, .grid-part, .grid-group td, .badge"),
-    ("muted", "sunken", ".badge default, .closed body cells, .chip fallback fg"),
+    ("muted", "sunken", ".badge default, .closed body cells, .chip fallback fg, the OFF chip"),
     ("accent", "ground", "a, .report-nav a:hover"),
     ("accent", "surface", ".nav-link.is-active, links in a card"),
     ("accent", "sunken", "links over a sunken cell"),
