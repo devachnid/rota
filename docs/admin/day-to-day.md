@@ -168,6 +168,11 @@ want to silence one, you need to know which:
    sit on, so it appears on a line under the week toolbar instead: "Too many
    LARC this week: 3 sessions, max 2".
 
+A day's header shows the first two lines and then "+N more"; hover the
+header for the full list. An unfilled week would otherwise carry a dozen
+lines per day, and the header row is as tall as its tallest cell across
+every day on the page.
+
 Closed days generate no warnings at all.
 
 Where a coverage warning has a matching locum requirement, the warning says so —

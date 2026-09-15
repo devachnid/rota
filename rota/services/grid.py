@@ -21,6 +21,12 @@ from rota.services.warnings import WarningBundle, day_warnings, week_warnings
 WEEKS_BEFORE = 1
 WEEKS_AFTER = 6
 STEP_WEEKS = 4
+# Warning lines a day header shows before it says "+N more". A table row
+# is as tall as its tallest cell, and the sticky header row spans every
+# day in the window: an unfilled week's days each carry a dozen lines,
+# which made the header taller than the pane. The full list stays in the
+# cell's tooltip.
+HEADER_WARNING_LINES = 2
 
 
 def _today():
@@ -132,13 +138,19 @@ class Window:
 
     def day_headers(self):
         bundle = self.bundle()
-        return [
-            {"day": d, "closed": d in self.closed, "note": self.notes.get(d),
-             "week_start": d in self.week_starts, "today": d == self.today,
-             "warnings": (day_warnings(d, include_drafts=True, resolver=self.resolver,
-                                       bundle=bundle) if self.is_admin else [])}
-            for d in self.days
-        ]
+        out = []
+        for d in self.days:
+            warnings = (day_warnings(d, include_drafts=True, resolver=self.resolver,
+                                     bundle=bundle) if self.is_admin else [])
+            out.append({
+                "day": d, "closed": d in self.closed, "note": self.notes.get(d),
+                "week_start": d in self.week_starts, "today": d == self.today,
+                "warnings": warnings,
+                "shown": warnings[:HEADER_WARNING_LINES],
+                "more": max(len(warnings) - HEADER_WARNING_LINES, 0),
+                "tooltip": "\n".join(w.message for w in warnings),
+            })
+        return out
 
     # ---- body ----------------------------------------------------------
 
