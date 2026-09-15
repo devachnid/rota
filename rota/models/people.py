@@ -50,6 +50,11 @@ class Clinician(models.Model):
         ClinicianGroup, on_delete=models.PROTECT, related_name="clinicians",
         help_text="Orders the grid and drives the group staffing warning.",
     )
+    display_order = models.PositiveIntegerField(
+        default=100,
+        help_text="Rows within the group appear on the grid in this order, "
+                  "lowest first. Ties are alphabetical.",
+    )
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL, null=True, blank=True,
         on_delete=models.SET_NULL, related_name="clinician",
@@ -76,7 +81,7 @@ class Clinician(models.Model):
     breathe_employee_id = models.PositiveIntegerField(null=True, blank=True, unique=True)
 
     class Meta:
-        ordering = ["name"]
+        ordering = ["display_order", "name"]
 
     def __str__(self):
         return self.name

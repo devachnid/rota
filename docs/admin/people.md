@@ -55,6 +55,14 @@ sharing initials is legal but will confuse whoever reads the rota.
 Which band they belong to. Drives grid position, the group minimum warning, and
 any session type restricted by `allowed_groups`.
 
+### Display order
+
+**Default: 100.** Lower sorts first, within the group; ties are
+alphabetical by name. The grid and the day view follow it. Dropdowns and
+reports stay alphabetical, because a list you scan for a name should be
+in name order. Edit it inline on the clinician list — leave gaps (10, 20,
+30) so someone new can be slotted in without renumbering.
+
 ### User
 
 Links this clinician to a **login account**, so they can see My Schedule,

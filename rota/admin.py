@@ -123,8 +123,9 @@ class BreatheLinkedFilter(admin.SimpleListFilter):
 
 @admin.register(Clinician)
 class ClinicianAdmin(ModelAdmin):
-    list_display = ("name", "initials", "group", "active", "is_trainer",
-                    "pattern_column", "breathe_link")
+    list_display = ("name", "initials", "group", "display_order", "active",
+                    "is_trainer", "pattern_column", "breathe_link")
+    list_editable = ("display_order",)
     list_filter = ("group", "active", "is_trainer", BreatheLinkedFilter)
     search_fields = ("name", "initials", "user__email")
     inlines = [TraineeProfileInline, RecurringCommitmentInline]
@@ -132,7 +133,7 @@ class ClinicianAdmin(ModelAdmin):
     readonly_fields = ("pattern_summary",)
     fieldsets = (
         ("Who", {
-            "fields": ("name", "initials", "group", "user"),
+            "fields": ("name", "initials", "group", "display_order", "user"),
             "description": "Initials are what the grid shows. Link the login "
                            "account so this person sees their own schedule.",
         }),

@@ -75,7 +75,8 @@ def grid(request):
 
     sections = []
     groups = ClinicianGroup.objects.prefetch_related(
-        Prefetch("clinicians", queryset=Clinician.objects.filter(active=True))
+        Prefetch("clinicians", queryset=Clinician.objects.filter(active=True)
+                 .order_by("display_order", "name"))
     )
     for group in groups:
         rows = []

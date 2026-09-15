@@ -74,7 +74,7 @@ def day_view(request, day=None):
             partner[(b.clinician_id, b.part)] = a.clinician.name
 
     active = list(Clinician.objects.filter(active=True)
-                 .select_related("group").order_by("name"))
+                 .select_related("group").order_by("display_order", "name"))
     pattern_rows = list(PatternSlot.objects.filter(clinician__in=active))
     absences = BreatheAbsence.objects.filter(
         clinician__in=active,
