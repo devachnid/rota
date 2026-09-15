@@ -75,7 +75,7 @@ def test_saving_a_window_warns_about_entries_outside_it_but_deletes_nothing(
 
     r = staff_client.post(
         f"/admin/rota/clinician/{c.pk}/change/",
-        {"name": c.name, "initials": c.initials, "group": c.group_id,
+        {"name": c.name, "initials": c.initials, "group": c.group_id, "display_order": "100",
          "active": "on",
          "start_date": (MON + timedelta(days=365)).isoformat(),
          "end_date": "",
