@@ -1,17 +1,23 @@
 {% extends "base.html" %}{% load static %}
 {% block title %}Rota — weeks of {{ start|date:"j M" }} – {{ end|date:"j M Y" }}{% endblock %}
-{% block body_attrs %} class="page-grid"{% endblock %}
+{% block body_attrs %} class="page-grid{% if tick %} is-ticking{% endif %}"{% endblock %}
 {% block content %}
 <div class="toolbar">
-  <a href="?week={{ earlier|date:'Y-m-d' }}" class="btn">&larr; Earlier</a>
-  <a href="?week={{ today|date:'Y-m-d' }}" class="btn" id="grid-today"{% if today_shown %} data-scroll="1"{% endif %}>Today</a>
-  <a href="?week={{ later|date:'Y-m-d' }}" class="btn">Later &rarr;</a>
+  <a href="?week={{ earlier|date:'Y-m-d' }}{% if tick %}&tick=1{% endif %}" class="btn">&larr; Earlier</a>
+  <a href="?week={{ today|date:'Y-m-d' }}{% if tick %}&tick=1{% endif %}" class="btn" id="grid-today"{% if today_shown %} data-scroll="1"{% endif %}>Today</a>
+  <a href="?week={{ later|date:'Y-m-d' }}{% if tick %}&tick=1{% endif %}" class="btn">Later &rarr;</a>
   <h2>Weeks of {{ start|date:"j M" }} – {{ end|date:"j M Y" }}</h2>
-  <form method="get"><input type="date" name="week"><button class="btn">Go</button></form>
+  <form method="get"><input type="date" name="week">{% if tick %}<input type="hidden" name="tick" value="1">{% endif %}<button class="btn">Go</button></form>
   {% if has_clinician %}
   <a href="/me/swap/new/" class="btn">Propose swap</a>
   {% endif %}
+  {% if is_admin %}
+  <a href="?week={{ anchor|date:'Y-m-d' }}{% if not tick %}&tick=1{% endif %}" class="btn{% if tick %} btn-primary{% endif %}" aria-pressed="{% if tick %}true{% else %}false{% endif %}">Ticking mode</a>
+  {% endif %}
 </div>
+{% if tick %}
+<div class="flash">Ticking mode — click a session to mark it entered in the clinical system; click again to unmark. Turn it off to edit cells.</div>
+{% endif %}
 {% if unlinked_count %}
 <div class="warn">{{ unlinked_count }} clinician{{ unlinked_count|pluralize }} not linked to Breathe — no leave is read for them. <a href="{{ unlinked_url }}">Link them</a>.</div>
 {% endif %}

@@ -11,6 +11,7 @@ urlpatterns = [
     path("rota/assign/", edit.assign, name="assign"),
     path("rota/clear/", edit.clear, name="clear"),
     path("rota/publish/", edit.publish, name="publish"),
+    path("rota/entered/", edit.entered, name="entered"),
     path("rota/daynote/save/", edit.daynote_save, name="daynote-save"),
     path("rota/daynote/<str:day>/", edit.daynote_form, name="daynote-form"),
     path("rota/locum/new/", edit.locum_new, name="locum-new"),

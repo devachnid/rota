@@ -11,6 +11,7 @@ from rota.services.breathe.links import (unlinked_changelist_url,
 @login_required
 def grid(request):
     is_admin = request.user.is_rota_admin
+    tick = is_admin and request.GET.get("tick") == "1"
     anchor = grid_svc.parse_anchor(request.GET.get("week"))
     window = grid_svc.Window(anchor, is_admin, request.user)
     step = timedelta(days=7 * grid_svc.STEP_WEEKS)
@@ -29,6 +30,7 @@ def grid(request):
         "cols": len(window.days) * 2,
         "colspan": len(window.days) * 2 + 1,
         "is_admin": is_admin,
+        "tick": tick,
         "has_clinician": getattr(request.user, "clinician", None) is not None,
         "unlinked_count": unlinked_clinicians().count() if is_admin else 0,
         "unlinked_url": unlinked_changelist_url(),

@@ -458,6 +458,17 @@ fieldset.field {
   background: var(--chip-fg, var(--muted));
 }
 
+/* Entered in the clinical system's appointment screen (rendered for rota
+   admins only — the templates gate the class). A strike in the chip's
+   own foreground, so it holds on every tint in both themes with no new
+   token; the tint, the draft hatch, the clash ring and the note dot are
+   untouched. What the practice did on the sheet, so it needs no legend. */
+.chip.is-entered {
+  text-decoration: line-through;
+  text-decoration-color: var(--chip-fg, var(--muted));
+  text-decoration-thickness: 2px;
+}
+
 /* ------------------------------------------------------------ badges --- */
 
 .badge {

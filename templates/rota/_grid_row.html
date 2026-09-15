@@ -1,16 +1,15 @@
 {% comment %}One clinician's row. Rendered by the grid page for every row
 and by /rota/entered/ for the one row it changed, so there is one row
-markup. Context: row, is_admin.{% endcomment %}
+markup. Context: row, is_admin, tick, anchor.{% endcomment %}
 <tr class="{% if row.mine %}mine{% endif %}">
   <th class="grid-clin" scope="row" title="{{ row.clinician.name }}">{{ row.clinician.initials }}</th>
   {% for cell in row.cells %}
   <td {% if cell.merged %}colspan="2"{% endif %}
       class="{% if cell.entry and not cell.entry.is_published %}draft{% endif %}{% if cell.closed %} closed{% endif %}{% if cell.week_start %} week-start{% endif %}{% if cell.today %} is-today{% endif %}"
-      {% if is_admin %}hx-get="/rota/cell/{{ row.clinician.id }}/{{ cell.day_str }}/{{ cell.part }}/"
-      hx-target="#modal"{% endif %}
-      title="{{ cell.entry.fill_reason|default:'' }} {{ cell.note }}{% if cell.partner %} with {{ cell.partner }}{% endif %}{% if cell.clash %}{% if cell.entry.fill_reason or cell.note or cell.partner %} — {% endif %}On Breathe leave: {{ cell.leave_label }}{% endif %}">
+      {% if is_admin and tick %}{% if cell.entry %}hx-post="/rota/entered/" hx-vals='{"clinician_id": {{ row.clinician.id }}, "day": "{{ cell.day_str }}", "part": "{{ cell.part }}", "week": "{{ anchor|date:'Y-m-d' }}"}' hx-target="closest tr" hx-swap="outerHTML"{% endif %}{% elif is_admin %}hx-get="/rota/cell/{{ row.clinician.id }}/{{ cell.day_str }}/{{ cell.part }}/" hx-target="#modal"{% endif %}
+      title="{% if is_admin and cell.entered %}Entered {{ cell.entry.entered_at|date:'D j M H:i' }} by {{ cell.entered_by }} — {% endif %}{{ cell.entry.fill_reason|default:'' }} {{ cell.note }}{% if cell.partner %} with {{ cell.partner }}{% endif %}{% if cell.clash %}{% if cell.entry.fill_reason or cell.note or cell.partner %} — {% endif %}On Breathe leave: {{ cell.leave_label }}{% endif %}">
     {% if cell.entry %}
-      <span class="chip{% if not cell.entry.is_published %} is-draft{% endif %}{% if cell.clash %} is-clash{% endif %}{% if cell.note %} has-note{% endif %}"
+      <span class="chip{% if not cell.entry.is_published %} is-draft{% endif %}{% if cell.clash %} is-clash{% endif %}{% if cell.note %} has-note{% endif %}{% if is_admin and cell.entered %} is-entered{% endif %}"
             style="--chip-bg: var(--tint-{{ cell.entry.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ cell.entry.session_type.tint.key }}-fg);">
         {{ cell.entry.session_type.code }}{% if cell.entry.site %}<span class="site-marker">{{ cell.entry.site.name|slice:":1" }}</span>{% endif %}
       </span>
