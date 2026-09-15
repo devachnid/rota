@@ -94,7 +94,7 @@ def test_saving_the_form_stores_the_link(staff_client):
     c = make_clinician("Link Me")
     with _with(FakeClient()):
         resp = staff_client.post(f"/admin/rota/clinician/{c.pk}/change/", {
-            "name": "Link Me", "initials": "LM", "group": c.group_id, "active": "on",
+            "name": "Link Me", "initials": "LM", "group": c.group_id, "display_order": "100", "active": "on",
             "breathe_employee_id": "2340357",
             "trainee_profile-TOTAL_FORMS": "0", "trainee_profile-INITIAL_FORMS": "0",
             "commitments-TOTAL_FORMS": "0", "commitments-INITIAL_FORMS": "0",
