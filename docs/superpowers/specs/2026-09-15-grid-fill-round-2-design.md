@@ -308,7 +308,7 @@ next empty week, then types it in, every time.
 
 - Under the date fields: "Suggested from Mon 12 Oct — the first week under
   half filled (3 of 48 sessions)". When nothing in 26 weeks is under half:
-  "Every week to <date> is over half filled; defaulting to next Monday."
+  "No week to <date> is under half filled; defaulting to next Monday."
   The dates stay editable.
 
 ### Tests
@@ -366,12 +366,15 @@ closed day or a clinician outside their dates. Users read blank as
 - The grid's `{% elif cell.off %}` branch splits: `off_pattern` renders
   `<span class="chip is-off">OFF</span>` with `title="Not a working
   session"`; any other `off` renders the blank chip as now.
-- `components.css`: `.chip.is-off` gains `color: var(--muted)`, `font-size:
-  var(--fs-xs)` and `background: var(--sunken)`, replacing the transparent
-  ground. `test_chrome_contrast.py` gains the muted-on-sunken pairing for
-  both themes. The comment at the chip block and the docstring of
-  `test_grid_rendering.py` that say "blank means not working" are
-  rewritten: blank means closed or not employed; OFF means not working.
+- `components.css`: the OFF chip carries `is-off is-not-working`; the
+  second class gives it `background: var(--sunken)`, and the chip's
+  fallback `--muted` foreground does the rest. The blank `is-off` chip
+  stays transparent, so closed and out-of-window cells look as they do
+  now. Muted on sunken is already a checked pairing in
+  `test_chrome_contrast.py`; its description gains the OFF chip. The
+  comment at the chip block and the docstring of `test_grid_rendering.py`
+  that say "blank means not working" are rewritten: blank means closed or
+  not employed; OFF means not working.
 - The day view's dash and My Schedule's dash stay.
 
 ### Tests
