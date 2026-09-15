@@ -80,6 +80,15 @@ def cell_state(clinician_id, day, part, *, entry, resolver, closed,
                    and resolver.has_pattern(clinician_id)
                    and resolver.in_service(clinician_id, day))
 
+    # Who keyed it in, for the tooltip: the actor's initials when they are
+    # a clinician, else their email. Read only when marked, so an
+    # unmarked cell never touches the relation.
+    entered = entry is not None and entry.entered_at is not None
+    entered_by = ""
+    if entered and entry.entered_by is not None:
+        who = getattr(entry.entered_by, "clinician", None)
+        entered_by = who.initials if who else entry.entered_by.email
+
     return {
         "day": day,
         "day_str": day.isoformat(),
@@ -94,6 +103,8 @@ def cell_state(clinician_id, day, part, *, entry, resolver, closed,
         "clash": clash,
         "closed": closed,
         "partner": partner,
+        "entered": entered,
+        "entered_by": entered_by,
     }
 
 
@@ -103,11 +114,12 @@ def one_block(am, pm):
     They do when both hold an entry and the two chips would look the same:
     same session type, same site (the chip shows its letter), both drafts or
     both published (the hatch is per chip), the same leave clash (the ring
-    is too) and the same mentoring partner. Notes may differ — `day_note`
-    folds them into one tooltip. Purely how the grid draws the day: the
-    allocation group that assisted fill and "Apply to full day" write is
-    not consulted, so a day placed one half at a time, or imported, merges
-    the same way, and nothing about the entries changes.
+    is too), the same mentoring partner, and both marked as entered in the
+    clinical system or neither (the strike is per chip). Notes may differ —
+    `day_note` folds them into one tooltip. Purely how the grid draws the
+    day: the allocation group that assisted fill and "Apply to full day"
+    write is not consulted, so a day placed one half at a time, or
+    imported, merges the same way, and nothing about the entries changes.
     """
     a, b = am["entry"], pm["entry"]
     return (a is not None and b is not None
@@ -115,7 +127,8 @@ def one_block(am, pm):
             and a.site_id == b.site_id
             and a.is_published == b.is_published
             and am["clash"] == pm["clash"]
-            and am["partner"] == pm["partner"])
+            and am["partner"] == pm["partner"]
+            and (a.entered_at is None) == (b.entered_at is None))
 
 
 def day_note(am, pm):

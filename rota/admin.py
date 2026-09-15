@@ -542,18 +542,22 @@ class PracticeSettingsAdmin(ModelAdmin):
 @admin.register(RotaEntry)
 class RotaEntryAdmin(ModelAdmin):
     list_display = ("day", "part", "clinician", "session_type", "site",
-                    "is_published", "manually_set")
-    list_filter = ("is_published", "manually_set", "session_type", "clinician")
+                    "is_published", "manually_set", "entered_at")
+    list_filter = ("is_published", "manually_set",
+                   ("entered_at", admin.EmptyFieldListFilter),
+                   "session_type", "clinician")
     search_fields = ("clinician__name", "note")
     date_hierarchy = "day"
     list_select_related = ("clinician", "session_type", "site")
+    readonly_fields = ("entered_at", "entered_by")
     fieldsets = (
         (None, {"fields": ("day", "part", "clinician", "session_type", "site", "note")}),
         ("State", {
-            "fields": ("is_published", "manually_set", "fill_reason"),
+            "fields": ("is_published", "manually_set", "fill_reason", "entered_at", "entered_by"),
             "description": "Published entries are what GPs see. Manually set entries "
                            "are never overwritten by assisted fill; untick to let the "
-                           "engine take a cell back.",
+                           "engine take a cell back. Entered says when the session was "
+                           "keyed into the clinical system, from the grid's ticking mode.",
         }),
         ("Grouping", {"fields": ("allocation_group", "companion_group"), "classes": ("collapse",)}),
     )
