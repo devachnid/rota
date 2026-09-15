@@ -66,6 +66,19 @@ body.page-grid {
   color: var(--muted);
 }
 
+/* The week header row: label left, the week's Publish beside it. */
+.grid-week {
+  text-align: left;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--ink);
+  vertical-align: middle;
+}
+.week-publish {
+  display: inline-block;
+  margin-left: var(--sp-2);
+}
+
 /* Sticky first column (clinician initials); .table-grid supplies the
    sticky positioning itself, this layers on the text treatment. */
 .grid-clin {

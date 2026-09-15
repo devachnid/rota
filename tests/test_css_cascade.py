@@ -364,11 +364,13 @@ def test_only_the_clinician_column_is_given_a_width():
     surplus on a 1080p screen went out 88/648 to the initials column — pushing
     a two-letter initial to ~164px — instead of splitting evenly over the ten
     session columns. Leaving the day columns auto is the whole fix, so any
-    rule that re-introduces a width on one fails here."""
+    rule that re-introduces a width on one fails here. The week header cell
+    joins the rule: it spans a week's columns and a width on it would be a
+    floor on the whole week."""
     assert declares(".table-grid .grid-clin", "width") == "5.5rem"
     offenders = [
         r for r in RULES
-        if re.search(r"\.grid-(day|part)\b", r.selector)
+        if re.search(r"\.grid-(day|part|week)\b", r.selector)
         and {"width", "min-width", "max-width"} & set(r.declarations)
     ]
     assert not offenders, (
@@ -378,16 +380,34 @@ def test_only_the_clinician_column_is_given_a_width():
 
 def test_the_grid_has_its_horizontal_floor_on_the_table():
     """With the day columns auto there is no per-column floor left, so the
-    floor moves to the table: `.grid-wrap` is `overflow: auto`, and a table
+    floor lives on the table: `.grid-wrap` is `overflow: auto`, and a table
     wider than it scrolls sideways inside it. min-width on the *cells* would
-    be inert — it is not an input to the fixed-layout algorithm — so the
-    declaration has to be on `.table-grid` itself and in a length that does
-    not resolve against the wrapper it is supposed to overflow."""
+    be inert — it is not an input to the fixed-layout algorithm. The floor
+    used to be one length sized for a five-day week (42rem); the grid now
+    renders a window of weeks, so the template sets `--cols` to the number
+    of half-day columns and the floor is a calc() over it. The per-column
+    term is what the old floor gave each of ten columns after the 5.5rem
+    name column, so a one-week window would render exactly as before and an
+    eight-week one is eight times wider than the pane."""
     floor = declares(".table-grid", "min-width")
-    assert re.fullmatch(r"[\d.]+rem", floor), floor
-    assert float(floor.removesuffix("rem")) >= 40, floor
+    m = re.fullmatch(r"calc\(5\.5rem \+ var\(--cols(?:,\s*\d+)?\) \* ([\d.]+)rem\)", floor)
+    assert m, floor
+    assert float(m.group(1)) >= 3.5, floor
     wrap = rule(".grid-wrap")
     assert wrap.declarations.get("overflow") == "auto", wrap.declarations
+
+
+def test_week_boundary_and_today_marks_do_not_touch_positioning():
+    """Both classes land on header cells inside the sticky <thead> and on
+    the frozen .grid-clin's neighbours; a position/top/left/z-index on
+    either would fight the sticky rules."""
+    for selector in (".table-grid .week-start", ".table-grid thead th.is-today",
+                      ".table-grid td.is-today"):
+        decl = rule(selector).declarations
+        assert not {"position", "top", "left", "z-index"} & set(decl), (selector, decl)
+    assert declares(".table-grid .week-start", "border-left").startswith("2px solid var(--")
+    assert declares(".table-grid thead th.is-today", "background") == "var(--accent-soft)"
+    assert declares(".table-grid td.is-today", "box-shadow").startswith("inset")
 
 
 def test_the_grid_pane_is_sized_by_layout_not_a_viewport_guess():

@@ -330,17 +330,22 @@ fieldset.field {
    week taller than the pane puts on .grid-wrap (the pane is the room left
    under the toolbar, screens.css) — so the floor never bites on a desktop. min-width on the
    *cells* would have been the inert version of this: it is not an input to
-   the fixed-layout algorithm. The floor is one length rather than per-column,
-   so it is sized for the default five open weekdays
-   (PracticeSettings.open_weekdays); a practice that opens six or seven days
-   spreads the same 672px over 12 or 14 columns and starts scrolling a little
-   later than it should.
+   the fixed-layout algorithm.
+
+   The floor is a calc() over --cols, which the template sets to the number
+   of half-day columns in the window (grid.html): 3.5rem per column after
+   the 5.5rem name column is exactly what the old 42rem floor gave each of
+   ten columns, so a one-week window would render as before and an
+   eight-week one is eight times wider than the pane and scrolls inside
+   it. A practice open six or seven days gets the same 3.5rem per column
+   instead of squeezing.
 
    No declaration here touches position/top/left/z-index, so the sticky
    <thead> and sticky .grid-clin below are unaffected. */
 .table-grid { border-collapse: separate; border-spacing: 2px;
               font-variant-numeric: tabular-nums; width: 100%;
-              min-width: 42rem; table-layout: fixed; }
+              min-width: calc(5.5rem + var(--cols, 10) * 3.5rem);
+              table-layout: fixed; }
 .table-grid tbody tr { height: var(--row-h); }
 /* thead carries its own background as well as the cells: border-spacing: 2px
    leaves a transparent 2px strip between the two header rows, and with only
@@ -365,6 +370,21 @@ fieldset.field {
    put the highlight. (0,3,1) beats it; nothing about the sticky positioning
    is touched. */
 .table-grid tr.mine .grid-clin { background: var(--accent-soft); }
+
+/* Week boundaries and today. The window shows eight weeks in one table,
+   so the first column of each week — the week cell, the day cell, the AM
+   part cell and every body cell under them — carries a heavier left
+   border the full height of the table. --muted rather than --hairline:
+   1px hairline is too faint to follow across a 25-row table. Today's
+   header cells take the accent-soft ground (ink on accent-soft is a
+   checked pairing); today's body cells take a 1px inset ring on the td,
+   not a background, so the chip's own tint is untouched. Neither touches
+   position/top/left/z-index (tests/test_css_cascade.py). */
+.table-grid .week-start { border-left: 2px solid var(--muted); }
+.table-grid thead th.is-today { background: var(--accent-soft); }
+.table-grid td.is-today {
+  box-shadow: inset 1px 0 0 var(--accent), inset -1px 0 0 var(--accent);
+}
 
 /* ------------------------------------------------------------- chips --- */
 
