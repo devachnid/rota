@@ -83,8 +83,9 @@ def test_a_worked_but_unallocated_session_is_grey(admin_client):
     )
     assert chips[(c.id, _iso(0), "PM")] == "is-off is-not-working"
     assert chips[(c.id, _iso(1), "AM")] == "is-off is-not-working"
-    assert sum(1 for v in chips.values() if v == "empty-slot") == 1, (
-        "only the one worked session should be grey"
+    assert sum(1 for v in chips.values() if v == "empty-slot") == 8, (
+        "only the one worked session should be grey -- and the window shows "
+        "eight weeks, so exactly one Monday AM per week and nothing else"
     )
 
 
@@ -255,17 +256,19 @@ def test_a_clinician_with_no_pattern_gets_no_ghosts_outside_their_window(
     """The no-pattern chip clause never consulted the date window, so a new
     joiner whose start_date is a month away — and who has no pattern rows yet,
     which is exactly the state a new joiner is in — got a chip on all ten
-    sessions of a week they are not employed for. Since the grid stopped
-    listing anyone outside their window for the whole week, the joiner has
-    no row here at all; the absence must still not surface anywhere."""
+    sessions of a week they are not employed for. The eight-week window
+    reaches past their start date, so they do have a row here; every session
+    of it must read blank and the absence must not surface anywhere."""
     c = make_clinician("Joiner", initials="JO",
                        start_date=MON + timedelta(days=30))
     make_absence(c, MON, MON + timedelta(days=4))
     html = _cells(admin_client)
     n = html.count("from Breathe")
     assert n == 0, f"showed {n} absence chips before the clinician's start date"
-    assert "Joiner" not in html
-    assert _chips(html) == {}
+    assert set(_chips(html).values()) == {"is-off"}, (
+        "with no pattern rows and no entries, every session reads blank — "
+        "before the start date and after it"
+    )
 
 
 @pytest.mark.django_db
@@ -317,6 +320,11 @@ def test_a_reordered_open_weekdays_does_not_run_the_leave_range_backwards(
     c = make_clinician("Backwards", initials="BW")
     _full_pattern(c)
     make_absence(c, MON)
+    # Publish now sits in the week's header cell and renders only where
+    # there are drafts, so the week needs one for its end date to be read.
+    # Tuesday, to leave Monday AM's absence chip alone.
+    make_entry(c, day=MON + timedelta(days=1), part="AM", is_published=False,
+               session_type=make_session_type("Routine", code="ROUT"))
     html = admin_client.get(f"/rota/?week={MON.isoformat()}").content.decode()
 
     chips = _chips(html)

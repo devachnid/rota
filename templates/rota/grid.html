@@ -1,36 +1,45 @@
 {% extends "base.html" %}{% load static %}
-{% block title %}Rota — week of {{ monday }}{% endblock %}
+{% block title %}Rota — weeks of {{ start|date:"j M" }} – {{ end|date:"j M Y" }}{% endblock %}
 {% block body_attrs %} class="page-grid"{% endblock %}
 {% block content %}
 <div class="toolbar">
-  <a href="?week={{ prev_week|date:'Y-m-d' }}" class="btn">&larr; Prev</a>
-  <h2>Week of {{ monday|date:"j M Y" }}</h2>
-  <a href="?week={{ next_week|date:'Y-m-d' }}" class="btn">Next &rarr;</a>
+  <a href="?week={{ earlier|date:'Y-m-d' }}" class="btn">&larr; Earlier</a>
+  <a href="?week={{ today|date:'Y-m-d' }}" class="btn" id="grid-today"{% if today_shown %} data-scroll="1"{% endif %}>Today</a>
+  <a href="?week={{ later|date:'Y-m-d' }}" class="btn">Later &rarr;</a>
+  <h2>Weeks of {{ start|date:"j M" }} – {{ end|date:"j M Y" }}</h2>
   <form method="get"><input type="date" name="week"><button class="btn">Go</button></form>
   {% if has_clinician %}
   <a href="/me/swap/new/" class="btn">Propose swap</a>
-  {% endif %}
-  {% if is_admin %}
-  <form hx-post="/rota/publish/">
-    <input type="hidden" name="start" value="{{ monday|date:'Y-m-d' }}">
-    <input type="hidden" name="end" value="{{ week_end|date:'Y-m-d' }}">
-    <button class="btn btn-primary">Publish week</button>
-  </form>
   {% endif %}
 </div>
 {% if unlinked_count %}
 <div class="warn">{{ unlinked_count }} clinician{{ unlinked_count|pluralize }} not linked to Breathe — no leave is read for them. <a href="{{ unlinked_url }}">Link them</a>.</div>
 {% endif %}
-{% for w in week_warnings %}<div class="warn">{{ w.message }}</div>{% endfor %}
 <script src="{% static 'js/grid.js' %}" defer></script>
 <div class="grid-wrap">
-<table class="table-grid">
-<caption class="visually-hidden">Rota for the week of {{ monday|date:"j F Y" }}</caption>
+<table class="table-grid" style="--cols: {{ cols }}" data-start="{{ start|date:'Y-m-d' }}">
+<caption class="visually-hidden">Rota for the weeks of {{ start|date:"j F Y" }} to {{ end|date:"j F Y" }}</caption>
 <thead>
 <tr>
   <th class="grid-clin"></th>
+  {% for w in weeks %}
+  <th colspan="{{ w.colspan }}" scope="colgroup" class="grid-week week-start{% if w.is_anchor %} is-anchor{% endif %}" data-monday="{{ w.monday|date:'Y-m-d' }}">
+    <span class="week-label">Week of {{ w.monday|date:"j M" }}</span>
+    {% if is_admin and w.drafts %}
+    <form hx-post="/rota/publish/" class="week-publish">
+      <input type="hidden" name="start" value="{{ w.monday|date:'Y-m-d' }}">
+      <input type="hidden" name="end" value="{{ w.end|date:'Y-m-d' }}">
+      <button class="btn btn-primary">Publish · {{ w.drafts }} draft{{ w.drafts|pluralize }}</button>
+    </form>
+    {% endif %}
+    {% for x in w.warnings %}<div class="warn">{{ x.message }}</div>{% endfor %}
+  </th>
+  {% endfor %}
+</tr>
+<tr>
+  <th class="grid-clin"></th>
   {% for h in day_headers %}
-  <th colspan="2" scope="colgroup" class="grid-day{% if h.closed %} closed{% endif %}"
+  <th colspan="2" scope="colgroup" class="grid-day{% if h.closed %} closed{% endif %}{% if h.week_start %} week-start{% endif %}{% if h.today %} is-today{% endif %}"
       {% if is_admin %}hx-get="/rota/daynote/{{ h.day|date:'Y-m-d' }}/" hx-target="#modal"{% endif %}>
     {{ h.day|date:"D j M" }}
     {% if h.note %}<div class="daynote">{{ h.note.text }}</div>{% endif %}
@@ -38,46 +47,17 @@
   </th>
   {% endfor %}
 </tr>
-<tr><th class="grid-clin"></th>{% for h in day_headers %}<th class="grid-part{% if h.closed %} closed{% endif %}" scope="col">AM</th><th class="grid-part{% if h.closed %} closed{% endif %}" scope="col">PM</th>{% endfor %}</tr>
+<tr><th class="grid-clin"></th>{% for h in day_headers %}<th class="grid-part{% if h.closed %} closed{% endif %}{% if h.week_start %} week-start{% endif %}{% if h.today %} is-today{% endif %}" scope="col">AM</th><th class="grid-part{% if h.closed %} closed{% endif %}{% if h.today %} is-today{% endif %}" scope="col">PM</th>{% endfor %}</tr>
 </thead>
 {% for section in sections %}
 <tbody>
 <tr class="grid-group"><td colspan="{{ colspan }}">{{ section.group.name }}</td></tr>
-{% for row in section.rows %}
-<tr class="{% if row.mine %}mine{% endif %}">
-  <th class="grid-clin" scope="row" title="{{ row.clinician.name }}">{{ row.clinician.initials }}</th>
-  {% for cell in row.cells %}
-  <td {% if cell.merged %}colspan="2"{% endif %}
-      class="{% if cell.entry and not cell.entry.is_published %}draft{% endif %}{% if cell.closed %} closed{% endif %}"
-      {% if is_admin %}hx-get="/rota/cell/{{ row.clinician.id }}/{{ cell.day_str }}/{{ cell.part }}/"
-      hx-target="#modal"{% endif %}
-      title="{{ cell.entry.fill_reason|default:'' }} {{ cell.note }}{% if cell.partner %} with {{ cell.partner }}{% endif %}{% if cell.clash %}{% if cell.entry.fill_reason or cell.note or cell.partner %} — {% endif %}On Breathe leave: {{ cell.leave_label }}{% endif %}">
-    {% if cell.entry %}
-      <span class="chip{% if not cell.entry.is_published %} is-draft{% endif %}{% if cell.clash %} is-clash{% endif %}{% if cell.note %} has-note{% endif %}"
-            style="--chip-bg: var(--tint-{{ cell.entry.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ cell.entry.session_type.tint.key }}-fg);">
-        {{ cell.entry.session_type.code }}{% if cell.entry.site %}<span class="site-marker">{{ cell.entry.site.name|slice:":1" }}</span>{% endif %}
-      </span>
-    {% elif cell.absence %}
-      <span class="chip" title="{{ cell.leave_label }} — from Breathe"
-            style="--chip-bg: var(--tint-{{ cell.absence.tint.key }}-bg); --chip-fg: var(--tint-{{ cell.absence.tint.key }}-fg);">
-        {{ cell.absence.code }}
-      </span>
-    {% elif cell.off_pattern %}
-      <span class="chip is-off is-not-working" title="Not a working session">OFF</span>
-    {% elif cell.off %}
-      <span class="chip is-off">&nbsp;</span>
-    {% else %}
-      <span class="chip empty-slot">&nbsp;</span>
-    {% endif %}
-  </td>
-  {% endfor %}
-</tr>
-{% endfor %}
+{% for row in section.rows %}{% include "rota/_grid_row.html" %}{% endfor %}
 {% if section.group.is_locum_group %}
 <tr>
   <th class="grid-clin" scope="row">Need</th>
   {% for cell in locum_cells %}
-  <td>
+  <td class="{% if cell.week_start %}week-start{% endif %}{% if cell.today %} is-today{% endif %}">
     {% for r in cell.reqs %}
     <span class="badge {{ r.status }}"
           {% if is_admin %}hx-get="/rota/locum/{{ r.id }}/form/" hx-target="#modal"{% endif %}
