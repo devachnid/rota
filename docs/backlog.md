@@ -26,6 +26,23 @@ autofill v2 review processes had accumulated:
 
 ## Settled
 
+- **Grid and fill, round 2** (2026-09-15; spec
+  `docs/superpowers/specs/2026-09-15-grid-fill-round-2-design.md`). The
+  grid renders eight weeks in one table — a header cell per week with
+  that week's Publish and ceiling warning, a heavier rule at each week
+  boundary, today tinted, Earlier/Later stepping four weeks, a Today
+  button, and scroll position kept across the refresh a save triggers.
+  The row assembly moved from the view into `rota/services/grid.py`
+  (`Window`) and the warnings gained a `WarningBundle`, so forty days
+  cost the same queries as five (pinned by a test). **Ticking mode**
+  marks a session as entered in the clinical system — a timestamp and
+  actor on the entry, struck through for admins only, cleared by a type
+  or site change, a swap, or a fill replacing the draft. The fill screen
+  opens on the first week under half filled
+  (`rota/services/next_week.py`). Clinicians carry a display order within
+  their group. A usual non-working half-day reads OFF; closed and
+  out-of-window cells stay blank.
+
 - **A one-off import from the old Google Sheets rota** (2026-09-12).
   `scripts/old_rota_to_csv.py` reads a year tab of the .xlsx export into a
   long CSV (cell comments as notes); `manage.py import_rota` maps rows and
@@ -269,8 +286,7 @@ Parked by the account-access work (2026-09-04), none blocking:
 - **The signed-in email in the header is now a link and carries the browser's
   default underline**; no CSS was added. A look call for Tom on staging.
 - **The dashboard's query count scales with coverage rules and entries** (from
-  the admin overhaul, PR #8); a windowed resolver in `day_warnings` is service
-  work. Also from that branch: the colour-swatch radios carry no `id`; the
+  the admin overhaul, PR #8). `day_warnings` now takes a prefetched `WarningBundle` and the grid passes one; the dashboard and the staffing report still call it per day and could pass one too. Also from that branch: the colour-swatch radios carry no `id`; the
   ordered-checkbox widget hard-codes `max="7"`.
 
 ## Configuration notes

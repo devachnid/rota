@@ -77,6 +77,27 @@ to the rota entry log per deletion, naming the range and the counts.
 clicking a cell on the grid; the admin view is for bulk corrections and for
 seeing the fields the grid hides.
 
+The grid shows **eight weeks at once** — one before the week you asked for
+and six after — in one sideways-scrolling table. Each week has its own
+header cell with the week's date, its **Publish** button (shown only while
+the week holds drafts, and publishing only that week), and any per-week
+ceiling warning. A heavier line marks where each week starts; today's
+column is tinted. **Earlier** and **Later** move the window four weeks;
+**Today** scrolls to today's column, or reloads on this week when today
+is off the page; the date box jumps to any week. After you save a cell the
+page comes back where you left it.
+
+**Ticking mode** is for keying sessions into the clinical system's
+appointment screen. Switch it on from the toolbar (admins only): clicking
+a session marks it as entered and strikes its code through, clicking again
+unmarks it, and a whole-day chip marks both halves. Nothing else on the
+grid changes and the page does not reload. Switch it off to edit cells
+again. The mark records when and by whom (the cell's tooltip says), and it
+is **cleared automatically** when the session's type or site is changed,
+when a swap moves it, or when assisted fill replaces a draft — because the
+appointment screen would need redoing. Only admins see the strike; GPs see
+the session as usual.
+
 On the grid, the cell you clicked is ringed while its form is open, so there
 is no doubt which one is being edited. A day whose AM and PM would show the
 same chip — same session type, same site, both published or both drafts, the
@@ -110,6 +131,9 @@ says so and asks you to save again before replacing it.
 - **Manually set** — marks the entry as placed by a human. **Assisted fill will
   not delete or overwrite it.** Set automatically when an admin edits a cell; if
   you want the fill engine to take an entry back over, untick this.
+- **Entered** — when, and by whom, the session was keyed into the clinical
+  system's appointment screen. Set from the grid's ticking mode; the admin
+  list filters on it ("Entered: empty" is what is left to key in).
 - **Allocation group** — links one clinician's AM and PM into a full day, so
   changing one half correctly splits the pair. The grid does not read it:
   a whole-day chip is drawn whenever the two halves match, grouped or not.
