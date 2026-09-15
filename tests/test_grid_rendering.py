@@ -4,10 +4,8 @@ Cell precedence:
     entry exists                -> the entry
     absence from Breathe        -> a chip with the Breathe code
     works_on                    -> grey: working, nothing allocated
-    otherwise                   -> blank: not working
-
-The colours are the reverse of what shipped: blank now means "not here", grey
-means "here and unallocated" — the state that needs attention.
+    usual non-working half-day  -> OFF, muted on the sunken ground
+    otherwise                   -> blank: closed, or not employed that day
 """
 
 import re
@@ -75,7 +73,7 @@ def _iso(offset):
 def test_a_worked_but_unallocated_session_is_grey(admin_client):
     """Per cell, not per page. `"empty-slot" in html` was true of the exact
     inversion this task shipped to fix: one clinician working Monday AM gives
-    the page 1 empty-slot and 9 is-off, and swapping the template's two
+    the page 1 empty-slot and 9 is-off-is-not-working, and swapping the template's two
     branches gives it 9 and 1 — that assertion passes either way."""
     c = make_clinician("Grey", initials="GY")
     _pattern(c, 0, "AM")
@@ -83,27 +81,37 @@ def test_a_worked_but_unallocated_session_is_grey(admin_client):
     assert chips[(c.id, _iso(0), "AM")] == "empty-slot", (
         "the worked, unallocated session should carry the grey class"
     )
-    assert chips[(c.id, _iso(0), "PM")] == "is-off"
-    assert chips[(c.id, _iso(1), "AM")] == "is-off"
+    assert chips[(c.id, _iso(0), "PM")] == "is-off is-not-working"
+    assert chips[(c.id, _iso(1), "AM")] == "is-off is-not-working"
     assert sum(1 for v in chips.values() if v == "empty-slot") == 1, (
         "only the one worked session should be grey"
     )
 
 
 @pytest.mark.django_db
-def test_a_non_working_session_is_blank(admin_client):
-    """`"unavail" not in html` was true of any implementation whatsoever —
-    the class was deleted. Assert the class that is actually expected."""
+def test_a_non_working_session_reads_off(admin_client):
+    """A part-timer's day off used to be blank, the same as a closed day or
+    a session outside someone's dates, and users read blank as "not filled
+    yet". It now says OFF; the other blanks stay blank."""
     c = make_clinician("Blank", initials="BL")
     _pattern(c, 0, "AM", works=False)
-    chips = _chips(_cells(admin_client))
-    assert chips[(c.id, _iso(0), "AM")] == "is-off", (
-        "a session the pattern says is not worked should render blank"
-    )
-    assert set(chips.values()) == {"is-off"}, (
+    html = _cells(admin_client)
+    chips = _chips(html)
+    assert chips[(c.id, _iso(0), "AM")] == "is-off is-not-working"
+    assert set(chips.values()) == {"is-off is-not-working"}, (
         "this clinician works nothing, so nothing should be grey"
     )
-    assert "unavail" not in _cells(admin_client), "the old class is gone"
+    assert 'title="Not a working session">OFF<' in html
+    assert "unavail" not in html, "the old class is gone"
+
+
+@pytest.mark.django_db
+def test_a_closed_day_stays_blank_for_a_non_working_session(admin_client):
+    c = make_clinician("Closed", initials="CD")
+    _pattern(c, 0, "AM", works=False)
+    ClosedDay.objects.create(day=MON, reason="Bank holiday")
+    chips = _chips(_cells(admin_client))
+    assert chips[(c.id, _iso(0), "AM")] == "is-off"
 
 
 @pytest.mark.django_db

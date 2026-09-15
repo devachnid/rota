@@ -235,3 +235,43 @@ def test_outside_the_window_only_an_entry_earns_a_row(is_locum, has_entry, shown
     which must stay reachable so it can be reviewed, moved or removed."""
     assert shows_on_roster(is_locum=is_locum, has_entry=has_entry,
                            in_service=False) is shown
+
+
+def test_a_slot_the_pattern_says_is_not_worked_is_off_pattern():
+    c = make_clinician()
+    _works(c, weekday=0)  # Mondays only
+    cell = cell_state(c.id, TUE, "AM", entry=None, resolver=_resolver([c]),
+                      closed=False)
+    assert cell["off_pattern"] is True
+
+
+def test_off_pattern_is_false_on_a_closed_day():
+    c = make_clinician()
+    _works(c, weekday=0)
+    cell = cell_state(c.id, TUE, "AM", entry=None, resolver=_resolver([c]),
+                      closed=True)
+    assert cell["off"] is True and cell["off_pattern"] is False
+
+
+def test_off_pattern_is_false_outside_the_contractual_window():
+    c = make_clinician(end_date=TUE - timedelta(days=1))
+    _works(c)
+    cell = cell_state(c.id, TUE, "AM", entry=None, resolver=_resolver([c]),
+                      closed=False)
+    assert cell["off"] is True and cell["off_pattern"] is False
+
+
+def test_off_pattern_is_false_with_no_pattern_rows_at_all():
+    c = make_clinician()
+    cell = cell_state(c.id, TUE, "AM", entry=None, resolver=_resolver([c]),
+                      closed=False)
+    assert cell["off"] is True and cell["off_pattern"] is False
+
+
+def test_off_pattern_is_false_under_an_entry():
+    c = make_clinician()
+    _works(c, weekday=0)
+    e = make_entry(c, day=TUE, part="AM")
+    cell = cell_state(c.id, TUE, "AM", entry=e, resolver=_resolver([c]),
+                      closed=False)
+    assert cell["off_pattern"] is False

@@ -384,13 +384,20 @@ fieldset.field {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* The two empty states, reversed from what shipped. Blank now means "not
-   working"; grey means "working, nothing allocated" — the state that wants
-   attention, so it is the one that carries weight. Its own token, not
-   --sunken: --sunken is a panel ground and sits at 1.06:1 on the white cell
-   in light mode, which is to say invisible (tokens.css). */
+/* Three empty states. Blank means closed, or not employed that day; OFF
+   means a usual non-working half-day (cells.py's off_pattern); grey means
+   "working, nothing allocated" — the state that wants attention, so it is
+   the one that carries weight. Grey has its own token, not --sunken:
+   --sunken is a panel ground and sits at 1.06:1 on the white cell in light
+   mode, which is to say invisible (tokens.css). OFF sits on --sunken on
+   purpose — it is not asking for anything — with the chip's fallback
+   --muted foreground (muted on sunken is a checked pairing in
+   tests/test_chrome_contrast.py). */
 .chip.is-off {
   background: transparent;
+}
+.chip.is-off.is-not-working {
+  background: var(--sunken);
 }
 .chip.empty-slot {
   background: var(--slot);
