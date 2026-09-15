@@ -210,3 +210,53 @@ def test_the_week_ceiling_shows_under_the_toolbar_for_an_admin(admin_client, gp_
     html = admin_client.get(f"/rota/?week={MON.isoformat()}").content.decode()
     assert "Too many LARC this week: 2 sessions, max 1" in html
     assert "Too many LARC" not in gp_client.get(f"/rota/?week={MON.isoformat()}").content.decode()
+
+
+def test_a_bundle_gives_the_same_day_warnings_with_no_queries(
+        duty_rule, django_assert_num_queries):
+    """The grid renders forty days at once; without the bundle each day
+    is its own set of queries."""
+    from rota.services.availability import AvailabilityResolver
+    from rota.services.warnings import WarningBundle
+    PracticeSettings.objects.update_or_create(pk=1, defaults={"min_clinical_per_session": 1})
+    c = make_clinician()
+    c.group.min_per_session = 2
+    c.group.save()
+    make_entry(c, part="AM", session_type=duty_rule)
+    LocumRequirement.objects.create(
+        day=MON, part="PM", session_type=duty_rule,
+        status=LocumRequirement.Status.ADVERTISED)
+    days = [MON + timedelta(days=i) for i in range(5)]
+    resolver = AvailabilityResolver([], [c], [], {})
+    plain = [day_warnings(d, resolver=resolver) for d in days]
+    bundle = WarningBundle.load(days)
+    with django_assert_num_queries(0):
+        bundled = [day_warnings(d, resolver=resolver, bundle=bundle) for d in days]
+    assert bundled == plain
+    assert any("locum advertised" in w.message for w in bundled[0])
+
+
+def test_a_bundle_gives_the_same_week_warnings_with_no_queries(django_assert_num_queries):
+    from rota.services.warnings import WarningBundle
+    larc = make_session_type("LARC", max_per_week=1)
+    c = make_clinician()
+    make_entry(c, day=MON, part="AM", session_type=larc)
+    make_entry(c, day=MON + timedelta(days=1), part="AM", session_type=larc)
+    days = [MON + timedelta(days=i) for i in range(5)]
+    plain = week_warnings(days)
+    bundle = WarningBundle.load(days)
+    with django_assert_num_queries(0):
+        bundled = week_warnings(days, bundle=bundle)
+    assert bundled == plain and len(bundled) == 1
+
+
+def test_a_bundle_respects_include_drafts():
+    from rota.services.warnings import WarningBundle
+    larc = make_session_type("LARC", max_per_week=1)
+    c = make_clinician()
+    make_entry(c, day=MON, part="AM", session_type=larc)
+    make_entry(c, day=MON + timedelta(days=1), part="AM", session_type=larc,
+               is_published=False)
+    days = [MON + timedelta(days=i) for i in range(5)]
+    assert week_warnings(days, include_drafts=False,
+                         bundle=WarningBundle.load(days, include_drafts=False)) == []

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from django.db.models import Q
 
 from rota.models import (BreatheAbsence, BreatheLeaveMapping, ClinicianGroup,
-                         CoverageRule, LocumRequirement, PatternSlot,
+                         ClosedDay, CoverageRule, LocumRequirement, PatternSlot,
                          PracticeSettings, RotaEntry, SessionType)
 from rota.services import calendar
 from rota.services.availability import AvailabilityResolver
@@ -18,10 +18,61 @@ class Warning:
     message: str
 
 
-def _locum_suffix(day, part, session_type):
-    req = LocumRequirement.objects.filter(
-        day=day, part=part, session_type=session_type
-    ).first()
+@dataclass
+class WarningBundle:
+    """Everything day_warnings() and week_warnings() read that does not
+    depend on the one day: fetched once by a caller rendering many days
+    (the grid's eight-week window) and sliced per day. Without one the
+    functions fetch for themselves, so the dashboard, the staffing report
+    and the day view are unchanged."""
+    entries_by_day: dict
+    rules: list
+    ceiling_types: list
+    week_types: list
+    groups: list
+    settings: PracticeSettings
+    open_weekdays: set
+    closed: set
+    locum_reqs: dict
+
+    @classmethod
+    def load(cls, days, include_drafts=True):
+        entries = RotaEntry.objects.filter(day__in=days).select_related(
+            "session_type", "clinician", "clinician__group")
+        if not include_drafts:
+            entries = entries.filter(is_published=True)
+        by_day = {}
+        for e in entries:
+            by_day.setdefault(e.day, []).append(e)
+        # First by pk, matching the .first() the unbundled path uses.
+        reqs = {}
+        for r in LocumRequirement.objects.filter(day__in=days).order_by("pk"):
+            reqs.setdefault((r.day, r.part, r.session_type_id), r)
+        settings = PracticeSettings.load()
+        return cls(
+            entries_by_day=by_day,
+            rules=list(CoverageRule.objects.filter(
+                frequency=CoverageRule.Frequency.PER_SLOT).select_related("session_type")),
+            ceiling_types=list(SessionType.objects.filter(
+                Q(max_per_session__isnull=False) | Q(max_per_day__isnull=False))),
+            week_types=list(SessionType.objects.filter(max_per_week__isnull=False)),
+            groups=list(ClinicianGroup.objects.filter(min_per_session__isnull=False)),
+            settings=settings,
+            open_weekdays=set(settings.open_weekday_list()),
+            closed=set(ClosedDay.objects.filter(day__in=days).values_list("day", flat=True)),
+            locum_reqs=reqs,
+        )
+
+    def is_open(self, day):
+        return day.weekday() in self.open_weekdays and day not in self.closed
+
+
+def _locum_suffix(day, part, session_type, bundle=None):
+    if bundle is not None:
+        req = bundle.locum_reqs.get((day, part, session_type.id))
+    else:
+        req = LocumRequirement.objects.filter(
+            day=day, part=part, session_type=session_type).first()
     return f" — locum {req.get_status_display().lower()}" if req else ""
 
 
@@ -77,21 +128,31 @@ def _breathe_conflicts(day, entries, resolver=None):
     return warnings
 
 
-def day_warnings(day, include_drafts=True, resolver=None):
-    if not calendar.is_open(day):
-        return []
-    entries = RotaEntry.objects.filter(day=day).select_related(
-        "session_type", "clinician", "clinician__group"
-    )
-    if not include_drafts:
-        entries = entries.filter(is_published=True)
-    entries = list(entries)
-    settings = PracticeSettings.load()
+def day_warnings(day, include_drafts=True, resolver=None, bundle=None):
+    if bundle is not None:
+        if not bundle.is_open(day):
+            return []
+        entries = bundle.entries_by_day.get(day, [])
+        rules, ceiling_types, groups = bundle.rules, bundle.ceiling_types, bundle.groups
+        settings = bundle.settings
+    else:
+        if not calendar.is_open(day):
+            return []
+        entries = RotaEntry.objects.filter(day=day).select_related(
+            "session_type", "clinician", "clinician__group"
+        )
+        if not include_drafts:
+            entries = entries.filter(is_published=True)
+        entries = list(entries)
+        rules = CoverageRule.objects.filter(
+            frequency=CoverageRule.Frequency.PER_SLOT).select_related("session_type")
+        ceiling_types = SessionType.objects.filter(
+            Q(max_per_session__isnull=False) | Q(max_per_day__isnull=False))
+        groups = ClinicianGroup.objects.filter(min_per_session__isnull=False)
+        settings = PracticeSettings.load()
     warnings = []
 
-    for rule in CoverageRule.objects.filter(
-        frequency=CoverageRule.Frequency.PER_SLOT
-    ).select_related("session_type"):
+    for rule in rules:
         if not rule.applies_on(day):
             continue
         parts = ["AM", "PM"] if rule.unit == CoverageRule.Unit.PER_DAY else rule.parts_for()
@@ -107,15 +168,13 @@ def day_warnings(day, include_drafts=True, resolver=None):
                         else f"{rule.session_type.name} {have}/{rule.count} ({part})")
                 warnings.append(Warning(
                     "coverage", part,
-                    text + _locum_suffix(day, part, rule.session_type),
+                    text + _locum_suffix(day, part, rule.session_type, bundle),
                 ))
 
     # Ceilings on a session type (docs/admin/session-types.md). Sessions, not
     # people: a full day is two, and "one Duty per day" is max_per_session
     # = 1, which caps each AM and PM at one.
-    for st in SessionType.objects.filter(
-        Q(max_per_session__isnull=False) | Q(max_per_day__isnull=False)
-    ):
+    for st in ceiling_types:
         if st.max_per_session is not None:
             for part in ["AM", "PM"]:
                 have = sum(1 for e in entries
@@ -143,7 +202,7 @@ def day_warnings(day, include_drafts=True, resolver=None):
                 f"Only {clinical} clinical GP(s) ({part})",
             ))
 
-    for group in ClinicianGroup.objects.filter(min_per_session__isnull=False):
+    for group in groups:
         for part in ["AM", "PM"]:
             present = sum(
                 1 for e in entries
@@ -161,18 +220,26 @@ def day_warnings(day, include_drafts=True, resolver=None):
     return warnings
 
 
-def week_warnings(days, include_drafts=True):
+def week_warnings(days, include_drafts=True, bundle=None):
     """The one ceiling that only makes sense across a week: a session
-    type's max_per_week, over the open days shown. The grid has no week
-    header, so these render under the week toolbar."""
-    days = [d for d in days if calendar.is_open(d)]
-    types = list(SessionType.objects.filter(max_per_week__isnull=False))
-    if not days or not types:
-        return []
-    entries = RotaEntry.objects.filter(day__in=days, session_type__in=types)
-    if not include_drafts:
-        entries = entries.filter(is_published=True)
-    have = Counter(entries.values_list("session_type_id", flat=True))
+    type's max_per_week, over the open days given. Rendered in the week's
+    header cell on the grid."""
+    if bundle is not None:
+        days = [d for d in days if bundle.is_open(d)]
+        types = bundle.week_types
+        if not days or not types:
+            return []
+        have = Counter(e.session_type_id for d in days
+                       for e in bundle.entries_by_day.get(d, []))
+    else:
+        days = [d for d in days if calendar.is_open(d)]
+        types = list(SessionType.objects.filter(max_per_week__isnull=False))
+        if not days or not types:
+            return []
+        entries = RotaEntry.objects.filter(day__in=days, session_type__in=types)
+        if not include_drafts:
+            entries = entries.filter(is_published=True)
+        have = Counter(entries.values_list("session_type_id", flat=True))
     return [
         Warning("ceiling", None,
                 f"Too many {st.name} this week: {have[st.id]} sessions, max {st.max_per_week}")
