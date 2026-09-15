@@ -13,11 +13,14 @@ pytestmark = pytest.mark.django_db
 URL = f"/rota/?week={MON}"
 
 
-def _cells(html, clinician):
-    """The <td> tags on the clinician's row, as (attributes) strings."""
+def _cells(html, clinician, day=MON):
+    """The <td> tags on the clinician's row for one day, as (attributes)
+    strings. The grid runs eight weeks wide now, so the row opens on the
+    week before the anchor -- the cells are picked by the day whose form
+    they open, not by their position in the row."""
     row = re.search(rf'<th class="grid-clin"[^>]*>{clinician.initials}</th>(.*?)</tr>',
                     html, re.S).group(1)
-    return re.findall(r"<td ([^>]*)>", row)
+    return [td for td in re.findall(r"<td ([^>]*)>", row) if f"/{day}/" in td]
 
 
 def _setup(**pm_kw):

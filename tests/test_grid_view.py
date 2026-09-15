@@ -65,13 +65,14 @@ def test_duty_day_renders_merged(admin_client):
     assert '<td colspan="2"' in html
 
 
-def test_week_param_snaps_to_monday(admin_client):
+def test_week_param_anchors_the_window_on_its_monday(admin_client):
     PracticeSettings.load()
     c = make_clinician()
     make_entry(c, part="AM", session_type=make_session_type("Routine", code="ROUT"))
     wednesday = MON + timedelta(days=2)
     html = admin_client.get(f"/rota/?week={wednesday}").content.decode()
     assert "ROUT" in html
+    assert f'data-monday="{MON}"' in html and "is-anchor" in html
 
 
 def test_closed_day_styled(admin_client):
@@ -81,9 +82,12 @@ def test_closed_day_styled(admin_client):
     html = admin_client.get(URL).content.decode()
     assert "closed" in html
     # Both header rows: the day-name cell and the AM/PM cells beneath it,
-    # or the closed column reads two-tone.
-    assert html.count('class="grid-day closed"') == 1
-    assert html.count('class="grid-part closed"') == 2
+    # or the closed column reads two-tone. The closed day is a Monday, and
+    # in the eight-week window a Monday also opens a week, so its classes
+    # carry `week-start` -- on the day cell and on the AM cell under it.
+    assert html.count('class="grid-day closed week-start"') == 1
+    assert html.count('class="grid-part closed week-start"') == 1
+    assert html.count('class="grid-part closed"') == 1
 
 
 def test_own_row_highlighted(gp_client, gp_user):
@@ -141,16 +145,22 @@ def test_a_booked_locum_has_a_row_that_week(admin_client):
 
 # ----------------------------------------------------- start / end dates ---
 
-def test_a_clinician_who_has_finished_has_no_row_that_week(admin_client):
+def test_a_clinician_who_finished_before_the_window_has_no_row(admin_client):
+    """The window is eight weeks wide, so "finished" means finished before
+    its first day. A leaver whose end date falls inside it keeps their row
+    for the weeks they were still in service."""
     PracticeSettings.load()
-    make_clinician("Gone Gardner", end_date=MON - timedelta(days=1))
+    make_clinician("Gone Gardner", end_date=MON - timedelta(days=8))
     html = admin_client.get(URL).content.decode()
     assert "Gone Gardner" not in html
 
 
-def test_a_clinician_who_has_not_started_has_no_row_that_week(admin_client):
+def test_a_clinician_who_starts_after_the_window_has_no_row(admin_client):
+    """The mirror of the leaver: a starter is listed from the week they
+    start, which the eight-week window reaches six weeks ahead, so only a
+    start date past its last day hides the row."""
     PracticeSettings.load()
-    make_clinician("Future Fox", start_date=MON + timedelta(days=7))
+    make_clinician("Future Fox", start_date=MON + timedelta(days=47))
     html = admin_client.get(URL).content.decode()
     assert "Future Fox" not in html
 
@@ -165,12 +175,14 @@ def test_a_clinician_who_starts_mid_week_has_a_row(admin_client):
     assert 'title="Wendy Wednesday"' in html
 
 
-def test_a_finished_clinician_with_a_session_that_week_keeps_their_row(admin_client):
+def test_a_finished_clinician_with_a_session_in_the_window_keeps_their_row(admin_client):
     """A session on the grid must always be reachable: a leftover entry past
     the end date would otherwise be impossible to review, move or remove
-    from the grid. The row comes back for exactly the weeks that hold one."""
+    from the grid. The row comes back for exactly the windows that hold one,
+    so the end date here is before the window's first day and the entry is
+    the only thing earning the row."""
     PracticeSettings.load()
-    c = make_clinician("Left Lastweek", end_date=MON - timedelta(days=1))
+    c = make_clinician("Left Lastweek", end_date=MON - timedelta(days=8))
     make_entry(c, day=MON, part="AM", session_type=make_session_type("Routine", code="ROUT"))
     html = admin_client.get(URL).content.decode()
     assert 'title="Left Lastweek"' in html
@@ -182,7 +194,7 @@ def test_a_gp_does_not_see_a_finished_clinician_for_a_draft_alone(gp_client):
     finished clinician brings the row back for the admin, who can act on
     it, but not for a GP, to whom the draft is invisible."""
     PracticeSettings.load()
-    c = make_clinician("Left Lastweek", end_date=MON - timedelta(days=1))
+    c = make_clinician("Left Lastweek", end_date=MON - timedelta(days=8))
     make_entry(c, day=MON, part="AM", is_published=False,
                session_type=make_session_type("Routine"))
     html = gp_client.get(URL).content.decode()
