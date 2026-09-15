@@ -26,6 +26,15 @@ class RotaEntry(models.Model):
                   "(e.g. mentoring). Distinct from allocation_group.",
     )
     fill_reason = models.CharField(max_length=200, blank=True)
+    # Keyed into the clinical system's appointment screen: when, and by
+    # whom. Set from the grid's ticking mode; cleared by anything that
+    # changes what the session is (services/entries.assign on a type or
+    # site change, either kind of swap). A timestamp, not a boolean, so the
+    # tooltip can say when.
+    entered_at = models.DateTimeField(null=True, blank=True)
+    entered_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

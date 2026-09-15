@@ -213,6 +213,8 @@ def approve(actor, req):
                 setattr(e1, attr, v2)
                 setattr(e2, attr, v1)
             e1.manually_set = e2.manually_set = True
+            e1.entered_at = e2.entered_at = None
+            e1.entered_by = e2.entered_by = None
             e1.save()
             e2.save()
             _log(actor, day, part, p.name, "swapped", f"with {c.name}")
@@ -225,6 +227,8 @@ def approve(actor, req):
                 e = have[(giver.id, day, part)]
                 e.clinician = taker
                 e.manually_set = True
+                e.entered_at = None
+                e.entered_by = None
                 e.save()
                 _log(actor, day, part, taker.name, "swapped",
                      f"took over from {giver.name}")

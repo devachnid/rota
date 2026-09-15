@@ -69,7 +69,7 @@ class Window:
     def _load(self):
         days = self.days
         entries = RotaEntry.objects.filter(day__in=days).select_related(
-            "session_type", "clinician", "site")
+            "session_type", "clinician", "site", "entered_by", "entered_by__clinician")
         if not self.is_admin:
             entries = entries.filter(is_published=True)
         self.entries = list(entries)

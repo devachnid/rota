@@ -275,3 +275,23 @@ def test_off_pattern_is_false_under_an_entry():
     cell = cell_state(c.id, TUE, "AM", entry=e, resolver=_resolver([c]),
                       closed=False)
     assert cell["off_pattern"] is False
+
+
+def test_a_marked_half_does_not_merge_with_an_unmarked_half(admin_user):
+    from rota.services.cells import one_block
+    from rota.services import entries as entries_svc
+    c = make_clinician()
+    _works(c)
+    rout = make_session_type("Routine")
+    am = make_entry(c, day=TUE, part="AM", session_type=rout)
+    pm = make_entry(c, day=TUE, part="PM", session_type=rout)
+    entries_svc.set_entered(admin_user, am, True)
+    r = _resolver([c])
+    a = cell_state(c.id, TUE, "AM", entry=am, resolver=r, closed=False)
+    p = cell_state(c.id, TUE, "PM", entry=pm, resolver=r, closed=False)
+    assert a["entered"] is True and p["entered"] is False
+    assert a["entered_by"] == "admin@example.com"
+    assert not one_block(a, p)
+    entries_svc.set_entered(admin_user, pm, True)
+    p = cell_state(c.id, TUE, "PM", entry=pm, resolver=r, closed=False)
+    assert one_block(a, p)

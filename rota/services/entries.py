@@ -2,6 +2,7 @@ import uuid
 from datetime import date
 
 from django.db import transaction
+from django.utils import timezone
 
 from rota.models import RotaEntry, RotaEntryLog
 
@@ -37,6 +38,12 @@ def assign(actor, clinician, day, part, session_type, *, site=None, note="",
         _split_pair(existing)
         _split_companion(existing)
         detail = f"{existing.session_type.code} -> {session_type.code}"
+        # A different session, or the same one somewhere else, has to be
+        # keyed into the clinical system again; a note-only save does not.
+        if (existing.session_type_id != session_type.id
+                or existing.site_id != getattr(site, "id", None)):
+            existing.entered_at = None
+            existing.entered_by = None
         existing.session_type = session_type
         existing.site = site
         existing.note = note
@@ -112,6 +119,17 @@ def publish_range(actor, start, end):
     ).update(is_published=True)
     _log(actor, start, "", "", "published", f"{start}..{end} ({n} entries)")
     return n
+
+
+@transaction.atomic
+def set_entered(actor, entry, on):
+    """Mark a session as keyed into the clinical system's appointment
+    screen — or unmark it. The only writer of the two fields."""
+    entry.entered_at = timezone.now() if on else None
+    entry.entered_by = actor if on else None
+    entry.save(update_fields=["entered_at", "entered_by", "updated_at"])
+    _log(actor, entry.day, entry.part, entry.clinician.name,
+         "entered" if on else "unentered", entry.session_type.code)
 
 
 def drafts(start=None, end=None, *, include_manual):
