@@ -83,7 +83,7 @@ PAIRS = [
     ("ink", "ground", "h1/h2/h3 and .grid-day over the page ground"),
     ("ink", "surface", ".table th, .field label, .grid-clin, .stat-value in a .card"),
     ("ink", "sunken", ".table th over a .closed / .empty-slot cell"),
-    ("ink", "accent-soft", ".flash, and .mine's clinician cell"),
+    ("ink", "accent-soft", ".flash, .mine's clinician cell, today's header cells"),
     ("ink-soft", "ground", "body text"),
     ("ink-soft", "surface", ".btn, .nav-link, .report-nav a, card body text"),
     ("ink-soft", "sunken", ".btn:hover, .btn-quiet:hover"),
