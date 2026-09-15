@@ -377,18 +377,12 @@ fieldset.field {
    border the full height of the table. --muted rather than --hairline:
    1px hairline is too faint to follow across a 25-row table. Today's
    header cells take the accent-soft ground (ink on accent-soft is a
-   checked pairing); today's body cells take a 1px inset ring on the td,
-   not a background, so the chip's own tint is untouched. Neither touches
-   position/top/left/z-index (tests/test_css_cascade.py). */
+   checked pairing) and that is the whole mark: an inset edge on each
+   body cell drew a bar at each side of the AM/PM pair and a double bar
+   between them. Neither rule touches position/top/left/z-index
+   (tests/test_css_cascade.py). */
 .table-grid .week-start { border-left: 2px solid var(--muted); }
 .table-grid thead th.is-today { background: var(--accent-soft); }
-/* Two side edges, not a box per row: inset 1px 0 0 draws the left edge and
-   inset -1px 0 0 draws the right, and with no top/bottom edge one row's
-   right edge sits flush against the next row's left, so the marker reads
-   as one stripe down the column rather than a box per row. */
-.table-grid td.is-today {
-  box-shadow: inset 1px 0 0 var(--accent), inset -1px 0 0 var(--accent);
-}
 
 /* ------------------------------------------------------------- chips --- */
 

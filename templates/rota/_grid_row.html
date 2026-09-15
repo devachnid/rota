@@ -5,7 +5,7 @@ markup. Context: row, is_admin, tick, anchor.{% endcomment %}
   <th class="grid-clin" scope="row" title="{{ row.clinician.name }}">{{ row.clinician.initials }}</th>
   {% for cell in row.cells %}
   <td {% if cell.merged %}colspan="2"{% endif %}
-      class="{% if cell.entry and not cell.entry.is_published %}draft{% endif %}{% if cell.closed %} closed{% endif %}{% if cell.week_start %} week-start{% endif %}{% if cell.today %} is-today{% endif %}"
+      class="{% if cell.entry and not cell.entry.is_published %}draft{% endif %}{% if cell.closed %} closed{% endif %}{% if cell.week_start %} week-start{% endif %}"
       {% if is_admin and tick %}{% if cell.entry %}hx-post="/rota/entered/" hx-vals='{"clinician_id": {{ row.clinician.id }}, "day": "{{ cell.day_str }}", "part": "{{ cell.part }}", "week": "{{ anchor|date:'Y-m-d' }}"}' hx-target="closest tr" hx-swap="outerHTML"{% endif %}{% elif is_admin %}hx-get="/rota/cell/{{ row.clinician.id }}/{{ cell.day_str }}/{{ cell.part }}/" hx-target="#modal"{% endif %}
       title="{% if is_admin and cell.entered %}Entered {{ cell.entry.entered_at|date:'D j M H:i' }} by {{ cell.entered_by }} — {% endif %}{{ cell.entry.fill_reason|default:'' }} {{ cell.note }}{% if cell.partner %} with {{ cell.partner }}{% endif %}{% if cell.clash %}{% if cell.entry.fill_reason or cell.note or cell.partner %} — {% endif %}On Breathe leave: {{ cell.leave_label }}{% endif %}">
     {% if cell.entry %}

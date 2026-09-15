@@ -53,7 +53,7 @@
     if (saved !== null) {
       pane.scrollLeft = parseInt(saved, 10) || 0;
     } else {
-      var anchor = table.querySelector(".grid-week.is-anchor");
+      var anchor = table.querySelector(".grid-day.is-anchor");
       if (anchor) scrollToCell(anchor);
     }
     function remember() {

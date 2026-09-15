@@ -31,12 +31,12 @@ def test_the_window_spans_one_week_back_and_six_forward(admin_client):
     html = _page(admin_client)
     first = MON - timedelta(days=7)
     last = MON + timedelta(days=6 * 7 + 4)
-    assert f'data-monday="{first}"' in html
-    assert f'data-monday="{MON + timedelta(days=42)}"' in html
-    assert f'data-monday="{MON + timedelta(days=49)}"' not in html
-    assert f'data-monday="{first - timedelta(days=7)}"' not in html
+    assert f'hx-get="/rota/daynote/{first}/"' in html
+    assert f'hx-get="/rota/daynote/{last}/"' in html
+    assert f'hx-get="/rota/daynote/{first - timedelta(days=3)}/"' not in html
+    assert f'hx-get="/rota/daynote/{last + timedelta(days=3)}/"' not in html
     assert f"Weeks of {first:%-d %b} – {last:%-d %b %Y}" in html
-    assert html.count('class="grid-week') == 8
+    assert html.count('class="grid-day') == 40
 
 
 def test_earlier_and_later_step_four_weeks(admin_client):
@@ -45,16 +45,26 @@ def test_earlier_and_later_step_four_weeks(admin_client):
     assert f'href="?week={MON + timedelta(days=28)}"' in html
 
 
-def test_each_week_header_spans_its_open_days(admin_client):
+def test_the_publish_row_has_a_cell_per_week_spanning_its_open_days(admin_client):
+    make_entry(make_clinician(), day=MON, part="AM", is_published=False,
+               session_type=make_session_type("Duty", code="DUTY"))
     html = _page(admin_client)
     assert html.count('<th colspan="10" scope="colgroup" class="grid-week') == 8
+
+
+def test_no_week_row_at_all_when_nothing_needs_publishing(admin_client):
+    """The "Week of" label duplicated the dates underneath, and an
+    admin's row of eight empty cells was just height. The row exists only
+    while a week has drafts to publish or a week ceiling warning."""
+    html = _page(admin_client)
+    assert "grid-week" not in html and "Week of" not in html
 
 
 def test_the_anchor_week_is_marked(admin_client):
     html = _page(admin_client)
     assert html.count("is-anchor") == 1
     start = html.index("is-anchor")
-    assert f'data-monday="{MON}"' in html[start - 60:start + 120]
+    assert f'hx-get="/rota/daynote/{MON}/"' in html[start:start + 160]
 
 
 def test_week_start_lands_on_mondays_only(admin_client):
@@ -75,10 +85,11 @@ def test_today_is_marked_when_inside_the_window(admin_client, monkeypatch):
     html = _page(admin_client)
     wed = MON + timedelta(days=2)
     assert "grid-day is-today" in html
+    assert html.count('class="grid-part is-today"') == 2
+    # The header alone marks today: per-cell edges drew a bar at each side
+    # of the AM/PM pair and a double bar between them.
     i = html.index(f'hx-get="/rota/cell/{c.id}/{wed}/AM/"')
-    assert "is-today" in html[html.rindex("<td", 0, i):i]
-    j = html.index(f'hx-get="/rota/cell/{c.id}/{MON}/AM/"')
-    assert "is-today" not in html[html.rindex("<td", 0, j):j]
+    assert "is-today" not in html[html.rindex("<td", 0, i):i]
     assert 'id="grid-today"' in html and 'data-scroll="1"' in html
 
 
@@ -102,7 +113,7 @@ def test_publish_sits_in_the_week_header_only_when_there_are_drafts(admin_client
     form = html[form_at:form_at + 400]
     assert f'name="start" value="{MON + timedelta(days=7)}"' in form
     assert f'name="end" value="{MON + timedelta(days=11)}"' in form
-    assert "1 draft" in form
+    assert f"Publish week of {MON + timedelta(days=7):%-d %b} · 1 draft" in form
     assert "Publish week" not in html.split('<div class="grid-wrap">')[0]
 
 

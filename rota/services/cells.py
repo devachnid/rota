@@ -131,6 +131,23 @@ def one_block(am, pm):
             and (a.entered_at is None) == (b.entered_at is None))
 
 
+def one_empty_block(am, pm):
+    """Whether two entry-less halves read as one chip: a whole day off by
+    pattern, or the same Breathe absence chip on both halves. Drawn like a
+    matching pair of sessions — one chip across both columns, its form
+    opening on the whole day. A closed day stays two blank cells, and a
+    half-day off beside a worked or absent half stays two cells."""
+    if am["entry"] is not None or pm["entry"] is not None:
+        return False
+    if am["closed"] or pm["closed"]:
+        return False
+    if am["absence"] is not None or pm["absence"] is not None:
+        return (am["absence"] is not None and pm["absence"] is not None
+                and am["absence"].id == pm["absence"].id
+                and am["leave_label"] == pm["leave_label"])
+    return am["off_pattern"] and pm["off_pattern"]
+
+
 def day_note(am, pm):
     """The tooltip text for a whole-day chip: the one note when the halves
     agree (or only one has a note), both labelled when they differ."""

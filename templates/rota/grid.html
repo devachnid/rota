@@ -26,26 +26,27 @@
 <table class="table-grid" style="--cols: {{ cols }}" data-start="{{ start|date:'Y-m-d' }}">
 <caption class="visually-hidden">Rota for the weeks of {{ start|date:"j F Y" }} to {{ end|date:"j F Y" }}</caption>
 <thead>
+{% if show_week_row %}
 <tr>
   <th class="grid-clin"></th>
   {% for w in weeks %}
-  <th colspan="{{ w.colspan }}" scope="colgroup" class="grid-week week-start{% if w.is_anchor %} is-anchor{% endif %}" data-monday="{{ w.monday|date:'Y-m-d' }}">
-    <span class="week-label">Week of {{ w.monday|date:"j M" }}</span>
-    {% if is_admin and w.drafts %}
+  <th colspan="{{ w.colspan }}" scope="colgroup" class="grid-week week-start" data-monday="{{ w.monday|date:'Y-m-d' }}">
+    {% if w.drafts %}
     <form hx-post="/rota/publish/" class="week-publish">
       <input type="hidden" name="start" value="{{ w.monday|date:'Y-m-d' }}">
       <input type="hidden" name="end" value="{{ w.end|date:'Y-m-d' }}">
-      <button class="btn btn-primary">Publish · {{ w.drafts }} draft{{ w.drafts|pluralize }}</button>
+      <button class="btn btn-primary">Publish week of {{ w.monday|date:"j M" }} · {{ w.drafts }} draft{{ w.drafts|pluralize }}</button>
     </form>
     {% endif %}
     {% for x in w.warnings %}<div class="warn">{{ x.message }}</div>{% endfor %}
   </th>
   {% endfor %}
 </tr>
+{% endif %}
 <tr>
   <th class="grid-clin"></th>
   {% for h in day_headers %}
-  <th colspan="2" scope="colgroup" class="grid-day{% if h.closed %} closed{% endif %}{% if h.week_start %} week-start{% endif %}{% if h.today %} is-today{% endif %}"
+  <th colspan="2" scope="colgroup" class="grid-day{% if h.closed %} closed{% endif %}{% if h.week_start %} week-start{% endif %}{% if h.today %} is-today{% endif %}{% if h.anchor %} is-anchor{% endif %}"
       {% if is_admin %}hx-get="/rota/daynote/{{ h.day|date:'Y-m-d' }}/" hx-target="#modal"{% endif %}{% if h.tooltip %} title="{{ h.tooltip }}"{% endif %}>
     {{ h.day|date:"D j M" }}
     {% if h.note %}<div class="daynote">{{ h.note.text }}</div>{% endif %}
@@ -64,7 +65,7 @@
 <tr>
   <th class="grid-clin" scope="row">Need</th>
   {% for cell in locum_cells %}
-  <td class="{% if cell.week_start %}week-start{% endif %}{% if cell.today %} is-today{% endif %}">
+  <td class="{% if cell.week_start %}week-start{% endif %}">
     {% for r in cell.reqs %}
     <span class="badge {{ r.status }}"
           {% if is_admin %}hx-get="/rota/locum/{{ r.id }}/form/" hx-target="#modal"{% endif %}

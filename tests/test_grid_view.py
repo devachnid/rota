@@ -72,7 +72,8 @@ def test_week_param_anchors_the_window_on_its_monday(admin_client):
     wednesday = MON + timedelta(days=2)
     html = admin_client.get(f"/rota/?week={wednesday}").content.decode()
     assert "ROUT" in html
-    assert f'data-monday="{MON}"' in html and "is-anchor" in html
+    start = html.index("is-anchor")
+    assert f'hx-get="/rota/daynote/{MON}/"' in html[start:start + 160]
 
 
 def test_closed_day_styled(admin_client):
@@ -85,7 +86,9 @@ def test_closed_day_styled(admin_client):
     # or the closed column reads two-tone. The closed day is a Monday, and
     # in the eight-week window a Monday also opens a week, so its classes
     # carry `week-start` -- on the day cell and on the AM cell under it.
-    assert html.count('class="grid-day closed week-start"') == 1
+    # It is also the anchor week's first day, which carries the mark the
+    # script scrolls to.
+    assert html.count('class="grid-day closed week-start is-anchor"') == 1
     assert html.count('class="grid-part closed week-start"') == 1
     assert html.count('class="grid-part closed"') == 1
 
