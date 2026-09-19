@@ -1,13 +1,15 @@
-"""The offer to add Rota to the home screen, on Android.
+"""The offer to add Rota to the home screen, on Android and iOS.
 
 Chrome on Android shows its own install bar on heuristics a site cannot see
 or steer; what it does guarantee is a `beforeinstallprompt` event once the
 site is installable and not yet installed. The script keeps that event and
 shows a card built like the passkey nudge; "Add" hands the event back to
-Chrome, which puts up the real install sheet. As with passkeys, the browser
-half has no automated test — a reviewer reads it and Tom drives it on
-staging — so what is pinned here is the markup it needs and the guards it
-must carry.
+Chrome, which puts up the real install sheet. iOS never fires the event and
+has no sheet a page can open — the only way onto the home screen is the
+Share sheet — so there the same card shows those steps instead of Add. As
+with passkeys, the browser half has no automated test — a reviewer reads it
+and Tom drives it on staging — so what is pinned here is the markup it
+needs and the guards it must carry.
 """
 
 from pathlib import Path
@@ -40,6 +42,9 @@ def test_a_signed_in_page_carries_the_nudge_hidden_until_chrome_offers(gp_client
     assert 'id="install-nudge" style="display:none"' in html
     assert 'id="install-nudge-add"' in html and 'id="install-later"' in html
     assert "Add Rota to your home screen" in html and "Not now" in html
+    # The iOS steps travel hidden in the same card; the script reveals them.
+    assert 'id="install-nudge-how" hidden' in html
+    assert "Add to Home Screen" in html
 
 
 def test_the_login_page_has_no_nudge(client):
@@ -56,16 +61,35 @@ def test_the_nudge_ids_stay_distinct_from_the_passkey_ones(gp_client):
         assert html.count(f'id="{element_id}"') == 1, element_id
 
 
-def test_the_script_only_offers_what_chrome_has_offered():
-    """The card is shown from inside the beforeinstallprompt handler and
-    nowhere else, so a browser that never fires it — iOS, desktop Chrome with
-    its address-bar icon, an app that is already installed — never sees the
-    card."""
+def test_the_script_offers_only_where_chrome_has_offered_or_on_ios():
+    """The card is revealed in one function, called from the
+    beforeinstallprompt handler and from the iOS branch and nowhere else —
+    so desktop Chrome (its address-bar icon) and an app that is already
+    installed never see it."""
     src = _script()
     assert "beforeinstallprompt" in src
     assert src.count('style.display = ""') == 1
-    handler = src[src.index("beforeinstallprompt"):]
-    assert 'style.display = ""' in handler
+    reveal = src[:src.index('style.display = ""')]
+    assert "function show()" in reveal, "the reveal lives in show()"
+    assert src.count("show()") == 3, "defined once, called from the handler and from iOS"
+    handler = src[src.index("beforeinstallprompt"):src.index("appinstalled")]
+    assert "show()" in handler
+    ios_branch = src[src.index("if (ios)"):]
+    assert "show()" in ios_branch
+
+
+def test_on_ios_the_steps_replace_the_add_button():
+    """iOS fires no event and has no sheet to open: the card shows the Share
+    sheet steps and hides Add. Every iOS shape is recognised, including an
+    iPad passing itself off as a Mac; a page already on the home screen is
+    turned away by Safari's own flag as well as the media query."""
+    src = _script()
+    assert "/iPhone|iPad|iPod/.test(navigator.userAgent)" in src
+    assert 'navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1' in src
+    assert "navigator.standalone === true" in src
+    ios_branch = src[src.index("if (ios)"):]
+    assert '"install-nudge-add").hidden = true' in ios_branch
+    assert '"install-nudge-how").hidden = false' in ios_branch
 
 
 def test_the_script_hands_the_install_back_to_chrome_and_then_stands_down():

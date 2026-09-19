@@ -378,6 +378,9 @@ Deliberate choices, recorded so they stop being re-reported by each review pass.
   such as a "New clinician" wizard — was deferred until a practice manager has
   used the plain admin.
 
-- **Not tested on iOS.** Tom has no iOS device or simulator; the home-screen
-  install, the safe-area inset and passkeys on Safari have been reasoned from
-  the specs and verified on Android and Windows only.
+- **iOS.** The home-screen install, the safe-area inset and passkeys on
+  Safari were reasoned from the specs and verified on Android and Windows
+  first. A first look on an iOS device (2026-09-19) found no install offer:
+  iOS never fires `beforeinstallprompt`, so the card is now shown there with
+  the Share-sheet steps in place of the Add button. The rest is still to be
+  looked at on iOS.

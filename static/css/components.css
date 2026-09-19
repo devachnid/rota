@@ -151,6 +151,10 @@ body {
   cursor: pointer;
   text-decoration: none;
 }
+/* display: inline-flex above beats the UA's [hidden] { display: none }, as
+   any author declaration does — the install card hides its Add button this
+   way on iOS, where there is no install sheet for it to open. */
+.btn[hidden] { display: none; }
 .btn:hover { background: var(--sunken); }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 

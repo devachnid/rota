@@ -13,6 +13,12 @@
 <meta name="theme-color" content="#2F5D50" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#6FAE99" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-title" content="Rota">
+<!-- The manifest's display: standalone is what a current iOS reads; these
+     are the older spelling of the same thing, so an icon added to the home
+     screen opens as an app and not as a Safari tab whatever the version.
+     The un-prefixed one is the standard name Chrome asks for alongside it. -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <script src="{% static 'js/theme.js' %}"></script>
 <link rel="preload" href="{% static 'fonts/plus-jakarta-sans-latin.woff2' %}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="{% static 'css/fonts.css' %}">
@@ -70,10 +76,11 @@
     </form>
   </div>
 </div>
-{# Shown by the script only when Chrome has said the site can be installed here. #}
+{# Shown by the script when Chrome has said the site can be installed here, or on iOS, where the steps stand in for the Add button. #}
 <div class="flashes" id="install-nudge" style="display:none">
   <div class="flash" role="status">
     <p><strong>Add Rota to your home screen.</strong> It opens like an app, with its own icon and no browser bar.</p>
+    <p id="install-nudge-how" hidden>Tap <strong>Share</strong> (the square with an arrow), then <strong>Add to Home Screen</strong>.</p>
     <div class="form-actions">
       <button type="button" id="install-nudge-add" class="btn btn-primary">Add</button>
       <button type="button" id="install-later" class="btn btn-quiet">Not now</button>
