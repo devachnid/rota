@@ -171,7 +171,7 @@ def stored_ranges_parse(app_configs, **kwargs):
     from django.core.exceptions import ValidationError
     from django.db import DatabaseError
 
-    from rota.models import CoverageRule, PracticeSettings
+    from rota.models import CoverageRule, PersonalRequirement, PracticeSettings
     from rota.services.ranges import validate_int_list
 
     def problem(label, value, low, high):
@@ -194,6 +194,10 @@ def stored_ranges_parse(app_configs, **kwargs):
                 msg = problem(field, value, low, high)
                 if msg:
                     found.append(f"Coverage rule “{rule}” {field}={value!r}: {msg}")
+        for req in PersonalRequirement.objects.select_related("session_type"):
+            msg = problem("weekdays", req.weekdays, 0, 6)
+            if msg:
+                found.append(f"Personal requirement “{req}” weekdays={req.weekdays!r}: {msg}")
     except DatabaseError:
         return []
     if found:

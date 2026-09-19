@@ -85,3 +85,15 @@ def make_commitment(clinician, session_type=None, weekday=0, part="AM", **kw):
         clinician=clinician, session_type=session_type or make_session_type(),
         weekday=weekday, part=part, **kw,
     )
+
+
+def make_requirement(session_type=None, clinicians=(), interval_weeks=6, **kw):
+    """A personal requirement live since long before MON, so a clinician
+    with no session of the type is due from the first week of any run."""
+    from rota.models import PersonalRequirement
+    kw.setdefault("active_from", date(2020, 1, 6))  # a Monday
+    req = PersonalRequirement.objects.create(
+        session_type=session_type or make_session_type("Nursing home round", code="NH"),
+        interval_weeks=interval_weeks, **kw)
+    req.clinicians.set(clinicians)
+    return req
