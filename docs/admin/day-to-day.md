@@ -23,14 +23,16 @@ Delete drafts card below, which can remove hand-placed work, does. That
 clearing is written to the rota entry log as a "deleted drafts" line, even
 when there was nothing to clear, so every run leaves a trace.
 
-**Then it runs six passes in order:**
+**Then it runs seven passes in order:**
 
 1. **Recurring commitments** — personal fixtures, never overwritten
 2. **Trainee VTS** — anchored sessions protected before anything competes
 3. **Coverage rules** — in `priority` order, lowest first
-4. **Mentoring** — pairs each trainee with an available trainer
-5. **Trainee SDL** — placed where it costs least cover
-6. **Default fill** — only if you tick the box
+4. **Personal requirements** — one session for each clinician who is due
+   (see [Personal requirements](coverage-rules.md#personal-requirements))
+5. **Mentoring** — pairs each trainee with an available trainer
+6. **Trainee SDL** — placed where it costs least cover
+7. **Default fill** — only if you tick the box
 
 Order is the mechanism: an earlier pass takes people, and later passes work with
 whoever is left.
@@ -49,7 +51,7 @@ configuration:
 | **anchored slot unavailable** | A trainee's anchored VTS session is one they do not work, or are already busy in |
 | **quota unfilled this week** | A per-week or per-month rule could not place its full quota |
 | **no session with trainer free** | No trainer was free in a session the trainee was also free |
-| **no free session** | The trainee had no free session left for SDL — earlier passes took them all |
+| **no free session** | The trainee had no free session left for SDL, or a clinician due a personal requirement had no free session that week — earlier passes took them all. Tried again the next week for a personal requirement. |
 
 A long list of "no eligible clinician" across every rule almost always means
 pattern slots are missing rather than that the rules are wrong.

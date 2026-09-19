@@ -26,6 +26,19 @@ autofill v2 review processes had accumulated:
 
 ## Settled
 
+- **Personal requirements** (2026-09-19; spec
+  `docs/superpowers/specs/2026-09-15-personal-requirements-design.md`).
+  A new rule kind: each named clinician does a session type once every N
+  weeks, on no fixed day. `PersonalRequirement` (migration 0031), admin
+  under Sessions & rules with eligibility checked on the form, one clock
+  in `rota/services/personal.py` (rolling from the last one done; due
+  from active_from until then), a fill pass after coverage rules that
+  places one session per due clinician per week in the cheapest free
+  candidate and reports "no free session" otherwise, a table on the
+  staffing report and a count on the Health card. Not done on purpose:
+  full-day requirements, preferred weekdays, a site override, membership
+  by group, placing early, a grid marker.
+
 - **Grid and fill, round 2** (2026-09-15; spec
   `docs/superpowers/specs/2026-09-15-grid-fill-round-2-design.md`). The
   grid renders eight weeks in one table — a header cell per week with
