@@ -8,6 +8,7 @@ from rota.models import (BreatheAbsence, BreatheLeaveMapping, Clinician,
                          PracticeSettings, RotaEntry, SessionType,
                          TraineeProfile, TraineeStageRule)
 from rota.services import fairness as fairness_svc
+from rota.services import personal as personal_svc
 from rota.services.availability import AvailabilityResolver
 from rota.services.calendar import is_open
 from rota.services.cells import cell_state
@@ -70,7 +71,8 @@ def report_staffing(request):
             days.append({"day": d, "warnings": warnings})
     return render(request, "rota/report_staffing.html",
                   {"days": days, "weeks": weeks,
-                   "accrual_rows": _accrual_targets(today, include_drafts=include_drafts)})
+                   "accrual_rows": _accrual_targets(today, include_drafts=include_drafts),
+                   "personal_rows": _personal_rows(today, include_drafts=include_drafts)})
 
 
 def _accrual_targets(today, include_drafts=True):
@@ -103,6 +105,32 @@ def _accrual_targets(today, include_drafts=True):
         behind = expected - actual
         if behind > 0:
             rows.append({"name": rule.session_type.name, "behind": behind})
+    return rows
+
+
+_RANK = {"overdue": 0, "due": 1, "on track": 2}
+
+
+def _personal_rows(today, include_drafts=True):
+    """One row per (live requirement, clinician): last done, due, status.
+    Overdue first, then due this week, then on track, then by name."""
+    rows = []
+    for req in personal_svc.live_requirements(today):
+        people = list(req.clinicians.all())
+        last = personal_svc.last_done(req, [c.id for c in people],
+                                      today + timedelta(days=1),
+                                      include_drafts=include_drafts)
+        for c in people:
+            s = personal_svc.status_from(req, last[c.id], today)
+            rank = ("overdue" if s.weeks_overdue else
+                    "due" if s.label == "due this week" else "on track")
+            rows.append({
+                "requirement": f"{req.session_type.name}, every {req.interval_weeks} weeks",
+                "clinician": c, "last": s.last, "due": s.due,
+                "label": s.label, "overdue": s.weeks_overdue > 0,
+                "rank": _RANK[rank],
+            })
+    rows.sort(key=lambda r: (r["rank"], r["clinician"].name))
     return rows
 
 
