@@ -52,5 +52,32 @@
     </table>
   </div>
   {% endif %}
+  {% if personal_rows %}
+  <h2 id="personal">Personal requirements</h2>
+  <div class="table-scroll">
+    <table class="table">
+      <thead>
+        <tr>
+          <th scope="col">Requirement</th>
+          <th scope="col">Clinician</th>
+          <th scope="col">Last done</th>
+          <th scope="col">Due</th>
+          <th scope="col">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for r in personal_rows %}
+      <tr>
+        <td>{{ r.requirement }}</td>
+        <td>{{ r.clinician.name }}</td>
+        <td>{% if r.last %}{{ r.last|date:"D j M" }}{% else %}never{% endif %}</td>
+        <td>week of {{ r.due|date:"j M" }}</td>
+        <td{% if r.overdue %} class="warn"{% endif %}>{{ r.label }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}

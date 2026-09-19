@@ -126,6 +126,7 @@ def test_health_lines_count_and_link(admin_client):
     assert "status__in=POSSIBLE,APPROVED" in locum["url"]
     assert "day__gte=" in locum["url"]
     assert admin_client.get(locum["url"]).status_code == 200
+    assert lines["Clinicians overdue a personal requirement"]["count"] == 0
 
 
 def test_the_breathe_health_line_uses_local_time_not_utc(settings):
