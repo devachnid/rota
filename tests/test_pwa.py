@@ -101,6 +101,14 @@ def test_the_page_links_the_manifest_and_the_apple_touch_icon():
     assert 'rel="apple-touch-icon"' in BASE_HTML
 
 
+def test_the_page_says_it_is_an_app_in_the_older_spelling_too():
+    """An icon added from Safari's Share sheet opens as an app only if the
+    page says so: a current iOS reads the manifest's display, an older one
+    only the meta. Chrome asks for the un-prefixed name alongside."""
+    assert '<meta name="apple-mobile-web-app-capable" content="yes">' in BASE_HTML
+    assert '<meta name="mobile-web-app-capable" content="yes">' in BASE_HTML
+
+
 def test_the_viewport_opts_into_the_safe_area():
     """Without viewport-fit=cover the insets below are always zero, and every
     safe-area rule in the stylesheet is inert."""

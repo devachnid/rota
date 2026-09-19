@@ -301,6 +301,14 @@ def test_empty_wins_inside_a_table_cell(table):
     assert_outranks(cell_state, f"{table} td", "padding")
 
 
+def test_a_hidden_button_is_actually_hidden():
+    """`.btn { display: inline-flex }` beats the UA's `[hidden]` rule, as any
+    author declaration does; the install card hides its Add button with the
+    attribute on iOS, so the sheet has to say so itself."""
+    assert declares(".btn[hidden]", "display") == "none"
+    assert_outranks(".btn[hidden]", ".btn", "display")
+
+
 def test_the_table_empty_state_matches_the_standalone_one():
     """Same empty state, table row or not — `<p class="empty">` on the inbox
     and `<td class="empty">` in a report must not diverge."""
