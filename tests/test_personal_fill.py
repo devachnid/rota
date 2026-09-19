@@ -52,6 +52,30 @@ def test_not_due_yet_means_nothing_placed(admin_user):
     assert _placed(nh) == []
 
 
+def test_a_session_this_pass_places_moves_the_clock_forward(admin_user):
+    """interval 2, three weeks, none yet: week 1 gets one, week 2 is not
+    due, week 3 is due again — two placements, never two in a row."""
+    PracticeSettings.load()
+    c = _gp()
+    nh = make_session_type("Nursing home round", code="NH")
+    make_requirement(nh, [c], interval_weeks=2, active_from=MON)
+    result = run_fill(admin_user, MON, MON + timedelta(days=20))
+    assert _placed(nh) == [(MON, "AM"), (MON + timedelta(days=14), "AM")]
+    assert not [u for u in result.unfilled if u.session_type == nh.name]
+
+
+def test_nothing_is_due_after_the_requirement_ends(admin_user):
+    PracticeSettings.load()
+    c = _gp()
+    nh = make_session_type("Nursing home round", code="NH")
+    make_requirement(nh, [c], interval_weeks=1, active_from=MON,
+                     active_until=MON + timedelta(days=4))
+    result = run_fill(admin_user, MON, MON + timedelta(days=18))
+    assert _placed(nh) == [(MON, "AM")]
+    assert not [u for u in result.unfilled if u.session_type == nh.name], (
+        "weeks after active_until are not due, so they are not misses")
+
+
 def test_seven_weeks_since_the_last_one_is_placed_in_the_first_week(admin_user):
     PracticeSettings.load()
     c = _gp()
