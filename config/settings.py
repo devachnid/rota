@@ -242,6 +242,9 @@ AXES_LOCKOUT_PARAMETERS = ["username", "ip_address"]
 # so every attempt was recorded with username=None and only the address half
 # of the lockout ever locked. Name the key the form actually sends.
 AXES_USERNAME_FORM_FIELD = "username"
+# ...and lower-case it, so "Tom@" and "tom@" are one name with one counter,
+# as they are one account to the login lookup.
+AXES_USERNAME_CALLABLE = "accounts.axes_username.axes_username"
 AXES_RESET_ON_SUCCESS = True
 
 # AccessAttempt is a counter, and AXES_RESET_ON_SUCCESS wipes it for the
