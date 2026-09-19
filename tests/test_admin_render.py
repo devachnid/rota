@@ -12,8 +12,8 @@ from django.contrib import admin
 from django.utils import timezone
 
 from tests.factories import (make_clinician, make_commitment, make_entry,
-                             make_group, make_pattern, make_session_type,
-                             make_site, make_trainee)
+                             make_group, make_pattern, make_requirement,
+                             make_session_type, make_site, make_trainee)
 
 pytestmark = pytest.mark.django_db
 
@@ -42,6 +42,7 @@ def rows(admin_user):
         "traineestagerule": TraineeStageRule.objects.first(),
         "traineeprofile": make_trainee(d),
         "recurringcommitment": make_commitment(c, st),
+        "personalrequirement": make_requirement(st, [c]),
         "closedday": ClosedDay.objects.create(day=date(2026, 12, 25), reason="Christmas"),
         "daynote": DayNote.objects.create(day=date(2026, 9, 7), text="CQC visit"),
         "practicesettings": PracticeSettings.load(),

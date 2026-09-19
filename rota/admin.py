@@ -17,13 +17,15 @@ from unfold.contrib.filters.admin import RangeDateFilter
 from .models import (BreatheAbsence, BreatheLeaveMapping, BreatheSyncRun,
                      Clinician, ClinicianGroup, ClosedDay, CoverageRule,
                      DayNote, LocumRequirement,
-                     PatternSlot, PracticeSettings, RecurringCommitment, RotaEntry, RotaEntryLog,
+                     PatternSlot, PersonalRequirement, PracticeSettings,
+                     RecurringCommitment, RotaEntry, RotaEntryLog,
                      SessionType, Site, SwapRequest, TraineeProfile, TraineeStageRule)
 from . import mail as swap_mail
 from .services import swaps as swaps_svc
 from .services.breathe import client as breathe_client, sync as breathe_sync
 from .services.breathe.links import expects_link
-from .admin_forms import WEEKDAYS, CoverageRuleForm, PracticeSettingsForm
+from .admin_forms import (WEEKDAYS, CoverageRuleForm, PersonalRequirementForm,
+                          PracticeSettingsForm)
 from .admin_widgets import (BreatheEmployeeSelect, TintSwatchSelect,
                             breathe_employees, employee_label)
 
@@ -493,6 +495,39 @@ class RecurringCommitmentAdmin(ModelAdmin):
         if db_field.name == "weekday":
             kwargs["widget"] = forms.Select(choices=WEEKDAYS)
         return super().formfield_for_dbfield(db_field, request, **kwargs)
+
+
+@admin.register(PersonalRequirement)
+class PersonalRequirementAdmin(ModelAdmin):
+    form = PersonalRequirementForm
+    list_display = ("session_type", "every", "part", "weekdays",
+                    "active_from", "active_until", "people")
+    list_filter = ("session_type",)
+    filter_horizontal = ("clinicians",)
+    fieldsets = (
+        ("What", {
+            "fields": ("session_type", "clinicians", "interval_weeks", "part"),
+            "description": "Each named clinician does this session type once "
+                           "every N weeks, counted from their last one, on any "
+                           "allowed day they are free. An aim to fit in, not a "
+                           "fixture: for a fixed weekday use a recurring "
+                           "commitment; for a practice-wide count use a coverage "
+                           "rule.",
+        }),
+        ("When", {"fields": ("weekdays", "active_from", "active_until")}),
+    )
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("session_type") \
+            .prefetch_related("clinicians")
+
+    @admin.display(description="Every")
+    def every(self, obj):
+        return f"{obj.interval_weeks} weeks"
+
+    @admin.display(description="Clinicians")
+    def people(self, obj):
+        return len(obj.clinicians.all())
 
 
 @admin.register(ClosedDay)
