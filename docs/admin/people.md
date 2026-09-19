@@ -191,7 +191,10 @@ share its PIN too, so the passkey would let any of them in.
 
 ### Signing in and lockouts
 
-People sign in with their email and password, or with a passkey. On the login
+People sign in with their email and password, or with a passkey. The email
+is matched whatever its case — "Tom.Hodges@…" and "tom.hodges@…" are the
+same account, and the add form refuses a second account that differs from
+an existing one only by case. On the login
 page a passkey enrolled on that device is offered in the email field's
 autofill where the browser supports it, and **Sign in with a passkey** is
 the explicit button. In a browser that has never enrolled or used a passkey,

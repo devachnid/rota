@@ -1,15 +1,22 @@
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
+from django.db.models.functions import Lower
 
 
 class UserManager(BaseUserManager):
     use_in_migrations = True
 
     def _create(self, email, password, **extra):
-        user = self.model(email=self.normalize_email(email), **extra)
+        user = self.model(email=email, **extra)
         user.set_password(password)
         user.save(using=self._db)
         return user
+
+    def get_by_natural_key(self, email):
+        """The login lookup — ModelBackend calls this with whatever was
+        typed. An address is not case-sensitive to anyone who uses one, so
+        neither is this; the constraint below is what makes `get` safe."""
+        return self.get(email__iexact=email)
 
     def create_user(self, email, password=None, **extra):
         extra.setdefault("is_staff", False)
@@ -44,11 +51,26 @@ class User(AbstractUser):
     class Meta(AbstractUser.Meta):
         verbose_name = "login account"
         verbose_name_plural = "login accounts"
+        constraints = [
+            # `unique=True` on the field is exact-case; this is the one that
+            # matters. Two accounts differing only by case would make the
+            # case-insensitive login lookup ambiguous, and are two logins
+            # for one person besides. The message is what the admin's add
+            # form shows when it validates the constraint.
+            models.UniqueConstraint(
+                Lower("email"), name="accounts_user_email_ci_unique",
+                violation_error_message="A login account with this email address already exists.",
+            ),
+        ]
 
     def __str__(self):
         return self.email
 
     def save(self, *args, **kwargs):
+        # Django's own normalisation, applied wherever the row is written
+        # and not only in create_user: the domain is lower-cased (it is
+        # never case-sensitive), the local part is kept as given.
+        self.email = self.__class__.objects.normalize_email(self.email)
         # is_staff keeps Django's meaning — "can log into this admin site" —
         # but nobody sets it by hand: it follows admin status, so unfold's
         # command palette (which checks is_staff) appears for exactly the
