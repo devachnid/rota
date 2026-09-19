@@ -9,7 +9,7 @@ setup mistake — a stray comma — simply cannot be made from a checkbox.
 
 from django import forms
 
-from rota.models import CoverageRule, PracticeSettings
+from rota.models import Clinician, CoverageRule, PersonalRequirement, PracticeSettings
 
 WEEKDAYS = [(0, "Monday"), (1, "Tuesday"), (2, "Wednesday"), (3, "Thursday"),
             (4, "Friday"), (5, "Saturday"), (6, "Sunday")]
@@ -94,3 +94,30 @@ class PracticeSettingsForm(forms.ModelForm):
     class Meta:
         model = PracticeSettings
         fields = "__all__"
+
+
+class PersonalRequirementForm(forms.ModelForm):
+    weekdays = IntListCheckboxField(choices=WEEKDAYS, label="Weekdays",
+                                    help_text="None ticked means every open day.")
+
+    class Meta:
+        model = PersonalRequirement
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["clinicians"].queryset = (
+            Clinician.objects.filter(active=True).order_by("name"))
+
+    def clean(self):
+        # The model cannot see its M2M before save, so eligibility is
+        # checked here: the fill would otherwise skip the person silently.
+        cleaned = super().clean()
+        st, people = cleaned.get("session_type"), cleaned.get("clinicians")
+        if st and people:
+            wrong = [c.name for c in people if not st.is_eligible(c)]
+            if wrong:
+                self.add_error("clinicians",
+                               f"Not eligible for {st.name}: {', '.join(wrong)}. "
+                               "Allow them on the session type first.")
+        return cleaned
