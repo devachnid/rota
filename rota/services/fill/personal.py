@@ -32,6 +32,8 @@ def run(ctx, actor, result):
             in_window = sorted(ctx.days_with_type(c.id, st.id))
             for wm in ctx.weeks():
                 week_end = wm + timedelta(days=6)
+                if not any(req.live_on(wm + timedelta(days=i)) for i in range(7)):
+                    continue
                 seen = [d for d in in_window
                         if d <= week_end and (last[c.id] is None or d > last[c.id])]
                 if seen:
