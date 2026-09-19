@@ -4,6 +4,7 @@ from django import forms
 from django.contrib import admin, messages
 from django.contrib.admin.utils import NestedObjects
 from django.db import router
+from django.db.models import Prefetch
 from django.shortcuts import redirect
 from django.urls import NoReverseMatch, path, reverse
 from django.utils import timezone
@@ -519,7 +520,8 @@ class PersonalRequirementAdmin(ModelAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related("session_type") \
-            .prefetch_related("clinicians")
+            .prefetch_related(Prefetch(
+                "clinicians", queryset=Clinician.objects.filter(active=True)))
 
     @admin.display(description="Every")
     def every(self, obj):

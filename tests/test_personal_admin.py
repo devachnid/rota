@@ -44,6 +44,16 @@ def test_the_form_offers_active_clinicians_only_and_stores_weekdays_as_a_list():
     assert req.weekdays == "1,3" and list(req.clinicians.all()) == [ann]
 
 
+def test_the_changelist_counts_active_clinicians_only(admin_client):
+    ann = make_clinician("Ann Able")
+    gone = make_clinician("Gone Away", active=False)
+    req = make_requirement(clinicians=[ann])
+    req.clinicians.add(gone)
+    html = admin_client.get("/admin/rota/personalrequirement/").content.decode()
+    row = html[html.index("Nursing home round"):]
+    assert ">1<" in row and ">2<" not in row[:2000]
+
+
 def test_the_changelist_and_form_render_and_the_sidebar_links_it(admin_client):
     ann = make_clinician("Ann Able")
     req = make_requirement(clinicians=[ann])

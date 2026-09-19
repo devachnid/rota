@@ -141,7 +141,7 @@ the clock from when it actually happened, so the aim is "never more than
 N weeks apart", not a fixed calendar cadence.
 
 A worked example: six GPs, every six weeks. Dr A did one on 4 August, so
-is due in the week of 15 September. The fill runs on 7 September for four
+is due in the week of 14 September. The fill runs on 7 September for four
 weeks and places Dr A's next round in that week, in the session where the
 most other people are free. Dr B's slipped a fortnight — nobody was free —
 so the fill reports "no free session" for that week and tries again the

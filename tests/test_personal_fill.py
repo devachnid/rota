@@ -169,6 +169,16 @@ def test_an_ineligible_clinician_is_skipped_not_placed(admin_user):
     assert any(u.reason == "no free session" for u in result.unfilled)
 
 
+def test_a_requirement_starting_after_the_run_ends_is_not_a_miss(admin_user):
+    PracticeSettings.load()
+    c = _gp()
+    nh = make_session_type("Nursing home round", code="NH")
+    make_requirement(nh, [c], active_from=THU)          # run is Mon..Wed
+    result = run_fill(admin_user, MON, WED)
+    assert _placed(nh) == []
+    assert not [u for u in result.unfilled if u.session_type == nh.name]
+
+
 def test_the_pass_has_no_n_plus_one(admin_user):
     PracticeSettings.load()
     nh = make_session_type("Nursing home round", code="NH")
@@ -187,3 +197,8 @@ def test_the_pass_has_no_n_plus_one(admin_user):
                            and "MAX(" in q["sql"].upper()]
     assert len(selects(eight)) == 2 and len(selects(four)) == 1, (
         "one last-done query per requirement, none per clinician or week")
+    clinician_selects = lambda ctx: [q["sql"] for q in ctx.captured_queries  # noqa: E731
+                                     if q["sql"].lstrip().upper().startswith("SELECT")
+                                     and "rota_clinician" in q["sql"]]
+    assert len(clinician_selects(four)) == len(clinician_selects(eight)), (
+        "the clinician prefetch is one query per run, however many clinicians")
