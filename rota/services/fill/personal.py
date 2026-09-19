@@ -8,6 +8,11 @@ week's cheapest free candidate — the session where the most other people
 are available, as SDL chooses. A placement moves the clinician's "last
 done" forward. No candidate means "no free session" for that week and
 another try next week: due stays due.
+
+The walk below is requirement -> clinician -> week, rather than the
+spec's week-outer order; weeks partition the days, so placements come
+out the same either way, only `result.unfilled` is grouped by clinician
+instead of by week — do not "fix" it back.
 """
 
 from datetime import timedelta
@@ -32,7 +37,9 @@ def run(ctx, actor, result):
             in_window = sorted(ctx.days_with_type(c.id, st.id))
             for wm in ctx.weeks():
                 week_end = wm + timedelta(days=6)
-                if not any(req.live_on(wm + timedelta(days=i)) for i in range(7)):
+                week_days = [wm + timedelta(days=i) for i in range(7)]
+                if not any(req.live_on(d) for d in week_days
+                           if ctx.start <= d <= ctx.end):
                     continue
                 seen = [d for d in in_window
                         if d <= week_end and (last[c.id] is None or d > last[c.id])]

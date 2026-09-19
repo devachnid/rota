@@ -15,6 +15,11 @@ from datetime import date, timedelta
 from django.db.models import Max, Prefetch, Q
 
 from rota.models import Clinician, PersonalRequirement, RotaEntry
+# Importing fill.accrual initialises the `fill` package, whose `personal`
+# pass (rota/services/fill/personal.py) imports this module in turn; that
+# is safe because accrual has no dependency on fill/__init__ and the pass
+# only reads this module's names at call time — do not add a top-level
+# import of fill/__init__ here.
 from rota.services.fill.accrual import week_monday
 
 
