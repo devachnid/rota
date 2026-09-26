@@ -1,5 +1,5 @@
 <form hx-post="/rota/daynote/save/">
-  <div class="modal-head">Note for {{ day|date:"D j M Y" }}</div>
+  <div class="modal-head" id="modal-title">Note for {{ day|date:"D j M Y" }}</div>
   <input type="hidden" name="day" value="{{ day|date:'Y-m-d' }}">
   <div class="modal-body">
     <div class="field">

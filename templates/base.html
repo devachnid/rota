@@ -31,6 +31,7 @@
 <script src="{% static 'js/passkeys.js' %}" defer></script>
 <script src="{% static 'js/install.js' %}" defer></script>
 <script src="{% static 'js/menus.js' %}" defer></script>
+<script src="{% static 'js/modal.js' %}" defer></script>
 <script>if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js'); }</script>
 </head>
 <body{% block body_attrs %}{% endblock %} hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
@@ -104,7 +105,7 @@
 <main class="main">{% block content %}{% endblock %}</main>
 {% comment %}The one htmx modal target on the page: the grid's cell, note and locum
 forms and the Feedback form all render into it. #modal:empty is hidden.{% endcomment %}
-{% if user.is_authenticated %}<div id="modal"></div>{% endif %}
+{% if user.is_authenticated %}<div id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"></div>{% endif %}
 <nav class="tabbar" aria-label="Sections">
   <a href="/rota/" class="tabbar-item{% if request.path == '/rota/' %} is-active{% endif %}">Week</a>
   <a href="/rota/day/" class="tabbar-item{% if '/rota/day/' in request.path %} is-active{% endif %}">Day</a>
