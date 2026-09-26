@@ -296,8 +296,6 @@ Parked by the account-access work (2026-09-04), none blocking:
   Practice-scale; worst case is two emails to the same inbox.
 - **`EMAIL_USE_TLS` honours only the literal `1`**, matching `DEBUG`'s parsing;
   `=true` would silently turn STARTTLS off. The README documents `=0` only.
-- **The signed-in email in the header is now a link and carries the browser's
-  default underline**; no CSS was added. A look call for Tom on staging.
 - **The dashboard's query count scales with coverage rules and entries** (from
   the admin overhaul, PR #8). `day_warnings` now takes a prefetched `WarningBundle` and the grid passes one; the dashboard and the staffing report still call it per day and could pass one too. Also from that branch: the colour-swatch radios carry no `id`; the
   ordered-checkbox widget hard-codes `max="7"`.

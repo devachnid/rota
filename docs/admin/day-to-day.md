@@ -149,8 +149,10 @@ says so and asks you to save again before replacing it.
 
 ## Warnings on the grid
 
-The red strips in a day's header come from **five separate sources**, so if you
-want to silence one, you need to know which:
+The strips in a day's header come from **five separate sources**, so if you
+want to silence one, you need to know which. The first four are **red** — a
+session nobody is covering, or someone rostered who is not there. A ceiling
+is **amber**: a soft limit you chose, worth a look rather than an alarm.
 
 1. **Coverage warnings** — "No Duty cover (AM)", or "Routine 3/4 (AM)" when
    some but not all of the count are placed. From coverage rules with
@@ -169,11 +171,12 @@ want to silence one, you need to know which:
 5. **Ceiling warnings** — "Too many Urgent (PM): 2, max 1" or "Too many
    Urgent today: 3 sessions, max 2". From a session type's
    [ceiling](session-types.md#ceiling). The per-week ceiling has no day to
-   sit on, so it appears on a line under the week toolbar instead: "Too many
-   LARC this week: 3 sessions, max 2".
+   sit on, so it appears in that week's header instead: "Too many LARC
+   this week: 3 sessions, max 2".
 
-A day's header shows the first two lines and then "+N more"; hover the
-header for the full list. An unfilled week would otherwise carry a dozen
+A day's header shows two lines, red before amber, and then "+N more"; hover
+the header for the full list. The ordering means an uncovered session is
+never the line folded away behind a ceiling. An unfilled week would otherwise carry a dozen
 lines per day, and the header row is as tall as its tallest cell across
 every day on the page.
 

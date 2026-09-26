@@ -17,6 +17,15 @@ class Warning:
     part: str | None
     message: str
 
+    @property
+    def level(self):
+        """How loudly to say it. A ceiling is a soft limit someone chose to
+        set — over it is worth a look, not an emergency — so it is a
+        warning. Everything else here is a session nobody is covering, or
+        someone rostered who is not there: danger. The grid and the
+        staffing report paint by this; the text says the rest."""
+        return "warning" if self.code == "ceiling" else "danger"
+
 
 @dataclass
 class WarningBundle:

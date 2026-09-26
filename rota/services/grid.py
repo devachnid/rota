@@ -148,6 +148,10 @@ class Window:
         for d in self.days:
             warnings = (day_warnings(d, include_drafts=True, resolver=self.resolver,
                                      bundle=bundle) if self.is_admin else [])
+            # Danger before warning, otherwise in the order they came: the
+            # header has room for two, and an uncovered session must not be
+            # the one folded into "+N more" behind a ceiling.
+            warnings = sorted(warnings, key=lambda w: w.level != "danger")
             out.append({
                 "day": d, "closed": d in self.closed, "note": self.notes.get(d),
                 "week_start": d in self.week_starts, "today": d == self.today,

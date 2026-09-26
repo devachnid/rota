@@ -19,7 +19,7 @@
 <div class="flash">Ticking mode — click a session to mark it entered in the clinical system; click again to unmark. Turn it off to edit cells.</div>
 {% endif %}
 {% if unlinked_count %}
-<div class="warn">{{ unlinked_count }} clinician{{ unlinked_count|pluralize }} not linked to Breathe — no leave is read for them. <a href="{{ unlinked_url }}">Link them</a>.</div>
+<div class="alert alert-warning">{{ unlinked_count }} clinician{{ unlinked_count|pluralize }} not linked to Breathe — no leave is read for them. <a href="{{ unlinked_url }}">Link them</a>.</div>
 {% endif %}
 <script src="{% static 'js/grid.js' %}" defer></script>
 <div class="grid-wrap">
@@ -38,7 +38,7 @@
       <button class="btn btn-primary">Publish week of {{ w.monday|date:"j M" }} · {{ w.drafts }} draft{{ w.drafts|pluralize }}</button>
     </form>
     {% endif %}
-    {% for x in w.warnings %}<div class="warn">{{ x.message }}</div>{% endfor %}
+    {% for x in w.warnings %}<div class="alert alert-compact alert-{{ x.level }}">{{ x.message }}</div>{% endfor %}
   </th>
   {% endfor %}
 </tr>
@@ -50,8 +50,8 @@
       {% if is_admin %}hx-get="/rota/daynote/{{ h.day|date:'Y-m-d' }}/" hx-target="#modal"{% endif %}{% if h.tooltip %} title="{{ h.tooltip }}"{% endif %}>
     {{ h.day|date:"D j M" }}
     {% if h.note %}<div class="daynote">{{ h.note.text }}</div>{% endif %}
-    {% for w in h.shown %}<div class="warn">{{ w.message }}</div>{% endfor %}
-    {% if h.more %}<div class="warn warn-more">+{{ h.more }} more</div>{% endif %}
+    {% for w in h.shown %}<div class="alert alert-compact alert-{{ w.level }}">{{ w.message }}</div>{% endfor %}
+    {% if h.more %}<div class="alert-more">+{{ h.more }} more</div>{% endif %}
   </th>
   {% endfor %}
 </tr>

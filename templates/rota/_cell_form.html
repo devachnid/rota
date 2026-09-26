@@ -1,6 +1,6 @@
 <form hx-post="/rota/assign/" hx-target="#modal">
   <div class="modal-head">{{ clinician.name }} — {{ day|date:"D j M" }} {{ part_label }}</div>
-  {% if warning %}<div class="warn">{{ warning }}</div>{% endif %}
+  {% if warning %}<div class="alert alert-warning" role="alert">{{ warning }}</div>{% endif %}
   <div class="modal-body">
     <div class="field">
       <label for="id_session_type_id">Session</label>
