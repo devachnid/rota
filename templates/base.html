@@ -46,23 +46,25 @@
     <a href="/rota/fill/" class="nav-link{% if request.path == '/rota/fill/' %} is-active{% endif %}">Assisted fill</a>
     <a href="/admin/" class="nav-link">Admin</a>
   {% endif %}
-  <span class="nav-spacer"></span>
-  {% if user.is_authenticated %}
-    {# Feedback stays out of the menu: it is an action the app wants people to find. #}
-    <button type="button" id="feedback-open" class="btn btn-quiet"
-            hx-get="{% url 'feedback-form' %}" hx-target="#modal">Feedback</button>
-    {# Who is signed in, always visible — surgery PCs are shared — and the rare things behind it. #}
-    <details class="nav-account">
-      <summary class="nav-account-toggle"><span class="visually-hidden">Account menu for </span>{{ signed_in_as }}</summary>
-      <div class="nav-menu">
-        <a href="{% url 'account' %}" class="nav-menu-item">Account <span class="nav-menu-sub">{{ user.email }}</span></a>
-        <button type="button" id="theme-toggle" class="nav-menu-item">Theme</button>
-        <form method="post" action="/accounts/logout/">{% csrf_token %}<button class="nav-menu-item">Log out</button></form>
-      </div>
-    </details>
-  {% else %}
-    <button type="button" id="theme-toggle" class="btn btn-quiet">Theme</button>
-  {% endif %}
+  {# One block, pushed right: if the header wraps, Feedback and the menu go together and stay at the right. #}
+  <div class="nav-end">
+    {% if user.is_authenticated %}
+      {# Feedback stays out of the menu: it is an action the app wants people to find. #}
+      <button type="button" id="feedback-open" class="btn btn-quiet"
+              hx-get="{% url 'feedback-form' %}" hx-target="#modal">Feedback</button>
+      {# Who is signed in, always visible — surgery PCs are shared — and the rare things behind it. #}
+      <details class="nav-account">
+        <summary class="nav-account-toggle"><span class="visually-hidden">Account menu for </span>{{ signed_in_as }}</summary>
+        <div class="nav-menu">
+          <a href="{% url 'account' %}" class="nav-menu-item">Account <span class="nav-menu-sub">{{ user.email }}</span></a>
+          <button type="button" id="theme-toggle" class="nav-menu-item">Theme</button>
+          <form method="post" action="/accounts/logout/">{% csrf_token %}<button class="nav-menu-item">Log out</button></form>
+        </div>
+      </details>
+    {% else %}
+      <button type="button" id="theme-toggle" class="btn btn-quiet">Theme</button>
+    {% endif %}
+  </div>
 </nav>
 {% if messages %}
 <div class="flashes">

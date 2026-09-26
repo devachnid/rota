@@ -46,7 +46,17 @@
   color: var(--accent);
   border-bottom-color: var(--accent);
 }
-.nav-spacer { flex: 1; }
+/* The right-hand block — Feedback and the account menu. margin-left: auto
+   rather than a spacer element: when the row wraps (a rota admin's header
+   below ~900px), a spacer stays behind on the first line and the menu
+   lands alone at the left of the second; an auto margin travels with the
+   block and keeps it at the right. */
+.nav-end {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+  margin-left: auto;
+}
 /* Between everyone's destinations and a rota admin's tools. A hairline is
    enough: it is a grouping cue, not a boundary anyone has to find. */
 .nav-divider {
@@ -57,9 +67,9 @@
 
 /* Feedback, and the theme toggle on the login page (signed in, the toggle
    lives in the account menu) — nav controls, not page actions, so quiet
-   enough not to compete with the links. `.nav > #theme-toggle` and not the
-   bare id: the menu's copy is a .nav-menu-item and must not be shrunk. */
-.nav > #theme-toggle, #feedback-open {
+   enough not to compete with the links. `.nav-end > #theme-toggle` and not
+   the bare id: the menu's copy is a .nav-menu-item and must not be shrunk. */
+.nav-end > #theme-toggle, #feedback-open {
   font-size: var(--fs-xs);
   white-space: nowrap;
 }
@@ -109,7 +119,13 @@
   z-index: 25;
   display: flex;
   flex-direction: column;
+  /* As wide as its longest line: an absolutely positioned box shrinks to
+     fit its containing block, which here is the toggle — narrower than an
+     email address — so without this the address broke at its hyphen.
+     Capped at the viewport less the header's padding. */
+  width: max-content;
   min-width: 14rem;
+  max-width: calc(100vw - 2 * var(--sp-5));
   padding: var(--sp-1);
   background: var(--surface);
   border: 1px solid var(--hairline);
@@ -139,6 +155,9 @@
   color: var(--muted);
   font-size: var(--fs-xs);
   font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ------------------------------------------------------------ layout --- */
