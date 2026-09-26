@@ -9,6 +9,7 @@ Cell precedence:
 """
 
 import re
+from pathlib import Path
 from datetime import date, timedelta
 
 import pytest
@@ -466,3 +467,13 @@ def test_a_whole_day_off_is_one_chip_across_both_columns(admin_client):
     assert f'/rota/cell/{c.id}/{_iso(1)}/AM/' not in html
     chips = _chips(html)
     assert chips[(c.id, _iso(1), "AM")] == chips[(c.id, _iso(1), "PM")] == "is-off is-not-working"
+
+
+def test_the_group_label_stays_on_screen_when_the_grid_scrolls():
+    """The grid scrolls to the current week on load, a week in; a label at
+    the far left of a row spanning eight weeks was never visible."""
+    from tests.test_css_cascade import rule
+    assert rule(".grid-group-label").declarations["position"] == "sticky"
+    assert "left" in rule(".grid-group-label").declarations
+    grid = (Path(__file__).resolve().parents[1] / "templates" / "rota" / "grid.html").read_text()
+    assert '<span class="grid-group-label">{{ section.group.name }}</span>' in grid
