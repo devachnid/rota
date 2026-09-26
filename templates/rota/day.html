@@ -24,10 +24,7 @@
     <div class="day-pin-row">
       <span class="day-pin-who">{{ r.clinician.name }}</span>
       <span class="day-pin-part">{{ r.part }}</span>
-      <span class="chip{% if not r.entry.is_published %} is-draft{% endif %}{% if r.note %} has-note{% endif %}"
-            style="--chip-bg: var(--tint-{{ r.entry.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ r.entry.session_type.tint.key }}-fg);">
-        {{ r.entry.session_type.code }}{% if r.entry.site %}<span class="site-marker">{{ r.entry.site.name|slice:":1" }}</span>{% endif %}
-      </span>
+      {% include "rota/_chip.html" with cell=r %}
     </div>
     {% endfor %}
   </div>
@@ -44,19 +41,10 @@
         <th scope="row">{{ row.clinician.name }}</th>
         {% for cell in row.cells %}
         <td{% if cell.merged %} colspan="2"{% endif %}>
-          {% if cell.entry %}
-            <span class="chip{% if not cell.entry.is_published %} is-draft{% endif %}{% if cell.clash %} is-clash{% endif %}{% if cell.note %} has-note{% endif %}"
-                  {% if cell.clash %}title="On Breathe leave: {{ cell.leave_label }}"{% endif %}
-                  style="--chip-bg: var(--tint-{{ cell.entry.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ cell.entry.session_type.tint.key }}-fg);">
-              {{ cell.entry.session_type.code }}{% if cell.entry.site %}<span class="site-marker">{{ cell.entry.site.name|slice:":1" }}</span>{% endif %}
-            </span>
+          {% if cell.entry or cell.absence %}
+            {% include "rota/_chip.html" with clash_title=True %}
             {% if cell.partner %}<span class="day-partner">with {{ cell.partner }}</span>{% endif %}
             {% if cell.note %}<span class="day-note-text">{{ cell.note }}</span>{% endif %}
-          {% elif cell.absence %}
-            <span class="chip" title="{{ cell.leave_label }} — from Breathe"
-                  style="--chip-bg: var(--tint-{{ cell.absence.tint.key }}-bg); --chip-fg: var(--tint-{{ cell.absence.tint.key }}-fg);">
-              {{ cell.absence.code }}
-            </span>
           {% else %}
             <span class="day-dash">&mdash;</span>
           {% endif %}
@@ -80,18 +68,9 @@
         <th scope="row">{{ row.clinician.name }}</th>
         {% for cell in row.cells %}
         <td{% if cell.merged %} colspan="2"{% endif %}>
-          {% if cell.entry %}
-            <span class="chip{% if not cell.entry.is_published %} is-draft{% endif %}{% if cell.clash %} is-clash{% endif %}{% if cell.note %} has-note{% endif %}"
-                  {% if cell.clash %}title="On Breathe leave: {{ cell.leave_label }}"{% endif %}
-                  style="--chip-bg: var(--tint-{{ cell.entry.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ cell.entry.session_type.tint.key }}-fg);">
-              {{ cell.entry.session_type.code }}
-            </span>
+          {% if cell.entry or cell.absence %}
+            {% include "rota/_chip.html" with clash_title=True %}
             {% if cell.note %}<span class="day-note-text">{{ cell.note }}</span>{% endif %}
-          {% elif cell.absence %}
-            <span class="chip" title="{{ cell.leave_label }} — from Breathe"
-                  style="--chip-bg: var(--tint-{{ cell.absence.tint.key }}-bg); --chip-fg: var(--tint-{{ cell.absence.tint.key }}-fg);">
-              {{ cell.absence.code }}
-            </span>
           {% else %}
             <span class="day-dash">&mdash;</span>
           {% endif %}

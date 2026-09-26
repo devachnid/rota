@@ -1,0 +1,20 @@
+{% comment %}One rota chip — the session, or the Breathe absence — the same on the
+week grid, the day view and My Schedule. It used to be written out five
+times, and the copies had begun to drift: the clash tooltip sat on some and
+not others, and the day view's on-leave table had lost the site marker.
+
+Renders nothing for a cell with neither. The caller draws its own empty
+state — the grid's OFF and slot chips, the day view's and My Schedule's
+dash — because each screen means something different by it.
+
+Context: cell — a cell_state() dict, or anything with entry, note, clash,
+leave_label and absence (the day view's pinned rows). Two opt-ins, off
+unless passed, because each is right on one screen and wrong on another:
+  strike       an entered session struck through. The grid passes it for
+               an admin: ticking is the admin's record, not a GP's.
+  clash_title  "On Breathe leave: …" on the chip itself. The grid leaves it
+               off — it says so in the cell's own tooltip, which a title on
+               the chip would hide.
+{% endcomment %}{% if cell.entry %}<span class="chip{% if not cell.entry.is_published %} is-draft{% endif %}{% if cell.clash %} is-clash{% endif %}{% if cell.note %} has-note{% endif %}{% if strike and cell.entered %} is-entered{% endif %}"{% if clash_title and cell.clash %} title="On Breathe leave: {{ cell.leave_label }}"{% endif %}
+      style="--chip-bg: var(--tint-{{ cell.entry.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ cell.entry.session_type.tint.key }}-fg);">{{ cell.entry.session_type.code }}{% if cell.entry.site %}<span class="site-marker">{{ cell.entry.site.name|slice:":1" }}</span>{% endif %}</span>{% elif cell.absence %}<span class="chip" title="{{ cell.leave_label }} — from Breathe"
+      style="--chip-bg: var(--tint-{{ cell.absence.tint.key }}-bg); --chip-fg: var(--tint-{{ cell.absence.tint.key }}-fg);">{{ cell.absence.code }}</span>{% endif %}
