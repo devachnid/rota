@@ -114,6 +114,174 @@ body.page-grid {
   left: var(--sp-2);
 }
 
+/* ------------------------------------------------------- phone week --- */
+
+/* /rota/week/: the week as a card per day, for a phone (review 7B). A card
+   is a <details>; its summary — the date, the counts, the day note and the
+   pinned roles — shows while it is closed, because "who is on Duty on
+   Thursday" is the question a phone is opened for, and it should not take
+   a tap. On a desktop the column stays phone-shaped rather than stretching
+   a list of names across 1280px. */
+.page-week .main { max-width: 40rem; }
+.wk-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+.wk-head h1 { font-size: var(--fs-xl); }
+.wk-strip {
+  display: flex;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+}
+.wk-strip a {
+  flex: 1;
+  padding: var(--sp-2) 0;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+}
+.wk-strip a small {
+  display: block;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+}
+.wk-strip a.is-today {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.wk-day {
+  margin-bottom: var(--sp-3);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  scroll-margin-top: var(--sp-3);
+}
+.wk-day.is-today { border-color: var(--accent); }
+.wk-day > summary {
+  display: block;
+  list-style: none;
+  padding: var(--sp-3) var(--sp-4);
+  cursor: pointer;
+}
+.wk-day > summary::-webkit-details-marker { display: none; }
+.wk-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+.wk-date {
+  color: var(--ink);
+  font-size: var(--fs-lg);
+  font-weight: 800;
+}
+.wk-today {
+  margin-left: var(--sp-1);
+  padding: 1px 6px;
+  border-radius: var(--r-sm);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  vertical-align: 2px;
+}
+.wk-count {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+/* Open / closed, drawn in the text's own colour: the font has no ▸. */
+.wk-count::after {
+  content: "";
+  display: inline-block;
+  margin-left: 6px;
+  border: 5px solid transparent;
+  border-left-color: currentColor;
+  border-right: 0;
+}
+.wk-day[open] .wk-count::after {
+  border: 5px solid transparent;
+  border-top-color: currentColor;
+  border-bottom: 0;
+  vertical-align: 2px;
+}
+.wk-closed,
+.wk-daynote {
+  display: block;
+  margin-top: var(--sp-1);
+  font-size: var(--fs-sm);
+}
+.wk-closed { color: var(--muted); }
+.wk-daynote { color: var(--warning); }
+.wk-pinned {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+  font-size: var(--fs-sm);
+}
+/* The role's own tint, set per pin by the template, as a chip's is. */
+.wk-pin-role {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: var(--r-sm);
+  background: var(--chip-bg);
+  color: var(--chip-fg);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+.wk-pin-who { color: var(--ink); font-weight: 600; }
+.wk-part { color: var(--muted); font-size: var(--fs-xs); font-weight: 500; }
+/* Pinned on a session but on Breathe leave: the grid rings that chip for
+   everyone, so the pinned line says it too, in the same colour. */
+.wk-clash { color: var(--danger); font-size: var(--fs-xs); font-weight: 700; }
+.wk-roster { border-top: 1px solid var(--hairline); }
+/* Name, AM, PM: two chip columns wide enough for a six-character code and
+   a site letter. A whole day spans both. */
+.wk-row {
+  display: grid;
+  grid-template-columns: 1fr 5.25rem 5.25rem;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-2);
+  padding: 6px var(--sp-4);
+  border-bottom: 1px solid var(--hairline);
+}
+.wk-row:last-child { border-bottom: 0; }
+.wk-row.mine { background: var(--accent-soft); }
+.wk-who {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wk-cell { min-width: 0; }
+.wk-span { grid-column: span 2; }
+.wk-dash { display: block; color: var(--muted); text-align: center; }
+.wk-note { grid-column: 1 / -1; color: var(--muted); font-size: var(--fs-xs); }
+.wk-aside {
+  margin: 0;
+  padding: var(--sp-2) var(--sp-4) var(--sp-3);
+  border-top: 1px solid var(--hairline);
+  color: var(--ink-soft);
+  font-size: var(--fs-sm);
+}
+.wk-aside b { color: var(--ink); }
+.wk-grid-link { font-size: var(--fs-sm); }
+.wk-list-link { margin: 0 0 var(--sp-3); font-size: var(--fs-sm); font-weight: 700; }
+
 /* -------------------------------------------------------- my schedule --- */
 
 /* .stack is the flex-column-with-gap rhythm the reports, assisted-fill and
@@ -589,4 +757,6 @@ body.page-grid {
   body .main { padding-left: var(--sp-4); padding-right: var(--sp-4); }
 
   .day-roster td { width: auto; }
+
+  .phone-only { display: block; }
 }

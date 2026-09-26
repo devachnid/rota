@@ -94,6 +94,7 @@ PAIRS = [
     ("accent", "surface", ".nav-link.is-active, links in a card"),
     ("accent", "sunken", "links over a sunken cell"),
     ("accent-ink", "accent", ".btn-primary"),
+    ("accent", "accent-soft", "the phone week's Today label and today in its day strip"),
     ("danger", "ground", ".neg, .warn, .field-error on the page ground"),
     ("danger", "surface", ".warn in a grid header, .field-error in a modal, .errorlist"),
     ("danger", "sunken", ".warn over a sunken cell"),

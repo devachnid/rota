@@ -2,6 +2,8 @@
 {% block title %}Rota — weeks of {{ start|date:"j M" }} – {{ end|date:"j M Y" }}{% endblock %}
 {% block body_attrs %} class="page-grid{% if tick %} is-ticking{% endif %}"{% endblock %}
 {% block content %}
+{# Logging in lands here, and on a phone this is forty columns. #}
+<p class="phone-only wk-list-link"><a href="/rota/week/?week={{ anchor|date:'Y-m-d' }}">See this week as a list &rarr;</a></p>
 {# Paper gets one week — the one the page opened on — and says which. #}
 <h1 class="print-only">Rota — week of {{ anchor|date:"j F Y" }}</h1>
 <div class="toolbar">

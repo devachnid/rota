@@ -190,6 +190,22 @@ Where a coverage warning has a matching locum requirement, the warning says so �
 "No Duty cover (AM) — locum advertised" — so you can tell an unaddressed gap
 from one you are already working on.
 
+## The week on a phone
+
+The phone's **Week** tab opens `/rota/week/` rather than the grid, which is
+forty columns wide. It shows one week at a time (← and → step a week), with a
+card for each open day: the date, how many are in and on leave, the day note,
+and the pinned roles (the session types ticked **Pin on day view** — Duty,
+typically) are visible while the card is closed; tap it for everyone's
+sessions, then "On leave" and "Not in". Today's card starts open, and the strip
+of days at the top jumps to a day and opens it. Someone pinned but on Breathe
+leave is marked "on leave" on the pinned line, as the grid rings their chip.
+
+It is read-only for everyone and shows no staffing warnings — editing stays on
+the grid. On a phone the grid carries a "See this week as a list" link, since
+signing in lands there; the list links back to the grid. Each day's lists come
+from the same code as the day view's, so the two always agree.
+
 ## Printing
 
 Print from the browser (Ctrl+P, or ⌘P). The **week grid** prints one week —

@@ -110,7 +110,8 @@ forms and the Feedback form all render into it. #modal:empty is hidden.{% endcom
 <nav class="tabbar" aria-label="Sections">
   <a href="/me/" class="tabbar-item{% if request.path == '/me/' %} is-active{% endif %}">Me{% if swaps_for_me %} <span class="nav-count">{{ swaps_for_me }}</span>{% endif %}</a>
   <a href="/rota/day/" class="tabbar-item{% if '/rota/day/' in request.path %} is-active{% endif %}">Day</a>
-  <a href="/rota/" class="tabbar-item{% if request.path == '/rota/' %} is-active{% endif %}">Week</a>
+  {# The phone's week is the list at /rota/week/; the grid stays the desktop's. #}
+  <a href="/rota/week/" class="tabbar-item{% if request.path == '/rota/week/' or request.path == '/rota/' %} is-active{% endif %}">Week</a>
   <details class="tabbar-more">
     <summary class="tabbar-item">More{% if swaps_for_admin %} <span class="nav-count">{{ swaps_for_admin }}</span>{% endif %}</summary>
     <div class="tabbar-sheet">
