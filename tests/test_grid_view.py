@@ -3,7 +3,7 @@ from datetime import timedelta
 import pytest
 
 from tests.factories import (MON, make_clinician, make_entry, make_group,
-                             make_pattern, make_session_type)
+                             make_pattern, make_session_type, make_site)
 from rota.models import ClosedDay, LocumRequirement, PracticeSettings
 
 pytestmark = pytest.mark.django_db
@@ -202,3 +202,40 @@ def test_a_gp_does_not_see_a_finished_clinician_for_a_draft_alone(gp_client):
                session_type=make_session_type("Routine"))
     html = gp_client.get(URL).content.decode()
     assert "Left Lastweek" not in html
+
+
+def test_the_cell_tooltip_names_the_session_and_its_site(admin_client):
+    """A code wider than the chip is clipped with an ellipsis and there is
+    nowhere else on the grid to read it, so the tooltip carries the full
+    name — and the site, which the chip prints as a single letter."""
+    PracticeSettings.load()
+    c = make_clinician()
+    make_pattern(c)
+    site = make_site("Penrhiwceiber")
+    st = make_session_type("PMC Routine", code="PMC Rout")
+    make_entry(c, part="AM", session_type=st, site=site)
+    html = admin_client.get(URL).content.decode()
+    assert 'title="PMC Routine · Penrhiwceiber' in html
+
+
+def test_the_tooltip_still_carries_the_note_and_the_reason(admin_client):
+    PracticeSettings.load()
+    c = make_clinician()
+    make_pattern(c)
+    st = make_session_type("Routine", code="ROUT")
+    make_entry(c, part="AM", session_type=st, note="late start",
+               fill_reason="coverage")
+    html = admin_client.get(URL).content.decode()
+    cell = html[html.index('title="Routine'):]
+    cell = cell[:cell.index(">")]
+    assert "coverage" in cell and "late start" in cell
+
+
+def test_an_empty_cell_carries_no_tooltip(admin_client):
+    """It used to render title=" " — a tooltip of two spaces on every
+    unallocated cell."""
+    PracticeSettings.load()
+    c = make_clinician()
+    make_pattern(c)
+    html = admin_client.get(URL).content.decode()
+    assert 'title=" "' not in html and 'title=""' not in html

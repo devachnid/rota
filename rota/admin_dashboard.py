@@ -18,6 +18,7 @@ from rota.services import personal as personal_svc
 from rota.services.breathe.links import (unlinked_changelist_url,
                                          unlinked_clinicians)
 from rota.services.calendar import is_open
+from rota.services.legibility import grid_legibility
 from rota.services.warnings import day_warnings
 
 
@@ -109,6 +110,7 @@ def health():
         breathe = (f"last good sync {local_started:%a %-d %b %H:%M}", "ok")
 
     ps = PracticeSettings.load()
+    legibility = grid_legibility()
     trainee_gap = (TraineeProfile.objects.exists()
                    and not (ps.vts_session_type_id and ps.sdl_session_type_id
                             and ps.mentoring_session_type_id))
@@ -136,6 +138,15 @@ def health():
                     day__gte=today.isoformat(),
                     day__lte=(today + timedelta(days=14)).isoformat()),
          "level": "warn"},
+        # Both read one pass over the session types (rota/services/
+        # legibility.py) — a type configured so the grid cannot show it
+        # looks perfectly fine on its own admin page.
+        {"label": "Session types sharing a colour",
+         "count": legibility.sharing_count,
+         "url": _cl("sessiontype"), "level": "warn"},
+        {"label": "Session codes too long for the grid",
+         "count": len(legibility.clipped),
+         "url": _cl("sessiontype"), "level": "warn"},
         {"label": "Trainee session types unset", "count": 1 if trainee_gap else 0,
          "url": reverse("admin:rota_practicesettings_change", args=[ps.pk]), "level": "warn"},
         {"label": "Swaps awaiting your approval",

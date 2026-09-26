@@ -12,7 +12,15 @@ report telling the truth and telling nonsense.
 ## Name / Code
 
 Name appears in dropdowns and reports. **Code appears in the grid**, where a
-cell is about 100px wide — keep it to a few characters.
+session cell is 56px wide: **six characters fit, eight do not.** A longer code
+is clipped with an ellipsis — "PMC Rout" needs 54px of the 48px inside the
+chip — and the only way to read it then is to hover the cell, which a phone
+cannot do. The field still allows eight so codes already in use stay valid;
+the dashboard's **Session codes too long for the grid** line counts the ones
+that will not read.
+
+Two types with the same code are indistinguishable on the grid whatever their
+colour, so keep codes unique as well as short.
 
 ## Category
 
@@ -48,6 +56,12 @@ communicating.
 
 Colour is a **recognition aid, not the only signal** — nobody reliably tells 40
 hues apart at chip size, so the code is always shown as well.
+
+**Two types on the exact same tint have the same chip**, which leaves the code
+as the only difference — and the code may itself be clipped. The dashboard's
+**Session types sharing a colour** line counts them. Sharing a *hue* at two
+strengths is the feature, not a collision, and is not counted. Nor is the
+neutral pair: leave is deliberately grey, so the absence types share it.
 
 ## Legacy colour
 

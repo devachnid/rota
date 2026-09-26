@@ -97,11 +97,14 @@ PAIRS = [
     ("danger", "ground", ".neg, .warn, .field-error on the page ground"),
     ("danger", "surface", ".warn in a grid header, .field-error in a modal, .errorlist"),
     ("danger", "sunken", ".warn over a sunken cell"),
-    ("danger", "danger-soft", ".badge.POSSIBLE"),
+    ("danger", "danger-soft", ".badge.POSSIBLE, .flash-error's rule on its own ground"),
+    ("ink", "danger-soft", ".flash-error's message text"),
     ("warning", "surface", ".daynote in the grid header"),
     ("warning", "ground", ".daynote / warning text on the page ground"),
-    ("warning", "warning-soft", ".badge.ADVERTISED"),
-    ("ok", "ok-soft", ".badge.BOOKED"),
+    ("warning", "warning-soft", ".badge.ADVERTISED, .flash-warning's rule"),
+    ("ink", "warning-soft", ".flash-warning's message text"),
+    ("ok", "ok-soft", ".badge.BOOKED, .flash-success's rule"),
+    ("ink", "ok-soft", ".flash-success's message text"),
 ]
 
 

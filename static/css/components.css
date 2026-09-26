@@ -507,6 +507,32 @@ fieldset.field {
   border-radius: var(--r-md);
   font-size: var(--fs-sm);
 }
+/* What happened, said in the same colours as everything else that reports a
+   state: the badge grounds. Without these every message — "Swap applied",
+   "Swap could not be applied", "Email isn't set up" — arrived in one
+   accent-soft card, so a failure was dressed as a success.
+
+   Two classes deep, not one: .flash-error alone would tie with .flash on
+   specificity and win only on being later in this file, which is the kind
+   of contest the rest of this sheet settles outright. The left rule is the
+   second channel — the ground alone is a hue difference, and these three
+   soft grounds are close in lightness by construction.
+
+   The nudges in base.html carry .flash with no level and keep the
+   accent-soft card: they are offers, not outcomes. info gets it too, for
+   the same reason — nothing has gone right or wrong. */
+.flash.flash-error {
+  background: var(--danger-soft);
+  border-left: 4px solid var(--danger);
+}
+.flash.flash-warning {
+  background: var(--warning-soft);
+  border-left: 4px solid var(--warning);
+}
+.flash.flash-success {
+  background: var(--ok-soft);
+  border-left: 4px solid var(--ok);
+}
 .warn {
   color: var(--danger);
   font-size: var(--fs-xs);

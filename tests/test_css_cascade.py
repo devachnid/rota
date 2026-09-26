@@ -301,6 +301,15 @@ def test_empty_wins_inside_a_table_cell(table):
     assert_outranks(cell_state, f"{table} td", "padding")
 
 
+def test_a_message_level_outranks_the_plain_flash():
+    """The nudges and an info message keep .flash's accent-soft card; a
+    success, warning or error has to beat it outright, not by sitting later
+    in the sheet."""
+    for cls in ("flash-error", "flash-warning", "flash-success"):
+        assert declares(f".flash.{cls}", "background") != declares(".flash", "background")
+        assert_outranks(f".flash.{cls}", ".flash", "background")
+
+
 def test_a_hidden_button_is_actually_hidden():
     """`.btn { display: inline-flex }` beats the UA's `[hidden]` rule, as any
     author declaration does; the install card hides its Add button with the

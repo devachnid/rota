@@ -29,7 +29,10 @@ class SessionType(models.Model):
     )
     code = models.CharField(
         max_length=8,
-        help_text="What the grid cell shows. Keep it short and unique.",
+        help_text="What the grid cell shows. Six characters is what fits — "
+                  "a longer code is clipped there, and the full name shows "
+                  "only on hover. Keep it unique: two types with one code "
+                  "are indistinguishable on the grid.",
     )
     category = models.CharField(
         max_length=16, choices=Category.choices,
