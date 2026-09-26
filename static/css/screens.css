@@ -98,6 +98,17 @@ body.page-grid {
   font-weight: 700;
   color: var(--muted);
 }
+/* The label rides the pane's left edge. The row is one cell spanning the
+   whole window, so the name sat at the far left of eight weeks — and the
+   grid scrolls to the current week on load, a week in, so no group name
+   was ever on screen: seen in a headless-Chrome screenshot as a gap
+   between Partners and Salaried with nothing in it. The group row has no
+   sticky clinician cell of its own, so nothing covers the label there. */
+.grid-group-label {
+  display: inline-block;
+  position: sticky;
+  left: var(--sp-2);
+}
 
 /* -------------------------------------------------------- my schedule --- */
 

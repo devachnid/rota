@@ -61,7 +61,7 @@
 </thead>
 {% for section in sections %}
 <tbody>
-<tr class="grid-group"><td colspan="{{ colspan }}">{{ section.group.name }}</td></tr>
+<tr class="grid-group"><td colspan="{{ colspan }}"><span class="grid-group-label">{{ section.group.name }}</span></td></tr>
 {% for row in section.rows %}{% include "rota/_grid_row.html" %}{% endfor %}
 {% if section.group.is_locum_group %}
 <tr>
