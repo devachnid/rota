@@ -186,6 +186,17 @@ Where a coverage warning has a matching locum requirement, the warning says so �
 "No Duty cover (AM) — locum advertised" — so you can tell an unaddressed gap
 from one you are already working on.
 
+## Printing
+
+Print from the browser (Ctrl+P, or ⌘P). The **week grid** prints one week —
+the one the page opened on, so **Today** or the week you picked with **Go** —
+on a landscape page, a clinician per row, repeating the day headings on each
+page. The staffing warnings, the Publish buttons and every other control stay
+off paper: the printout is the rota, not your to-do list. The **day view** and
+**My Schedule** print as they stand, without their buttons, and the
+**staffing report** prints its issues. Whatever theme is showing, a printout
+is in the light palette, because a printer leaves the page white.
+
 ## Locum requirements
 
 `/admin/rota/locumrequirement/` — tracks a gap you are trying to fill

@@ -801,6 +801,9 @@ fieldset.field {
    scopes already carry the visible header text, so the caption's table
    summary would be redundant clutter on screen but is useful context for
    assistive tech. */
+/* For paper only; print.css shows it. */
+.print-only { display: none; }
+
 .visually-hidden {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
