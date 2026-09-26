@@ -1,5 +1,5 @@
 <form hx-post="/rota/locum/save/" hx-target="#modal">
-  <div class="modal-head">Locum — {{ day|date:"D j M" }} {{ part }}</div>
+  <div class="modal-head" id="modal-title">Locum — {{ day|date:"D j M" }} {{ part }}</div>
   {% if warning %}<div class="alert alert-danger" role="alert">{{ warning }}</div>{% endif %}
   {% if req %}<input type="hidden" name="pk" value="{{ req.pk }}">{% endif %}
   <input type="hidden" name="day" value="{{ day|date:'Y-m-d' }}">

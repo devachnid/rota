@@ -53,6 +53,10 @@ body.page-grid {
 .table-grid th.is-editing {
   box-shadow: inset 0 0 0 2px var(--accent);
 }
+/* Keyboard focus on a cell, a day heading or a badge: the site's focus
+   ring, drawn inside the box. Outside it, the table's 2px border-spacing
+   gives it nowhere to go and the neighbouring cell paints over it. */
+.table-grid [tabindex]:focus-visible { outline-offset: -2px; }
 
 .grid-day {
   font-size: var(--fs-lg);

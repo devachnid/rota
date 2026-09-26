@@ -104,7 +104,11 @@ entry's fields in the admin does not clear it. Only admins see the strike;
 GPs see the session as usual.
 
 On the grid, the cell you clicked is ringed while its form is open, so there
-is no doubt which one is being edited. A day whose AM and PM would show the
+is no doubt which one is being edited. The grid works from the keyboard too:
+**Tab** moves through the day headings and then the cells, **Enter** (or Space)
+opens one, **Tab** stays inside the form while it is open, and **Escape**
+closes it and puts you back on the cell. After a save the page reloads with you
+on the same cell; in ticking mode Enter ticks and leaves you where you were. A day whose AM and PM would show the
 same chip — same session type, same site, both published or both drafts, the
 same leave clash and the same mentoring partner — is drawn as **one chip across
 both columns**, however the two halves came to be (assisted fill, the import,
