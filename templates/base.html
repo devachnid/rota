@@ -106,10 +106,11 @@
 {% comment %}The one htmx modal target on the page: the grid's cell, note and locum
 forms and the Feedback form all render into it. #modal:empty is hidden.{% endcomment %}
 {% if user.is_authenticated %}<div id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"></div>{% endif %}
+{# Me first: on a phone My Schedule is the screen, and the week is a forty-column table. #}
 <nav class="tabbar" aria-label="Sections">
-  <a href="/rota/" class="tabbar-item{% if request.path == '/rota/' %} is-active{% endif %}">Week</a>
-  <a href="/rota/day/" class="tabbar-item{% if '/rota/day/' in request.path %} is-active{% endif %}">Day</a>
   <a href="/me/" class="tabbar-item{% if request.path == '/me/' %} is-active{% endif %}">Me{% if swaps_for_me %} <span class="nav-count">{{ swaps_for_me }}</span>{% endif %}</a>
+  <a href="/rota/day/" class="tabbar-item{% if '/rota/day/' in request.path %} is-active{% endif %}">Day</a>
+  <a href="/rota/" class="tabbar-item{% if request.path == '/rota/' %} is-active{% endif %}">Week</a>
   <details class="tabbar-more">
     <summary class="tabbar-item">More{% if swaps_for_admin %} <span class="nav-count">{{ swaps_for_admin }}</span>{% endif %}</summary>
     <div class="tabbar-sheet">

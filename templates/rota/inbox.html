@@ -20,9 +20,11 @@
         {% csrf_token %}
         <button type="submit" class="btn btn-primary" {% if item.problems %}disabled{% endif %}>Approve &amp; apply</button>
       </form>
-      <form method="post" action="/requests/swap/{{ item.req.pk }}/decline/">
+      <form method="post" action="/requests/swap/{{ item.req.pk }}/decline/" class="inline-form">
         {% csrf_token %}
-        <input name="comment" placeholder="comment (optional)">
+        <input name="comment" class="inline-input"
+               placeholder="Reason for declining (optional)"
+               aria-label="Reason for declining (optional) — sent to {{ item.req.proposer.name }} and {{ item.req.colleague.name }}">
         <button type="submit" class="btn">Decline</button>
       </form>
     </div>
