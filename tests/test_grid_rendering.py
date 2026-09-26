@@ -222,8 +222,8 @@ def test_warnings_are_admin_only_but_day_notes_are_for_everyone(
 
     assert "CQC visit" in admin_html
     assert "CQC visit" in gp_html, "day notes are practice information"
-    assert 'class="warn"' in admin_html, "an understaffed day warns an admin"
-    assert 'class="warn"' not in gp_html, "warnings are staffing alerts, admin only"
+    assert "alert-compact" in admin_html, "an understaffed day warns an admin"
+    assert "alert-compact" not in gp_html, "warnings are staffing alerts, admin only"
 
 
 @pytest.mark.django_db

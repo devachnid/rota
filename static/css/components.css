@@ -47,17 +47,98 @@
   border-bottom-color: var(--accent);
 }
 .nav-spacer { flex: 1; }
-.nav-user {
-  color: var(--muted);
-  font-size: var(--fs-sm);
+/* Between everyone's destinations and a rota admin's tools. A hairline is
+   enough: it is a grouping cue, not a boundary anyone has to find. */
+.nav-divider {
+  width: 1px;
+  height: 1.25rem;
+  background: var(--hairline);
 }
 
-/* The theme toggle and the Feedback control are nav controls, not page
-   actions — quiet by default so they do not compete with the links beside
-   them. */
-#theme-toggle, #feedback-open {
+/* Feedback, and the theme toggle on the login page (signed in, the toggle
+   lives in the account menu) — nav controls, not page actions, so quiet
+   enough not to compete with the links. `.nav > #theme-toggle` and not the
+   bare id: the menu's copy is a .nav-menu-item and must not be shrunk. */
+.nav > #theme-toggle, #feedback-open {
   font-size: var(--fs-xs);
   white-space: nowrap;
+}
+
+/* The account menu: who is signed in, always showing — surgery PCs are
+   shared, so "whose session is this" is a real question — and behind it
+   the three things nobody needs every visit. A <details>, so it works
+   with no script; static/js/menus.js adds closing on an outside click and
+   on Escape. Before this the right of the header was Theme, Feedback, a
+   27-character email with a stray browser underline and Log out, all at
+   one weight, and the row wrapped below ~890px. */
+.nav-account { position: relative; }
+.nav-account-toggle {
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  color: var(--ink-soft);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.nav-account-toggle::-webkit-details-marker { display: none; }
+/* A caret drawn in the text's own colour, so it holds in both themes with
+   no token of its own. */
+.nav-account-toggle::after {
+  content: "";
+  border: 4px solid transparent;
+  border-top-color: currentColor;
+  border-bottom: 0;
+}
+.nav-account-toggle:hover,
+.nav-account[open] > .nav-account-toggle {
+  background: var(--sunken);
+  color: var(--ink);
+}
+/* z-index 25: over the grid's sticky header and column (1-3), under the
+   modal (30), which a menu item can open. */
+.nav-menu {
+  position: absolute;
+  top: calc(100% + var(--sp-1));
+  right: 0;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  min-width: 14rem;
+  padding: var(--sp-1);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  box-shadow: 0 var(--sp-2) var(--sp-5) var(--shadow);
+}
+.nav-menu form { margin: 0; }
+.nav-menu-item {
+  display: block;
+  width: 100%;
+  padding: var(--sp-2) var(--sp-3);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--ink-soft);
+  font-family: var(--font);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.nav-menu-item:hover { background: var(--sunken); color: var(--ink); }
+.nav-menu-sub {
+  display: block;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 400;
 }
 
 /* ------------------------------------------------------------ layout --- */
@@ -533,8 +614,69 @@ fieldset.field {
   background: var(--ok-soft);
   border-left: 4px solid var(--ok);
 }
+/* Inline only now: a word or a phrase inside a sentence or a table cell
+   ("2 weeks overdue", an unfilled reason on the fill page). Anything that
+   stands on its own line is an .alert below. */
 .warn {
   color: var(--danger);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+/* A statement that something is wrong, on its own line: a staffing gap in
+   a day header, a ceiling in a week header, a form asking to be saved
+   again, a swap that cannot be approved.
+
+   These used to be .warn — 11.5px of red text with no ground, the same
+   weight as a day note — so the most consequential line on the grid was
+   its visually lightest. Now they take the vocabulary the badges and the
+   flash messages already use for the same states: the soft ground and a
+   rule in the level's own colour. The rule is the channel that does not
+   depend on telling two pale grounds apart.
+
+   The level is two custom properties, not two rule sets, so the dense
+   variant below restyles every level at once. --tone is danger unless a
+   level says otherwise: a problem stated too loudly costs less than one
+   stated too quietly. */
+.alert {
+  --tone: var(--danger);
+  --tone-soft: var(--danger-soft);
+  display: block;
+  background: var(--tone-soft);
+  border-left: 4px solid var(--tone);
+  border-radius: var(--r-sm);
+  color: var(--ink);
+  font-size: var(--fs-sm);
+  padding: var(--sp-2) var(--sp-3);
+  margin: 0;
+}
+.alert-danger {
+  --tone: var(--danger);
+  --tone-soft: var(--danger-soft);
+}
+.alert-warning {
+  --tone: var(--warning);
+  --tone-soft: var(--warning-soft);
+}
+.alert + .alert { margin-top: var(--sp-1); }
+/* In a grid header or a report cell a line is a status, not a sentence:
+   short, many to a column, read at a glance. Smaller and tighter, and the
+   text takes the level's colour, as a badge's does. */
+.alert-compact {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--tone);
+  border-left-width: 3px;
+  padding: 2px var(--sp-2);
+}
+/* "+2 more": the lines the header had no room for, all of them in its
+   tooltip. Quiet — the header sorts danger first, so what is folded away
+   is the least serious. */
+.alert-more {
+  display: block;
+  margin-top: var(--sp-1);
+  color: var(--muted);
   font-size: var(--fs-xs);
   font-weight: 600;
 }

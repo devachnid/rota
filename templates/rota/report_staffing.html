@@ -27,7 +27,7 @@
       <tbody>
       {% for d in days %}
       <tr><td><a href="/rota/?week={{ d.day|date:'Y-m-d' }}">{{ d.day|date:"D j M Y" }}</a></td>
-          <td>{% for w in d.warnings %}<div class="warn">{{ w.message }}</div>{% endfor %}</td></tr>
+          <td>{% for w in d.warnings %}<div class="alert alert-compact alert-{{ w.level }}">{{ w.message }}</div>{% endfor %}</td></tr>
       {% empty %}
       <tr><td colspan="2" class="empty">No gaps found. 🎉</td></tr>
       {% endfor %}

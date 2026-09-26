@@ -172,8 +172,8 @@ password or passkey, its links are refused, and its history stays.
 
 ### Passkeys
 
-A person adds passkeys to their own account from **Account** (their email in
-the app's header): their phone's Face ID or fingerprint, a laptop's Windows
+A person adds passkeys to their own account from **Account** (in the menu
+under their name, top right of the app's header): their phone's Face ID or fingerprint, a laptop's Windows
 Hello or Touch ID, or a password manager. That page lists each passkey with
 when it was added and last used, and lets them remove one. Their password
 still works, and is how they get back in if a device is lost.
