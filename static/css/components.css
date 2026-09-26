@@ -825,6 +825,8 @@ fieldset.field {
    assistive tech. */
 /* For paper only; print.css shows it. */
 .print-only { display: none; }
+/* For a phone only; the 640px block in screens.css shows it. */
+.phone-only { display: none; }
 
 .visually-hidden {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;

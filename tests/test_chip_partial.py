@@ -16,12 +16,26 @@ pytestmark = pytest.mark.django_db
 TEMPLATES = Path(__file__).resolve().parents[1] / "templates"
 
 
+def _draws_a_chip(text):
+    """A session code printed, or a tint put on a .chip — what a chip is
+    made of. A tint alone is not a chip: the phone week's pinned-role label
+    takes its type's colour and is a different element."""
+    return "session_type.code" in text or ("tint.key" in text and 'class="chip' in text)
+
+
 def test_only_the_partial_draws_a_chip():
-    """A tripwire: the tint and the code are what a chip is made of, so a
-    template printing either outside _chip.html is a sixth copy starting."""
+    """A tripwire: a template drawing a chip outside _chip.html is a sixth
+    copy starting."""
     drawing = sorted(str(p.relative_to(TEMPLATES)) for p in TEMPLATES.rglob("*.html")
-                     if "tint.key" in p.read_text() or "session_type.code" in p.read_text())
+                     if _draws_a_chip(p.read_text()))
     assert drawing == ["rota/_chip.html"]
+
+
+def test_the_tripwire_still_catches_a_copied_chip():
+    copied = ('<span class="chip" style="--chip-bg: var(--tint-{{ e.session_type.tint.key }}-bg)">'
+              "{{ e.session_type.code }}</span>")
+    assert _draws_a_chip(copied)
+    assert not _draws_a_chip('<span class="wk-pin-role" style="--chip-bg: var(--tint-{{ t.tint.key }}-bg)">')
 
 
 def test_every_chip_screen_uses_it():

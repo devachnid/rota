@@ -28,7 +28,7 @@ class DayRoster:
     roster: list = field(default_factory=list)    # {"clinician", "cells"}
     on_leave: list = field(default_factory=list)  # {"clinician", "cells"}
     not_in: list = field(default_factory=list)    # Clinician
-    pinned: list = field(default_factory=list)    # {"clinician", "entry", "note", "part"}
+    pinned: list = field(default_factory=list)    # {"clinician", "entry", "note", "part", "clash", "leave_label"}
     note: DayNote | None = None
 
     @property
@@ -150,9 +150,14 @@ class RosterSource:
         # and a PM row. Every entry belongs to a listed clinician (an entry
         # earns its clinician a row whatever their dates say), so nothing is
         # lost by starting from the rows.
+        #
+        # The clash travels with the pin: someone rostered on Duty whom
+        # Breathe says is off is on the pinned line, and a line reading "on
+        # Duty" with no sign of it names someone who will not be there.
         result.pinned = sorted(
             ({"clinician": c, "entry": cell["entry"], "note": cell["note"],
-              "part": "All day" if cell["merged"] else cell["part"]}
+              "part": "All day" if cell["merged"] else cell["part"],
+              "clash": cell["clash"], "leave_label": cell["leave_label"]}
              for c, drawn in shown_cells for cell in drawn
              if cell["entry"] and cell["entry"].session_type.pin_on_day_view),
             key=lambda r: (r["entry"].session_type.name, r["clinician"].name,
