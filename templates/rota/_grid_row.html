@@ -8,16 +8,8 @@ markup. Context: row, is_admin, tick, anchor.{% endcomment %}
       class="{% if cell.entry and not cell.entry.is_published %}draft{% endif %}{% if cell.closed %} closed{% endif %}{% if cell.week_start %} week-start{% endif %}"
       {% if is_admin and tick %}{% if cell.entry %}hx-post="/rota/entered/" hx-vals='{"clinician_id": {{ row.clinician.id }}, "day": "{{ cell.day_str }}", "part": "{{ cell.part }}", "week": "{{ anchor|date:'Y-m-d' }}"}' hx-target="closest tr" hx-swap="outerHTML"{% endif %}{% elif is_admin %}hx-get="/rota/cell/{{ row.clinician.id }}/{{ cell.day_str }}/{{ cell.part }}/" hx-target="#modal"{% endif %}
       {% if cell.entry %}title="{{ cell.entry.session_type.name }}{% if cell.entry.site %} · {{ cell.entry.site.name }}{% endif %}{% if is_admin and cell.entered %} — Entered {{ cell.entry.entered_at|date:'D j M H:i' }} by {{ cell.entered_by }}{% endif %}{% if cell.entry.fill_reason %} — {{ cell.entry.fill_reason }}{% endif %}{% if cell.note %} — {{ cell.note }}{% endif %}{% if cell.partner %} with {{ cell.partner }}{% endif %}{% if cell.clash %} — On Breathe leave: {{ cell.leave_label }}{% endif %}"{% endif %}>
-    {% if cell.entry %}
-      <span class="chip{% if not cell.entry.is_published %} is-draft{% endif %}{% if cell.clash %} is-clash{% endif %}{% if cell.note %} has-note{% endif %}{% if is_admin and cell.entered %} is-entered{% endif %}"
-            style="--chip-bg: var(--tint-{{ cell.entry.session_type.tint.key }}-bg); --chip-fg: var(--tint-{{ cell.entry.session_type.tint.key }}-fg);">
-        {{ cell.entry.session_type.code }}{% if cell.entry.site %}<span class="site-marker">{{ cell.entry.site.name|slice:":1" }}</span>{% endif %}
-      </span>
-    {% elif cell.absence %}
-      <span class="chip" title="{{ cell.leave_label }} — from Breathe"
-            style="--chip-bg: var(--tint-{{ cell.absence.tint.key }}-bg); --chip-fg: var(--tint-{{ cell.absence.tint.key }}-fg);">
-        {{ cell.absence.code }}
-      </span>
+    {% if cell.entry or cell.absence %}
+      {% include "rota/_chip.html" with strike=is_admin %}
     {% elif cell.off_pattern %}
       <span class="chip is-off is-not-working" title="Not a working session">OFF</span>
     {% elif cell.off %}
