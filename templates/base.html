@@ -56,7 +56,7 @@
 </nav>
 {% if messages %}
 <div class="flashes">
-  {% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}
+  {% for m in messages %}<div class="flash flash-{{ m.level_tag }}">{{ m }}</div>{% endfor %}
 </div>
 {% endif %}
 {% if user.is_authenticated %}
