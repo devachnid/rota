@@ -330,7 +330,8 @@ fieldset.field {
    around the native glyph instead of a normal checkbox. */
 .field input:not([type="checkbox"]):not([type="radio"]),
 .field select,
-.field textarea {
+.field textarea,
+.inline-input {
   font-family: var(--font);
   font-size: var(--fs-md);
   color: var(--ink);
@@ -343,7 +344,23 @@ fieldset.field {
 }
 .field input:not([type="checkbox"]):not([type="radio"]):focus,
 .field select:focus,
-.field textarea:focus { border-color: var(--accent); }
+.field textarea:focus,
+.inline-input:focus { border-color: var(--accent); }
+
+/* A field and the button it belongs to, on one line: the reason for
+   declining a swap sits against Decline, since that is the only button
+   that sends it. It was a bare browser input — a different font, a 1px
+   grey box, "comment (optional)" as its only label — wedged between two
+   buttons. The row takes what .form-actions leaves after Accept, and on a
+   phone wraps under it with the field filling the line. */
+.inline-form {
+  display: flex;
+  flex: 1 1 18rem;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.inline-input { flex: 1 1 12rem; min-width: 0; }
 
 .field-help {
   color: var(--muted);
@@ -354,8 +371,13 @@ fieldset.field {
   font-size: var(--fs-xs);
   font-weight: 700;
 }
+/* Wraps, so a row that runs out of room puts its next control on a new
+   line rather than squeezing it: on a phone the swap card's Accept, reason
+   box and Decline did not fit one line, and without a wrap the reason box
+   shrank against Accept and pushed Decline under itself. */
 .form-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-3);
   margin-top: var(--sp-5);
