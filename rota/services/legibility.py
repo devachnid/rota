@@ -5,7 +5,8 @@ it, and nothing says so.
 column (`.table-grid`'s min-width in static/css/components.css, pinned by
 tests/test_css_cascade.py), which leaves about 48px inside the chip once
 the border-spacing and the chip's own padding are taken off. Measured
-against static/fonts/plus-jakarta-sans-latin.woff2 at the chip's 11.5px,
+against static/fonts/plus-jakarta-sans-latin.woff2 at the chip's 11.5px
+(--fs-chip in tokens.css, held there when the rest of the scale rose),
 six characters fit and eight do not — "PMC Rout" wants 54px, "Research"
 51px — so they are clipped with an ellipsis. The field allows eight
 because shortening it would invalidate codes already in use; this reports
