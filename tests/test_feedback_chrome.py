@@ -45,10 +45,10 @@ def test_the_more_sheet_button_closes_the_sheet_it_sits_in(gp_client):
 
 def test_the_control_is_as_quiet_as_the_theme_toggle():
     # Same rule as the logged-out theme toggle: a nav control, not a page
-    # action. Scoped to .nav's own child so the account menu's copy of the
-    # toggle, a menu item, is not shrunk with it.
+    # action. Scoped to .nav-end's own child so the account menu's copy of
+    # the toggle, a menu item, is not shrunk with it.
     assert rule("#feedback-open").declarations["font-size"] == "var(--fs-xs)"
-    assert rule(".nav > #theme-toggle").declarations["font-size"] == "var(--fs-xs)"
+    assert rule(".nav-end > #theme-toggle").declarations["font-size"] == "var(--fs-xs)"
 
 
 def test_the_radio_row_is_a_flex_row_and_the_fieldset_draws_no_box():

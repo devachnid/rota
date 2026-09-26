@@ -100,3 +100,16 @@ def test_the_script_loads_on_every_page(gp_client, client):
     PracticeSettings.load()
     for resp in (gp_client.get("/me/"), client.get("/accounts/login/")):
         assert resp.content.decode().count("js/menus.js") == 1
+
+
+def test_feedback_and_the_menu_wrap_together_and_stay_right():
+    """Seen at 820px in a browser: with a spacer element, a wrapping admin
+    header left the spacer on the first line and put the menu alone at the
+    left of the second. An auto margin on one right-hand block travels
+    with it."""
+    from tests.test_css_cascade import rule
+    assert rule(".nav-end").declarations["margin-left"] == "auto"
+    base = (ROOT / "templates" / "base.html").read_text()
+    assert "nav-spacer" not in base
+    end = base[base.index('<div class="nav-end">'):base.index("</nav>")]
+    assert 'id="feedback-open"' in end and 'class="nav-account"' in end
