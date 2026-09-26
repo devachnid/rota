@@ -87,10 +87,11 @@ def test_closed_day_styled(admin_client):
     # in the eight-week window a Monday also opens a week, so its classes
     # carry `week-start` -- on the day cell and on the AM cell under it.
     # It is also the anchor week's first day, which carries the mark the
-    # script scrolls to.
-    assert html.count('class="grid-day closed week-start is-anchor"') == 1
-    assert html.count('class="grid-part closed week-start"') == 1
-    assert html.count('class="grid-part closed"') == 1
+    # script scrolls to, and every cell of the anchor week carries
+    # anchor-week, the one week print.css puts on paper.
+    assert html.count('class="grid-day closed week-start is-anchor anchor-week"') == 1
+    assert html.count('class="grid-part closed week-start anchor-week"') == 1
+    assert html.count('class="grid-part closed anchor-week"') == 1
 
 
 def test_own_row_highlighted(gp_client, gp_user):

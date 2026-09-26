@@ -210,7 +210,7 @@ def test_wash_moves_away_from_the_chip_background(theme):
 # 3. the no-literals rule that keeps all of the above meaningful
 # --------------------------------------------------------------------------
 
-@pytest.mark.parametrize("sheet", ["components.css", "screens.css"])
+@pytest.mark.parametrize("sheet", ["components.css", "screens.css", "print.css"])
 def test_no_colour_literals_outside_tokens_css(sheet):
     """Contrast can only be audited from tokens.css if that is where every
     colour lives. The draft hatch was the one sanctioned literal; it now takes

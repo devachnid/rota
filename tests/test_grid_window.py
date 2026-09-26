@@ -85,7 +85,7 @@ def test_today_is_marked_when_inside_the_window(admin_client, monkeypatch):
     html = _page(admin_client)
     wed = MON + timedelta(days=2)
     assert "grid-day is-today" in html
-    assert html.count('class="grid-part is-today"') == 2
+    assert html.count('class="grid-part is-today') == 2
     # The header alone marks today: per-cell edges drew a bar at each side
     # of the AM/PM pair and a double bar between them.
     i = html.index(f'hx-get="/rota/cell/{c.id}/{wed}/AM/"')
