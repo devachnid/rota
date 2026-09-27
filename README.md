@@ -275,16 +275,38 @@ Cloudflare's `CF-Connecting-IP`, believed only when the request arrives from
 `TRUSTED_PROXY_IPS` (loopback by default, where cloudflared connects) — see
 `accounts/client_ip.py` for why it is that header and not `X-Forwarded-For`.
 
+How each is counted is in `accounts/axes_handler.py`:
+- An email locks after five failures within the hour, from anywhere.
+- An address locks once five *different* emails have failures outstanding from
+  it. That is the spraying pattern, and it spares the surgery's shared NAT
+  address, where one person's fumbles count once.
+- A successful login clears only that person's own failures. axes' own reset
+  cleared every failure recorded from the address, which let anyone with an
+  account wipe a colleague's count by signing in from the same address, then
+  keep guessing.
+- A lockout lasts an hour from the failure that caused it
+  (`AXES_RESET_COOL_OFF_ON_FAILURE_DURING_LOCKOUT = False`), so retrying
+  while locked cannot keep someone out indefinitely.
+
+`accounts/lockout.py` answers a locked-out request: a page naming the ways in
+that still work, or JSON for the passkey endpoints.
+
 A password lockout does not block signing in with a passkey: a passkey proves
 possession of the device, which is the stronger claim. A forged passkey
 assertion for a registered passkey counts against the address and the account
 like a wrong password does.
 
-The record is in the admin's **System** group, for superusers: **Access
-failures** is the log of failed attempts (the last thousand per email); **Access attempts** is
-the live counter, and is cleared for an address as soon as anyone there logs in
-successfully (that is what keeps a shared surgery connection from locking the
-building out); **Access logs** records successful sign-ins.
+Adding a passkey needs a sign-in within the last ten minutes, or the password
+typed again (`accounts/recent_auth.py`). That password goes through the same
+lockout, and the owner is emailed about every passkey added. The password-link
+form can remove all of an account's passkeys, since a passkey outlives a
+password change.
+
+The record is in the admin's **System** group, for superusers:
+- **Access failures** is the log of failed attempts (the last thousand per email).
+- **Access attempts** is the live counter, cleared for an email when that person
+  next signs in.
+- **Access logs** records successful sign-ins.
 
 Nothing to configure for a standard tunnel. **Do verify the header actually
 arrives**, because if it does not, every attempt is recorded as `127.0.0.1`

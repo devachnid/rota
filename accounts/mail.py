@@ -113,3 +113,29 @@ def _stamp(user, when):
     """A link was handed out — sent, or shown to an admin."""
     user.password_link_sent_at = when
     user.save(update_fields=["password_link_sent_at"])
+
+
+def send_passkey_added(request, user, passkey):
+    """Tell the owner a passkey was added to their account. They almost
+    always did it themselves; the email is for the time they did not — a
+    passkey outlives a password reset, so the owner needs to know it exists
+    to take it back. Best effort: no relay means no email, and a failed
+    send is logged, never raised into the registration that has already
+    happened."""
+    if not email_is_configured():
+        return
+    context = {
+        "name": passkey.name,
+        "when": passkey.created_at,
+        "email": user.email,
+        "account": request.build_absolute_uri(reverse("account")),
+        "reset": request.build_absolute_uri(reverse("password_reset")),
+    }
+    subject = "".join(render_to_string("registration/passkey_added_subject.txt", context).splitlines())
+    body = render_to_string("registration/passkey_added_email.txt", context)
+    message = EmailMessage(subject, body, settings.DEFAULT_FROM_EMAIL, [user.email],
+                           headers=TRACKING_OFF)
+    try:
+        message.send(fail_silently=False)
+    except Exception:  # noqa: BLE001 — as send_password_link
+        logger.exception("passkey notice to %s could not be sent", user.email)

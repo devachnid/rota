@@ -1,0 +1,14 @@
+{% autoescape off %}Hello,
+
+A passkey{% if name %} named "{{ name }}"{% endif %} was added to the Practice Rota login {{ email }} on {{ when|date:"j F" }} at {{ when|date:"H:i" }}.
+
+If that was you, there is nothing to do.
+
+If it wasn't, someone else has been signed in as you. Reset your password here, and tick "Also remove all my passkeys":
+
+{{ reset }}
+
+Then tell a rota admin. Your passkeys are listed on your Account page:
+
+{{ account }}
+{% endautoescape %}

@@ -6,10 +6,11 @@
  *     without one sees anything; the button is the explicit path, and the
  *     only path where conditional UI is unavailable.
  *   #passkey-add on the Account page — enrol, with a typed name.
- *   #passkey-nudge on every signed-in page — a card offering to enrol on
- *     this device, shown only where this browser has never enrolled or
- *     signed in with a passkey (a localStorage marker), snoozed per browser
- *     with "Not now". Passkeys are per device, so the memory is too.
+ *   #passkey-nudge on the pages just after signing in (base.html renders it
+ *     only then) — a card offering to enrol on this device, shown only where
+ *     this browser has never enrolled or signed in with a passkey (a
+ *     localStorage marker), snoozed per browser with "Not now". Passkeys are
+ *     per device, so the memory is too.
  *
  * Buttons start display:none and are revealed only when the browser has
  * PublicKeyCredential — `hidden` is not used because .btn's display beats
@@ -58,7 +59,9 @@
     }).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (data) {
         if (!r.ok) {
-          throw new Error(data.error || ("Something went wrong (HTTP " + r.status + ")."));
+          var err = new Error(data.error || ("Something went wrong (HTTP " + r.status + ")."));
+          err.data = data;
+          throw err;
         }
         return data;
       });
@@ -110,16 +113,24 @@
 
   // --- enrolling ------------------------------------------------------------
 
+  // Adding a passkey needs a session that signed in in the last few minutes,
+  // or the password typed again (accounts/recent_auth.py). The Account page
+  // renders a password field when it will be needed; the nudge is only shown
+  // inside those minutes, so it has none, and if they run out while it sits
+  // there the server's "password" answer sends the person to the Account page.
   function enrol(button, form, errorEl, onDone) {
     if (button.disabled) { return; }          // one ceremony at a time
     button.disabled = true;
     show(errorEl, "");
     var token;
     var nameInput = form.querySelector("[name=name]");
+    var passwordInput = form.querySelector("[name=password]");
     Promise.resolve().then(function () {      // so a throw here lands in the catch, not on the console
       token = csrfToken(form);
-      return post(button.dataset.optionsUrl, token);
+      return post(button.dataset.optionsUrl, token,
+                  passwordInput ? { password: passwordInput.value } : null);
     }).then(function (opts) {
+      if (passwordInput) { passwordInput.value = ""; }
       return navigator.credentials.create({ publicKey: creationOptions(opts) });
     }).then(function (cred) {
       return post(button.dataset.registerUrl, token, {
@@ -134,7 +145,12 @@
       // remember it, or the card would keep coming back after site data
       // was cleared.
       if (e.name === "InvalidStateError") { store(MARK, "1"); }
-      show(errorEl, explain(e));
+      if (e.data && e.data.password && !passwordInput) {
+        show(errorEl, "To add a passkey now, use your Account page — it will ask for your password.");
+      } else {
+        show(errorEl, explain(e));
+      }
+      if (e.data && e.data.password && passwordInput) { passwordInput.focus(); }
     }).then(function () { button.disabled = false; });
   }
 
