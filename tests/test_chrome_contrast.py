@@ -95,6 +95,7 @@ PAIRS = [
     ("accent", "sunken", "links over a sunken cell"),
     ("accent-ink", "accent", ".btn-primary"),
     ("accent", "accent-soft", "the phone week's Today label and today in its day strip"),
+    ("ink-soft", "closed", "a closed day's header — date, AM/PM, reason, day note"),
     ("danger", "ground", ".neg, .warn, .field-error on the page ground"),
     ("danger", "surface", ".warn in a grid header, .field-error in a modal, .errorlist"),
     ("danger", "sunken", ".warn over a sunken cell"),

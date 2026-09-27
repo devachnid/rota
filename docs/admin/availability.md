@@ -101,10 +101,16 @@ to compensate elsewhere.
 
 ### Day / Reason
 
-The date, and a short label. The reason shows in the grid header.
+The date, and a short label. The reason shows under the date in the grid
+header — "Bank holiday", "New Year's Day" — or "Closed" when it is blank; on a
+printout, where the shading does not survive, it is what says the day is shut.
 
-A closed day is skipped entirely: nothing is filled, no warnings are generated,
-and the column is greyed. This is different from
+A closed day is skipped entirely: nothing is filled and no warnings are
+generated. On the grid the whole column takes one darker shade, header and
+cells alike, and nobody's cell shows the grey "working, nothing allocated"
+placeholder, so a bank holiday never reads as a day of gaps. A session that
+does stand on a closed day still shows — it should not be there, and hiding
+it would hide the mistake. This is different from
 [open weekdays](practice-settings.md#open-weekdays) in Practice settings, which
 sets the normal working week — closed days are the exceptions to it.
 

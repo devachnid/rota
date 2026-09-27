@@ -488,8 +488,21 @@ fieldset.field {
    header, where the day is actually named, not only in the body cells.
    .closed alone is inert here: .table-grid thead th (0,1,2) beats its
    background and .grid-day (screens.css, 0,1,0) beats its colour on
-   stylesheet order. (0,2,2) clears both, whatever the order. */
-.table-grid thead th.closed { background: var(--sunken); color: var(--muted); }
+   stylesheet order. (0,2,2) clears both, whatever the order. --ink-soft,
+   not --muted, because --muted is 3.1:1 on --closed. */
+.table-grid thead th.closed { background: var(--closed); color: var(--ink-soft); }
+/* The closure's reason under the date — "Bank holiday" — or just
+   "Closed". The words are what survive a printout, where the shade does
+   not. */
+.grid-closed {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+/* A day note is --warning, 3.7:1 on --closed; on a closed day it takes
+   the header's own colour. */
+.table-grid thead th.closed .daynote { color: var(--ink-soft); }
 /* The row highlight for the signed-in clinician has to be restated on the
    clinician cell — .table-grid .grid-clin (0,2,0) paints --surface over the
    .mine row background, and that cell is exactly where the pre-branch design
@@ -509,6 +522,9 @@ fieldset.field {
    (tests/test_css_cascade.py). */
 .table-grid .week-start { border-left: 2px solid var(--muted); }
 .table-grid thead th.is-today { background: var(--accent-soft); }
+/* Closed outranks today: a bank holiday that happens to be today is
+   still closed, and that is the thing to see. */
+.table-grid thead th.is-today.closed { background: var(--closed); }
 
 /* ------------------------------------------------------------- chips --- */
 
@@ -545,6 +561,14 @@ fieldset.field {
 }
 .chip.empty-slot {
   background: var(--slot);
+}
+/* A closed day draws no placeholder: the grey "working, nothing
+   allocated" chip on everyone who would usually be in made a bank holiday
+   look like a day of gaps. The chip takes the cell's own closed shade, so
+   the column reads as one closed block. A session that does stand on a
+   closed day still draws as itself. */
+.chip.is-closed {
+  background: transparent;
 }
 
 /* Drafts stay hatched so they read as provisional at a glance. --wash rather
@@ -789,7 +813,7 @@ fieldset.field {
 
 .mine { background: var(--accent-soft); }
 
-.closed { background: var(--sunken); color: var(--muted); }
+.closed { background: var(--closed); color: var(--ink-soft); }
 
 /* The hatched texture itself lives on .chip.is-draft (the inner span) —
    .draft used to also paint a second repeating-linear-gradient here on the
