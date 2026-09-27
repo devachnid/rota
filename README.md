@@ -37,7 +37,7 @@ is the reference for what the settings actually mean.
 
 ## First-time setup
 
-1. `python manage.py createsuperuser`
+1. `deploy/manage createsuperuser` on the server (`DEBUG=1 python manage.py createsuperuser` on a dev box)
 2. Sign in and open **Admin**. The dashboard's **Setup** card lists nine
    steps, each detected from the database (or, for outgoing email, the
    environment) and linked to where it is done in the admin;
@@ -56,35 +56,134 @@ day-to-day work, not setup — see [docs/admin/](docs/admin/README.md).
 
 ## Deploy (LXC + Cloudflare tunnel)
 
-    pip install -r requirements.txt
+The app runs as its own `rota` user, never as root, in three places:
 
-Create the secrets file first — root-only, never in the unit file:
+| Where | Owner | What |
+|---|---|---|
+| `/srv/rota` | root, read-only to the app | the code, its `.venv` and `staticfiles/` |
+| `/var/lib/rota` | `rota`, closed to everyone else | the database and its nightly backups |
+| `/etc/rota.env` | root, mode 600 | the settings and secrets |
 
+So a bug that let a request run code reaches the rota's data and nothing
+else: not the tunnel's credentials, not the app's own code, not the rest of
+the container. Every unit in `deploy/` also runs in a systemd sandbox;
+`deploy/gunicorn.service` explains each part.
+
+    useradd --system --home-dir /var/lib/rota --no-create-home --shell /usr/sbin/nologin rota
+    install -d -o rota -g rota -m 700 /var/lib/rota
+    git clone https://github.com/devachnid/rota /srv/rota
+    cd /srv/rota
+    python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+
+Create the secrets file — root-only, never in the unit file. The subshell
+keeps `umask 077` from leaking into later commands, where it would make
+files the app has to read unreadable:
+
+    (
     umask 077
     .venv/bin/python -c 'from django.core.management.utils import get_random_secret_key as k; print("SECRET_KEY=" + k())' > /etc/rota.env
     cat >> /etc/rota.env <<'EOF'
     DEBUG=0
+    DB_PATH=/var/lib/rota/db.sqlite3
     ALLOWED_HOSTS=rota.example.org
     CSRF_TRUSTED_ORIGINS=https://rota.example.org
     EOF
-    chmod 600 /etc/rota.env
+    )
 
 Then:
 
-    set -a; . /etc/rota.env; set +a
-    python manage.py collectstatic --noinput
-    python manage.py migrate
+    deploy/manage collectstatic --noinput
+    deploy/manage migrate
     cp deploy/gunicorn.service /etc/systemd/system/rota.service
     cp deploy/rota-backup.* deploy/rota-clearsessions.* deploy/rota-breathe.* /etc/systemd/system/
     systemctl daemon-reload && systemctl enable --now rota rota-backup.timer rota-clearsessions.timer
+
+**Run every `manage.py` command through `deploy/manage`**, as root:
+`deploy/manage createsuperuser`, `deploy/manage check --deploy` and so on. It
+runs the command as the `rota` user with the settings from `/etc/rota.env`,
+exactly as the services do. Plain `python manage.py` as root is the one way
+to break this layout. The database is in WAL mode, so a root process that
+opens it can leave `db.sqlite3-wal`/`-shm` files owned by root, and the app
+then cannot open them. Sourcing the settings into a shell (`. /etc/rota.env`)
+also fails on a secret key holding `(` or `$`, which Django's generated keys
+do.
 
 `rota-breathe.timer` is enabled later, once every clinician is linked — step 5
 of [Leave from Breathe](docs/admin/breathe.md#setting-it-up-in-this-order).
 
 Point the Cloudflare tunnel ingress at `http://127.0.0.1:8321`.
-Backups land in `backups/`, kept 30 days. Expired sessions are cleared
-nightly by `rota-clearsessions.timer`: the login page's passkey autofill
-mints a session per visit, so the table would otherwise only grow.
+Backups land in `/var/lib/rota/backups/`, kept 30 days, readable only by the
+`rota` user: each is a complete copy, session keys included. Expired sessions
+are cleared nightly by `rota-clearsessions.timer`: the login page's passkey
+autofill mints a session per visit, so the table would otherwise only grow.
+
+`systemd-analyze security rota` scores the sandbox; it reads about 1.5 (OK),
+where the same app as root with no sandbox reads 9.6 (UNSAFE).
+
+### Moving an install that runs as root
+
+Installs from before September 2026 run from `/root/rota` as root, with the
+database beside the code. Moving one takes a few minutes with the site down.
+
+1. **Snapshot the container first** — `pct snapshot <ctid> pre-rota-user` on
+   the Proxmox host. That snapshot is the rollback, whatever goes wrong
+   (`pct rollback <ctid> pre-rota-user`).
+
+2. **Stop everything**, so nothing holds the database open:
+
+       systemctl stop rota rota-breathe.timer rota-backup.timer rota-clearsessions.timer
+       systemctl stop rota-breathe.service rota-backup.service rota-clearsessions.service
+
+3. **Create the user and the data directory, then move the data.** The
+   `-wal`/`-shm` files are normally gone after a clean stop. The glob moves
+   them if they are not:
+
+       useradd --system --home-dir /var/lib/rota --no-create-home --shell /usr/sbin/nologin rota
+       install -d -o rota -g rota -m 700 /var/lib/rota
+       mv /root/rota/db.sqlite3* /var/lib/rota/
+       mv /root/rota/backups /var/lib/rota/backups
+       chown -R rota:rota /var/lib/rota
+       chmod -R go= /var/lib/rota
+
+4. **Move the code.** A venv cannot move, because its scripts hold its own
+   path, so rebuild it. Then make the code readable, and writable only by root:
+
+       mv /root/rota /srv/rota
+       cd /srv/rota
+       rm -rf .venv && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+       chown -R root:root /srv/rota
+       chmod -R u=rwX,go=rX /srv/rota
+
+5. **Point the settings at the database.** Add a line to `/etc/rota.env`,
+   and leave the rest as it is:
+
+       echo 'DB_PATH=/var/lib/rota/db.sqlite3' >> /etc/rota.env
+
+6. **Install the new units and bring it up.** Rebuild the static files: the
+   manifest moved with the code, but a rebuild costs seconds and rules out a
+   stale one.
+
+       cp deploy/gunicorn.service /etc/systemd/system/rota.service
+       cp deploy/rota-backup.service deploy/rota-clearsessions.service deploy/rota-breathe.service /etc/systemd/system/
+       systemctl daemon-reload
+       deploy/manage collectstatic --noinput
+       deploy/manage migrate
+       deploy/manage check --deploy
+       systemctl start rota
+       systemctl start rota-breathe.timer rota-backup.timer rota-clearsessions.timer
+
+7. **Check it:**
+
+       sleep 2; ps -o user= -C gunicorn | sort -u     # rota, not root
+       systemctl start rota-backup.service && ls -l /var/lib/rota/backups | tail -1
+       systemctl start rota-breathe.service && journalctl -u rota-breathe -n 5 --no-pager
+       systemd-analyze security rota | tail -1
+
+   Then sign in on the site and change something small.
+
+If `systemctl start rota` fails with `status=226/NAMESPACE`, the container
+cannot build the sandbox's namespaces. Turn on **nesting** for the container
+(Proxmox: *Options › Features*), restart it, and start the service again.
 
 ### Outgoing email
 
@@ -149,13 +248,17 @@ pulling code that references a new asset — a font, a stylesheet — without
 rebuilding the manifest makes *every page* return 500, with the traceback
 going only to the journal. That has happened.
 
-    set -a; . /etc/rota.env; set +a
+    cd /srv/rota
     git pull
-    pip install -r requirements.txt
-    python manage.py migrate
-    python manage.py collectstatic --noinput
-    python manage.py check --deploy   # fails loudly if the manifest is stale
+    .venv/bin/pip install -r requirements.txt
+    deploy/manage migrate
+    deploy/manage collectstatic --noinput
+    deploy/manage check --deploy   # fails loudly if the manifest is stale
     systemctl restart rota
+
+A pull that changes a file in `deploy/` needs that unit copied into
+`/etc/systemd/system/` again, then `systemctl daemon-reload`. The `.service`
+files are the ones that change.
 
 `check --deploy` verifies that every asset the templates reference is in the
 manifest, and that every stored weekday and month list still parses (`rota.E006`
@@ -187,7 +290,7 @@ Nothing to configure for a standard tunnel. **Do verify the header actually
 arrives**, because if it does not, every attempt is recorded as `127.0.0.1`
 and address-based lockout quietly stops meaning anything:
 
-    python manage.py shell -c "from axes.models import AccessAttempt; print(list(AccessAttempt.objects.values_list('ip_address', 'username')[:5]))"
+    deploy/manage shell -c "from axes.models import AccessAttempt; print(list(AccessAttempt.objects.values_list('ip_address', 'username')[:5]))"
 
 Fail a login once from outside, then run that. Real client addresses mean it
 is working; `127.0.0.1` means the header is being stripped somewhere and only

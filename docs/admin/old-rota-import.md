@@ -39,7 +39,12 @@ placeholder names:
 
 ## 3. The import
 
-    .venv/bin/python manage.py import_rota window.csv --map mapping.toml --dry-run
+    deploy/manage import_rota /var/lib/rota/window.csv --map /var/lib/rota/mapping.toml --dry-run
+
+On the server the command runs as the `rota` user (`deploy/manage`, from
+`/srv/rota`), so the two files go where that user can read them —
+`install -o rota -g rota -m 600 window.csv mapping.toml /var/lib/rota/` —
+and are deleted once the import is done: the sheet holds names against dates.
 
 The dry run prints the tally by session type and by person, the locum
 requirements it would make and the locums it would create, the notes it

@@ -3,17 +3,36 @@ Description=GP rota gunicorn
 After=network.target
 
 [Service]
-WorkingDirectory=/root/rota
+# The app runs as its own unprivileged user, never root. A bug that let a
+# request run code would otherwise hand over the whole container, including
+# cloudflared's tunnel credentials, which would let an attacker sit in the
+# middle of every user's session. As the rota user it can reach the app's
+# own data and nothing else.
+#
+#   useradd --system --home-dir /var/lib/rota --no-create-home \
+#           --shell /usr/sbin/nologin rota
+User=rota
+Group=rota
+
+# The code lives in /srv/rota, owned by root and read-only to the rota user,
+# so the app cannot rewrite itself. Its data lives in /var/lib/rota: systemd
+# creates that as StateDirectory, owned by rota and closed to everyone else,
+# and DB_PATH in /etc/rota.env points the database there. SQLite needs to
+# write the directory its database sits in, which is why the two are apart.
+WorkingDirectory=/srv/rota
+StateDirectory=rota
+StateDirectoryMode=0700
+UMask=0077
 
 # Secrets go in an environment file, not in Environment= lines. Unit files
 # under /etc/systemd/system are world-readable by default, so a SECRET_KEY
 # written here is readable by every local account — and with that key an
 # attacker can forge a session cookie for any user, including a rota admin.
-#
-# Create it once, readable only by root:
+# systemd reads the file as root before it drops to the rota user, so it
+# stays root-only. Create it once:
 #
 #   umask 077
-#   /root/rota/.venv/bin/python -c \
+#   /srv/rota/.venv/bin/python -c \
 #     'from django.core.management.utils import get_random_secret_key as k; \
 #      print("SECRET_KEY=" + k())' > /etc/rota.env
 #   chmod 600 /etc/rota.env
@@ -21,6 +40,7 @@ WorkingDirectory=/root/rota
 # and add the rest of the settings to it:
 #
 #   DEBUG=0
+#   DB_PATH=/var/lib/rota/db.sqlite3
 #   ALLOWED_HOSTS=rota.example.org
 #   CSRF_TRUSTED_ORIGINS=https://rota.example.org
 #   BREATHE_API_KEY=…            # from Breathe: Configure > API Settings
@@ -34,8 +54,36 @@ EnvironmentFile=/etc/rota.env
 # settings.py trusts X-Forwarded-Proto to decide a request is HTTPS, which is
 # only sound while nothing can reach gunicorn directly and set that header
 # itself. Do not change this to 0.0.0.0.
-ExecStart=/root/rota/.venv/bin/gunicorn config.wsgi --bind 127.0.0.1:8321 --workers 2
+ExecStart=/srv/rota/.venv/bin/gunicorn config.wsgi --bind 127.0.0.1:8321 --workers 2
 Restart=always
+
+# The sandbox. Everything outside /var/lib/rota is read-only, /home and /root
+# are hidden, /tmp is private, and the process can gain no privileges or
+# capabilities, load no kernel modules, change no kernel settings, and open
+# no sockets but IP and Unix ones. The same block is in every rota unit;
+# `systemd-analyze security rota` scores it.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
 
 [Install]
 WantedBy=multi-user.target
