@@ -87,10 +87,12 @@ def test_a_single_account_is_still_locked_after_repeated_failures():
 
 @pytest.mark.django_db
 @axes_on
-def test_a_success_clears_the_counters_for_that_client():
+def test_fumbles_at_the_surgery_do_not_lock_the_building_out():
     """What makes address keying tolerable at a practice, where everyone
-    shares one NAT address. Ordinary fumbling does not accumulate towards a
-    lockout — only an unbroken run of failures does."""
+    shares one NAT address. The address counts accounts with outstanding
+    failures, and each person's own success clears their own: four people
+    fumbling once each, one of them then getting in, leaves the address
+    well short of a lockout."""
     _make(4)
     for i in range(4):
         _login(SURGERY, f"gp{i}@example.org", "wrong")
@@ -102,8 +104,51 @@ def test_a_success_clears_the_counters_for_that_client():
     for i in range(4):
         _login(SURGERY, f"gp{i}@example.org", "wrong")
     assert _login(SURGERY, "gp1@example.org", PW).status_code == 302, (
-        "the earlier failures were not cleared by the successful login"
+        "four people with outstanding fumbles locked the building out"
     )
+
+
+@pytest.mark.django_db
+@axes_on
+def test_one_person_fumbling_counts_once_against_the_address():
+    """Five wrong passwords lock that account; they do not lock everyone
+    else behind the same address."""
+    _make(2)
+    for _ in range(5):
+        _login(SURGERY, "gp0@example.org", "wrong")
+    assert _login(SURGERY, "gp0@example.org", PW).status_code == 429
+    assert _login(SURGERY, "gp1@example.org", PW).status_code == 302
+
+
+@pytest.mark.django_db
+@axes_on
+def test_an_account_holder_cannot_reset_a_colleagues_counter():
+    """The hole axes' own reset left: four guesses at a colleague, a login to
+    your own account from the same address — which deleted every failure
+    recorded there, the colleague's included — and round again, for ever.
+    A success now clears only the signed-in person's own failures."""
+    insider, victim = _make(2)
+    for g in range(4):
+        assert _login(ATTACKER, victim.email, f"guess-{g}").status_code == 200
+    assert _login(ATTACKER, insider.email, PW).status_code == 302
+    # The fifth guess is the fifth failure: the account locks, and the right
+    # password is refused too, from anywhere.
+    assert _login(ATTACKER, victim.email, "guess-4").status_code == 429
+    assert _login(ATTACKER, victim.email, PW).status_code == 429
+    assert _login(HOME, victim.email, PW).status_code == 429
+
+
+@pytest.mark.django_db
+@axes_on
+def test_a_success_clears_the_signed_in_persons_own_failures_everywhere():
+    from axes.models import AccessAttempt
+    gp, other = _make(2)
+    _login(HOME, gp.email, "wrong")
+    _login(SURGERY, gp.email, "wrong")
+    _login(SURGERY, other.email, "wrong")
+    assert _login(SURGERY, gp.email, PW).status_code == 302
+    assert not AccessAttempt.objects.filter(username=gp.email).exists()
+    assert AccessAttempt.objects.filter(username=other.email).count() == 1
 
 
 @pytest.mark.django_db
@@ -170,15 +215,83 @@ def test_attempts_are_recorded_against_the_email_for_both_ways_in(gp_user):
 @pytest.mark.django_db
 @axes_on
 def test_the_failure_log_outlives_the_counter_reset():
-    """AccessAttempt is a counter: a later successful login from the same
-    address clears it (AXES_RESET_ON_SUCCESS), which is what left "Access
-    attempts" empty on staging after real failures. AccessFailureLog is the
-    permanent record, and it stays."""
+    """AccessAttempt is a counter: the person's own later success clears it.
+    AccessFailureLog is the permanent record, and it stays."""
     from axes.models import AccessAttempt, AccessFailureLog
     gp, other = _make(2)
     _login(SURGERY, gp.email, "wrong")
     assert AccessAttempt.objects.filter(username=gp.email).count() == 1
     assert AccessFailureLog.objects.filter(username=gp.email).count() == 1
     assert _login(SURGERY, other.email, PW).status_code == 302     # someone else, same address
+    assert AccessAttempt.objects.filter(username=gp.email).count() == 1
+    assert _login(SURGERY, gp.email, PW).status_code == 302
     assert not AccessAttempt.objects.filter(username=gp.email).exists()
     assert AccessFailureLog.objects.filter(username=gp.email).count() == 1
+
+
+@pytest.mark.django_db
+@axes_on
+def test_a_passkey_sign_in_clears_only_its_own_account(gp_user):
+    """A passkey gets past a password lockout by design (possession of the
+    device is the stronger proof), but it clears only its own account's
+    counter, not the address's."""
+    import json
+    from axes.models import AccessAttempt
+    from tests.soft_authenticator import SoftAuthenticator
+
+    gp = Client()
+    gp.force_login(gp_user)
+    auth = SoftAuthenticator()
+    options = gp.post("/accounts/passkeys/register/options/", data="{}",
+                      content_type="application/json").json()
+    assert gp.post("/accounts/passkeys/register/",
+                   data=json.dumps({"credential": auth.create(options), "name": "phone"}),
+                   content_type="application/json").status_code == 200
+    victim, *_ = _make(1)
+    for g in range(4):
+        _login(ATTACKER, victim.email, f"guess-{g}")
+    anon = Client()
+    options = anon.post("/accounts/passkeys/login/options/", data="{}",
+                        content_type="application/json",
+                        REMOTE_ADDR=TUNNEL, HTTP_CF_CONNECTING_IP=ATTACKER).json()
+    assert anon.post("/accounts/passkeys/login/",
+                     data=json.dumps({"credential": auth.get(options)}),
+                     content_type="application/json",
+                     REMOTE_ADDR=TUNNEL, HTTP_CF_CONNECTING_IP=ATTACKER).status_code == 200
+    assert AccessAttempt.objects.get(username=victim.email).failures_since_start == 4
+
+
+# ----------------------------------------------------------- the lockout ---
+
+@pytest.mark.django_db
+@axes_on
+def test_attempts_during_a_lockout_do_not_extend_it():
+    """axes' default restarted the hour on every attempt made while locked,
+    so anyone who knew an address could keep its owner out indefinitely
+    with one request an hour. Now the hour runs from the lockout."""
+    from datetime import timedelta
+    from django.utils import timezone
+    from axes.models import AccessAttempt
+    gp, *_ = _make(1)
+    for _ in range(5):
+        _login(ATTACKER, gp.email, "wrong")
+    AccessAttempt.objects.update(attempt_time=timezone.now() - timedelta(minutes=59))
+    assert _login("192.0.2.77", gp.email, "again").status_code == 429
+    newest = AccessAttempt.objects.order_by("-attempt_time").first().attempt_time
+    assert timezone.now() - newest > timedelta(minutes=58), "the attempt restarted the hour"
+    AccessAttempt.objects.update(attempt_time=timezone.now() - timedelta(minutes=61))
+    assert _login(HOME, gp.email, PW).status_code == 302
+
+
+@pytest.mark.django_db
+@axes_on
+def test_the_lockout_page_offers_the_ways_in_that_still_work():
+    gp, *_ = _make(1)
+    for _ in range(5):
+        _login(ATTACKER, gp.email, "wrong")
+    resp = _login(HOME, gp.email, PW)
+    assert resp.status_code == 429
+    html = resp.content.decode()
+    assert "Too many attempts" in html
+    assert 'href="/accounts/login/"' in html and "passkey" in html
+    assert 'href="/accounts/password_reset/"' in html

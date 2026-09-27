@@ -8,11 +8,12 @@ and signs the person in.
 
 import json
 
+from django import forms
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login as auth_login
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import PasswordResetForm
+from django.contrib.auth.forms import PasswordResetForm, SetPasswordForm
 from django.contrib.auth.signals import user_login_failed
 from django.contrib.auth.views import (PasswordChangeView, PasswordResetConfirmView,
                                        PasswordResetView)
@@ -23,8 +24,8 @@ from django.urls import reverse_lazy
 from django.utils.http import url_has_allowed_host_and_scheme, urlsafe_base64_decode
 from django.views.decorators.http import require_POST
 
-from . import passkeys
-from .mail import email_is_configured, send_password_link
+from . import passkeys, recent_auth
+from .mail import email_is_configured, send_passkey_added, send_password_link
 from .models import Passkey, User
 
 
@@ -52,6 +53,30 @@ class RequestPasswordLinkView(PasswordResetView):
     success_url = reverse_lazy("password_reset_done")
 
 
+class SetPasswordFromLinkForm(SetPasswordForm):
+    """Django's form, plus a way to take back every passkey. A passkey
+    outlives a password change — that is the point of one — so someone who
+    resets their password because they think another person has been in
+    their account needs this too, or a passkey that person added keeps
+    working. Offered only to an account that has passkeys."""
+
+    remove_passkeys = forms.BooleanField(
+        required=False, label="Also remove all my passkeys", label_suffix="",
+        help_text="Choose this if you think someone else has used your account. "
+                  "You can add passkeys again afterwards.")
+
+    def __init__(self, user, *args, **kwargs):
+        super().__init__(user, *args, **kwargs)
+        if user is None or not user.passkeys.exists():
+            del self.fields["remove_passkeys"]
+
+    def save(self, commit=True):
+        user = super().save(commit)
+        if commit and self.cleaned_data.get("remove_passkeys"):
+            user.passkeys.all().delete()
+        return user
+
+
 class SetPasswordFromLinkView(PasswordResetConfirmView):
     """Django moves the token from the URL into the session before showing
     the form (reset_url_token), so it never sits in browser history. Only
@@ -59,6 +84,7 @@ class SetPasswordFromLinkView(PasswordResetConfirmView):
     good link signs the person straight in."""
 
     template_name = "registration/password_reset_confirm.html"
+    form_class = SetPasswordFromLinkForm
     post_reset_login = True
     post_reset_login_backend = "django.contrib.auth.backends.ModelBackend"
     success_url = settings.LOGIN_REDIRECT_URL
@@ -75,6 +101,12 @@ class SetPasswordFromLinkView(PasswordResetConfirmView):
         context["is_invitation"] = self.user is not None and not self.user.has_usable_password()
         return context
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        if form.cleaned_data.get("remove_passkeys"):
+            messages.success(self.request, "Password set, and every passkey removed.")
+        return response
+
 
 class ChangePasswordView(PasswordChangeView):
     """Signed in and knows the old one. Back to the Account page with a
@@ -85,15 +117,19 @@ class ChangePasswordView(PasswordChangeView):
 
     def form_valid(self, form):
         messages.success(self.request, "Password changed.")
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        recent_auth.mark(self.request)   # they have just typed it
+        return response
 
 
 @login_required
 def account(request):
     """The person's own page: who they are signed in as, and the things
     only they can do to it — the password, and their passkeys."""
-    return render(request, "accounts/account.html",
-                  {"passkeys": request.user.passkeys.all()})
+    return render(request, "accounts/account.html", {
+        "passkeys": request.user.passkeys.all(),
+        "needs_password": not recent_auth.is_recent(request),
+    })
 
 
 def _json_body(request):
@@ -117,15 +153,35 @@ def _credential_from(request):
     return body, body["credential"]
 
 
+def _needs_password(message):
+    """403 with `password: true`, which tells the page's script to ask for
+    the password (or, where it has no field for one, to send the person to
+    the Account page)."""
+    return JsonResponse({"error": message, "password": True}, status=403)
+
+
 @login_required
 @require_POST
 def passkey_register_options(request):
+    """Adding a passkey needs a session that signed in within the last few
+    minutes, or the password typed again (accounts/recent_auth.py): a
+    borrowed session must not be able to add a key of its own."""
+    if not recent_auth.is_recent(request):
+        body = _json_body(request) or {}
+        if not body.get("password"):
+            return _needs_password("Enter your password to add a passkey.")
+        if not recent_auth.confirm_password(request, body["password"]):
+            # A locked account lands here too; axes then swaps this for its
+            # own answer (accounts/lockout.py).
+            return _needs_password("That password isn't right.")
     return JsonResponse(json.loads(passkeys.registration_options(request, request.user)))
 
 
 @login_required
 @require_POST
 def passkey_register(request):
+    if not recent_auth.is_recent(request):
+        return _needs_password("Enter your password to add a passkey.")
     body, credential = _credential_from(request)
     if credential is None:
         return JsonResponse({"error": "Malformed request."}, status=400)
@@ -136,6 +192,7 @@ def passkey_register(request):
         # The text comes from the fixed catalogue, not from the exception:
         # nothing the library said about the bytes reaches the client.
         return JsonResponse({"error": passkeys.MESSAGES[exc.code]}, status=400)
+    send_passkey_added(request, request.user, passkey)
     return JsonResponse({"id": passkey.pk, "name": passkey.name})
 
 

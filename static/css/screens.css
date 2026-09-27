@@ -632,7 +632,7 @@ body.page-grid {
   font-size: var(--fs-sm);
   color: var(--ink);
 }
-.auth-card form input {
+.auth-card form input:not([type="checkbox"]) {
   font-family: var(--font);
   font-size: var(--fs-md);
   color: var(--ink);
@@ -644,9 +644,27 @@ body.page-grid {
   border-radius: var(--r-sm);
   padding: var(--sp-2) var(--sp-3);
 }
-.auth-card form input:focus {
+.auth-card form input:not([type="checkbox"]):focus {
   border-color: var(--accent);
 }
+/* A checkbox field — "Also remove all my passkeys" on the password-link
+   form. as_p renders label, box, help in that order; this puts the box
+   first, beside its label, with the help under the label, and leaves the
+   box the browser's own (the text-input rule above excludes it). */
+.auth-card form p:has(> input[type="checkbox"]) {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: var(--sp-2);
+  align-items: start;
+}
+.auth-card form p > input[type="checkbox"] {
+  grid-column: 1;
+  grid-row: 1;
+  margin: .2em 0 0;
+  accent-color: var(--accent);
+}
+.auth-card form p:has(> input[type="checkbox"]) > label { grid-column: 2; grid-row: 1; }
+.auth-card form p:has(> input[type="checkbox"]) > .helptext { grid-column: 2; }
 .auth-card form ul.errorlist {
   list-style: none;
   margin: 0 0 var(--sp-2);
