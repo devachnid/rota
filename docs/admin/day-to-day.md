@@ -309,7 +309,13 @@ for a session they would take on. A full duty day counts as a whole on either
 side.
 
 The propose form runs the same checks, so a colleague is never asked about a
-swap that could not be applied as the rota stands.
+swap that could not be applied as the rota stands. It checks against the
+**published** rota, the one the GP can see. Checking against drafts would
+tell a GP about sessions you haven't published. If one of your drafts is in
+the way, the swap reaches you, and its problems show here when you come to
+approve it. The form also refuses the same proposal twice while the first is
+still open, and allows ten proposals an hour from one GP, since each one
+emails the colleague.
 
 ### Approving
 
@@ -352,14 +358,17 @@ declining; the proposer sees it under *Your requests* on My schedule.
 `/admin/rota/rotaentrylog/` — **read-only**, every field.
 
 Every change to a rota entry writes an audit log entry: who, when, which cell,
-and what changed.
+and what changed. That includes changes made here in the admin, under **Rota
+entries**. Those carry *in the admin:* and the fields changed in their detail.
 
 One row per change: what day and part, which clinician, who did it, what action,
 and a free-text detail such as `ROUT -> DUTY`.
 
 Clinician name is stored as **text, not a link**, so the log still reads
 correctly after a clinician record changes. For a swap, one clinician's name is
-on the row and the other appears in the detail.
+on the row and the other appears in the detail. **Who** is kept as text too:
+the login's email at the time, so the log still names them if their login is
+later deleted.
 
 Nothing writes to this except the app, and nothing should delete from it.
 

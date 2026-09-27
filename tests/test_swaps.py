@@ -441,3 +441,104 @@ def test_the_requests_page_says_what_applying_would_do(admin_client, cover):
     assert escape("Beth Brown takes Alice Adams's Fri 24 Jul PM; "
                   "Alice Adams takes Beth Brown's Mon 20 Jul AM.") in html
     assert "disabled" not in html.split("Approve")[0].rsplit("<form", 1)[-1]
+
+
+# ----------------------------------------------- drafts stay the admin's ---
+
+@pytest.fixture
+def draft_in_alices_slot(client):
+    """Alice's published session tomorrow AM; Beth has only a *draft* there
+    — an admin's unpublished plan — and a published session the day after.
+    Against the published rota this is a plain cover-for-each-other swap."""
+    routine = make_session_type("Routine")
+    a = _gp("Alice Adams", "alice.draft@example.com")
+    b = _gp("Beth Brown", "beth.draft@example.com")
+    day1 = date.today() + timedelta(days=1)
+    mine = make_entry(a, day=day1, part="AM", session_type=routine)
+    make_entry(b, day=day1, part="AM", session_type=routine, is_published=False)
+    theirs = make_entry(b, day=day1 + timedelta(days=1), part="AM", session_type=routine)
+    client.force_login(a.user)
+    return a, b, mine, theirs
+
+
+def test_the_swap_form_does_not_reveal_a_colleagues_draft(client, draft_in_alices_slot):
+    """The review's finding: the check read drafts, and its sentence —
+    "Beth Brown already has a session on …" — told Alice about an entry
+    nothing else shows her. A GP's proposal is checked against what the
+    GP can see."""
+    a, b, mine, theirs = draft_in_alices_slot
+    resp = client.post("/me/swap/new/", {
+        "my_entry_id": mine.id, "their_entry_id": theirs.id, "message": ""})
+    assert resp.status_code == 302, resp.content.decode()[:2000]
+    assert SwapRequest.objects.filter(proposer=a, colleague=b).count() == 1
+
+
+def test_the_colleagues_email_describes_the_published_rota(client, draft_in_alices_slot,
+                                                           configured):
+    from django.core import mail
+    a, b, mine, theirs = draft_in_alices_slot
+    mail.outbox.clear()
+    client.post("/me/swap/new/", {
+        "my_entry_id": mine.id, "their_entry_id": theirs.id, "message": ""})
+    (msg,) = mail.outbox
+    assert "Beth Brown takes Alice Adams's" in msg.body
+
+
+def test_the_admin_still_sees_what_the_draft_does_to_it(client, admin_client,
+                                                        draft_in_alices_slot):
+    """Approval reads everything, drafts included — that is what applying
+    it would change — so the problem surfaces where drafts are visible."""
+    a, b, mine, theirs = draft_in_alices_slot
+    client.post("/me/swap/new/", {
+        "my_entry_id": mine.id, "their_entry_id": theirs.id, "message": ""})
+    req = SwapRequest.objects.get()
+    client.force_login(b.user)
+    client.post(f"/me/swap/{req.pk}/accept/")
+    html = admin_client.get("/requests/").content.decode()
+    assert escape("Beth Brown already has a session on") in html
+    admin_client.post(f"/requests/swap/{req.pk}/approve/")
+    req.refresh_from_db()
+    assert req.status == SwapRequest.Status.ACCEPTED
+
+
+# ------------------------------------------------------- no flooding ---
+
+def _propose(client, mine, theirs, message=""):
+    return client.post("/me/swap/new/", {
+        "my_entry_id": mine.id, "their_entry_id": theirs.id, "message": message})
+
+
+def test_the_same_proposal_twice_is_refused_and_mails_once(client, pair, configured):
+    """The review sent 25 identical proposals and the colleague got 25
+    emails. The second is now refused on the form."""
+    from django.core import mail
+    a, b, mine, theirs = pair
+    mail.outbox.clear()
+    assert _propose(client, mine, theirs).status_code == 302
+    resp = _propose(client, mine, theirs)
+    assert resp.status_code == 200
+    assert "already proposed this swap" in resp.content.decode()
+    assert SwapRequest.objects.count() == 1
+    assert len(mail.outbox) == 1
+
+
+def test_a_declined_proposal_can_be_made_again(client, pair):
+    a, b, mine, theirs = pair
+    _propose(client, mine, theirs)
+    SwapRequest.objects.update(status=SwapRequest.Status.DECLINED)
+    assert _propose(client, mine, theirs).status_code == 302
+    assert SwapRequest.objects.count() == 2
+
+
+def test_proposals_are_capped_per_hour(client, pair):
+    from rota.views import requests as views
+    a, b, mine, theirs = pair
+    for _ in range(views.HOURLY_LIMIT):
+        SwapRequest.objects.create(
+            proposer=a, colleague=b, proposer_day=mine.day, proposer_part=mine.part,
+            colleague_day=theirs.day, colleague_part=theirs.part,
+            status=SwapRequest.Status.DECLINED)
+    resp = _propose(client, mine, theirs)
+    assert resp.status_code == 200
+    assert escape(views.TOO_MANY) in resp.content.decode()
+    assert SwapRequest.objects.filter(status=SwapRequest.Status.PROPOSED).count() == 0

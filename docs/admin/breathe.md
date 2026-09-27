@@ -14,6 +14,8 @@ is off and assisted fill never assigns them.
    BREATHE_API_URL=https://api.breathehr.com/v1
    ```
    and restart gunicorn. The key never goes in a file in the repository.
+   The URL must be `https`. The key is never sent over anything else, even by
+   a redirect, and `check --deploy` flags a plain-http URL (`rota.E007`).
 2. **Migrate.** `deploy/manage migrate`, as root, from `/srv/rota` (see the
    README's Deploy section for why not plain `manage.py`).
 3. **Link every clinician except locums.** `/admin/rota/clinician/` — each

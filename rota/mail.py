@@ -37,11 +37,12 @@ def admin_emails():
                 .exclude(email="").order_by("email").values_list("email", flat=True))
 
 
-def summary(req):
+def summary(req, published_only=False):
     """What the swap does, for the body of every message: describe() while
     the rota fits a pattern, the two sessions side by side when it no
-    longer does."""
-    return swaps_svc.describe(req) or (
+    longer does. published_only for the messages GPs get before an admin
+    has looked at it, which must not reflect unpublished drafts."""
+    return swaps_svc.describe(req, published_only) or (
         f"{req.proposer.name}'s {swaps_svc.when(req.proposer_day, req.proposer_part)} "
         f"for {req.colleague.name}'s {swaps_svc.when(req.colleague_day, req.colleague_part)}.")
 
@@ -84,7 +85,8 @@ def swap_proposed(request, req):
     the proposer so a question goes straight back to them."""
     return _send(request, req, [_email(req.colleague)],
                  f"{req.proposer.name} would like to swap a session with you",
-                 "swap_proposed", reply_to=_email(req.proposer))
+                 "swap_proposed", reply_to=_email(req.proposer),
+                 what=summary(req, published_only=True))
 
 
 def swap_accepted(request, req):
@@ -93,7 +95,8 @@ def swap_accepted(request, req):
     since it was proposed). How many messages left."""
     sent = _send(request, req, [_email(req.proposer)],
                  f"{req.colleague.name} accepted your swap — awaiting admin approval",
-                 "swap_accepted", reply_to=_email(req.colleague))
+                 "swap_accepted", reply_to=_email(req.colleague),
+                 what=summary(req, published_only=True))
     sent += _send(request, req, admin_emails(),
                   f"Swap awaiting your approval: {req.proposer.name} and {req.colleague.name}",
                   "swap_awaiting_admin", problems=swaps_svc.validate(req))
@@ -104,6 +107,7 @@ def swap_declined_by_colleague(request, req):
     return _send(request, req, [_email(req.proposer)],
                  f"{req.colleague.name} declined your swap",
                  "swap_declined_by_colleague", reply_to=_email(req.colleague),
+                 what=summary(req, published_only=True),
                  comment_quoted=_quoted(req.colleague_comment))
 
 
