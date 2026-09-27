@@ -599,14 +599,44 @@ class RotaEntryAdmin(ModelAdmin):
         ("Grouping", {"fields": ("allocation_group", "companion_group"), "classes": ("collapse",)}),
     )
 
+    # The grid and fill write the audit log through services/entries.py.
+    # An edit here goes straight to the model, so it writes the same rows
+    # itself — or the log would show a session appear, change or vanish
+    # with no one's name on it.
+    def _audit(self, request, obj, action, detail):
+        RotaEntryLog.objects.create(
+            day=obj.day, part=obj.part, clinician_name=obj.clinician.name,
+            actor=request.user, action=action, detail=f"in the admin: {detail}"[:200])
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        if change:
+            self._audit(request, obj, "changed", ", ".join(form.changed_data) or "saved")
+        else:
+            self._audit(request, obj, "created", obj.session_type.code)
+
+    def delete_model(self, request, obj):
+        self._audit(request, obj, "cleared", obj.session_type.code)
+        super().delete_model(request, obj)
+
+    def delete_queryset(self, request, queryset):
+        for obj in queryset.select_related("clinician", "session_type"):
+            self._audit(request, obj, "cleared", obj.session_type.code)
+        super().delete_queryset(request, queryset)
+
 
 @admin.register(RotaEntryLog)
 class RotaEntryLogAdmin(ModelAdmin):
-    list_display = ("at", "actor", "action", "day", "part", "clinician_name", "detail")
+    list_display = ("at", "who", "action", "day", "part", "clinician_name", "detail")
     list_filter = ("action",)
-    search_fields = ("clinician_name", "detail")
+    search_fields = ("clinician_name", "detail", "actor_name")
     date_hierarchy = "at"
     readonly_fields = [f.name for f in RotaEntryLog._meta.fields]
+
+    @admin.display(description="Who", ordering="actor_name")
+    def who(self, obj):
+        # The name as it was written, which survives the login's deletion.
+        return obj.actor_name or "—"
 
     def has_add_permission(self, request):
         return False

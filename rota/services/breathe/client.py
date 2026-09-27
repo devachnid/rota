@@ -37,6 +37,21 @@ MAX_PAGES = 200
 _NEXT = re.compile(r'<([^>]+)>;\s*rel="next"')
 
 
+class _RefuseRedirects(urllib.request.HTTPRedirectHandler):
+    """urllib's own redirect handler copies every header but the body's
+    onto the new request — X-API-KEY included, to whatever host and scheme
+    the Location names, plain http too. The Link header is held to the
+    configured host (fetch_all); a redirect is the same threat by another
+    route, and nothing Breathe serves needs one. Returning None leaves the
+    3xx as an HTTPError, which _get turns into a BreatheError."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+_OPENER = urllib.request.build_opener(_RefuseRedirects)
+
+
 class BreatheError(Exception):
     def __init__(self, message, *, status=None, path="", request_id=None):
         super().__init__(message)
@@ -50,12 +65,19 @@ class BreatheClient:
                  opener=None, timeout=20):
         self._key = api_key
         self.base_url = base_url.rstrip("/")
-        self._open = opener or (lambda req: urllib.request.urlopen(req, timeout=timeout))
+        self._open = opener or (lambda req: _OPENER.open(req, timeout=timeout))
 
     # -- one page ----------------------------------------------------------
 
     def _get(self, url):
         path = url[len(self.base_url):].split("?")[0]
+        if urlparse(url).scheme != "https":
+            # The key reads every employee's HR record. It does not travel
+            # in the clear, whatever BREATHE_API_URL says (rota.E007 flags
+            # the setting itself at deploy time).
+            log.warning("breathe %s: not https; key not sent", path)
+            raise BreatheError("BREATHE_API_URL is not https; the key was not sent",
+                               path=path)
         req = urllib.request.Request(url, headers={
             "X-API-KEY": self._key,
             "Accept": "application/json",
@@ -67,6 +89,9 @@ class BreatheClient:
         except urllib.error.HTTPError as e:
             rid = e.headers.get("x-request-id") if e.headers else None
             log.warning("breathe %s -> %s (x-request-id %s)", path, e.code, rid)
+            if 300 <= e.code < 400:
+                raise BreatheError(f"Breathe redirected {path} ({e.code}); not followed",
+                                   status=e.code, path=path, request_id=rid) from None
             raise BreatheError(f"Breathe returned {e.code} for {path}",
                                status=e.code, path=path, request_id=rid) from None
         except (urllib.error.URLError, OSError) as e:

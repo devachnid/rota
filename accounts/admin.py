@@ -158,7 +158,13 @@ class CustomUserAdmin(UserAdmin, ModelAdmin):
         return super().has_change_permission(request, obj)
 
     def has_delete_permission(self, request, obj=None):
-        if obj is not None and obj.is_superuser and not request.user.is_superuser:
+        # Only a superuser deletes a login; a rota admin makes it inactive,
+        # which does everything a deletion is for — no sign-in, no links —
+        # and keeps the history. Deleting one used to be open to any rota
+        # admin, their own included, and it takes Django's record of that
+        # person's admin changes with it. This covers superuser rows too,
+        # which were the only ones closed before.
+        if not request.user.is_superuser:
             return False
         return super().has_delete_permission(request, obj)
 

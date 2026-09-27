@@ -167,8 +167,10 @@ nothing links to.
 
 ### Deactivating
 
-Untick **Active** rather than deleting. An inactive account cannot sign in by
-password or passkey, its links are refused, and its history stays.
+Untick **Active**. An inactive account cannot sign in by password or passkey,
+its links are refused, and its history stays. Only a superuser can delete a
+login outright. Deleting one would also take Django's record of any admin
+changes that person made.
 
 ### Passkeys
 

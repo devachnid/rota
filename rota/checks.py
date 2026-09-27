@@ -209,3 +209,24 @@ def stored_ranges_parse(app_configs, **kwargs):
             id="rota.E006",
         )]
     return []
+
+
+# The Breathe key reads every employee's HR record — NI number, salary,
+# bank details. The client will not send it anywhere but https
+# (services/breathe/client.py), so a plain-http BREATHE_API_URL would fail
+# every sync quietly, in the status page's error line. Say so where
+# someone is deploying. Quiet when the integration is off.
+@register(deploy=True)
+def breathe_url_is_https(app_configs, **kwargs):
+    from urllib.parse import urlparse
+
+    if not settings.BREATHE_API_KEY:
+        return []
+    if urlparse(settings.BREATHE_API_URL).scheme != "https":
+        return [Error(
+            f"BREATHE_API_URL is {settings.BREATHE_API_URL!r}, which is not https; "
+            "the Breathe key is never sent over it, so every sync will fail.",
+            hint="Set BREATHE_API_URL=https://api.breathehr.com/v1 in /etc/rota.env.",
+            id="rota.E007",
+        )]
+    return []

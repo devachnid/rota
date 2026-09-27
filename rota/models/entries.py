@@ -59,6 +59,11 @@ class RotaEntryLog(models.Model):
     actor = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+"
     )
+    # Who, as text: the login's email when the row was written. The foreign
+    # key goes to NULL if that login is ever deleted, and a trail that
+    # forgets who did things once their account is gone is not one — so the
+    # name is kept alongside, the way clinician_name is.
+    actor_name = models.CharField(max_length=254, blank=True)
     action = models.CharField(max_length=20)
     detail = models.CharField(max_length=200, blank=True)
     at = models.DateTimeField(auto_now_add=True)
@@ -67,3 +72,8 @@ class RotaEntryLog(models.Model):
         ordering = ["-at"]
         verbose_name = "audit log entry"
         verbose_name_plural = "audit log"
+
+    def save(self, *args, **kwargs):
+        if self.actor_id and not self.actor_name:
+            self.actor_name = self.actor.get_username()
+        super().save(*args, **kwargs)
