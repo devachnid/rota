@@ -257,6 +257,41 @@ def test_control_boundaries_meet_non_text_contrast(theme, token, bg, where):
     )
 
 
+def _auth_card_input_tokens() -> tuple[str, str, str]:
+    """(border, fill, card) — the tokens the sign-in pages' inputs actually
+    draw with, read out of screens.css rather than restated here. Found by
+    prefix: the first `.auth-card form input` rule is the text-input one
+    whether or not it excludes checkboxes, and its :focus rule follows it."""
+    screens = _strip_comments((CSS_DIR / "screens.css").read_text())
+    rule = _block(screens, ".auth-card form input")
+    card = _block(screens, ".auth-card {")
+    border = re.search(r"border:\s*1px solid var\(--([a-z-]+)\)", rule)
+    fill = re.search(r"background:\s*var\(--([a-z-]+)\)", rule)
+    behind = re.search(r"background:\s*var\(--([a-z-]+)\)", card)
+    assert border and fill and behind, (
+        "the .auth-card input rule no longer reads as border/background tokens"
+    )
+    return border.group(1), fill.group(1), behind.group(1)
+
+
+@pytest.mark.parametrize("theme", list(THEMES))
+def test_auth_card_inputs_meet_non_text_contrast(theme):
+    """Sign-in, set-password and change-password style their own inputs
+    (`.auth-card form input`, screens.css) instead of taking the .field rule,
+    and that copy stayed on --hairline — 1.17:1 — after .field moved off it.
+    Whatever token the rule names is measured against the input's own fill
+    and the card it sits on."""
+    border, fill, card = _auth_card_input_tokens()
+    tokens = THEMES[theme]
+    for bg in (fill, card):
+        ratio = palette.contrast_ratio(tokens[border], tokens[bg])
+        assert ratio >= NON_TEXT, (
+            f"{theme}: .auth-card input border --{border} {tokens[border]} on "
+            f"--{bg} {tokens[bg]} = {ratio:.2f}:1, below WCAG 1.4.11's "
+            f"{NON_TEXT}:1 for a UI component boundary"
+        )
+
+
 def test_form_controls_do_not_use_the_decorative_hairline_for_their_border():
     """--hairline is a divider between cards and table rows; at ~1.2:1 it is
     correct there and wrong on a control's edge. Pin the distinction so the

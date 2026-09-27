@@ -354,7 +354,8 @@ body.page-grid {
 /* The report tables scroll inside their own pane on narrow viewports rather
    than forcing the whole page to scroll sideways. My Schedule's own agenda
    used to be one of these (the five-column table this phase replaces); the
-   rule stays for the four report screens that still use it. */
+   rule stays for the four report screens that still use it, and for the
+   passkeys on the Account page. */
 .table-scroll {
   overflow-x: auto;
 }
@@ -636,7 +637,10 @@ body.page-grid {
   font-size: var(--fs-md);
   color: var(--ink);
   background: var(--surface);
-  border: 1px solid var(--hairline);
+  /* --field-border, as .field's inputs (components.css): --hairline was
+     1.17:1 here, below WCAG 1.4.11's 3:1 for the edge of a field.
+     tests/test_chrome_contrast.py measures whatever this names. */
+  border: 1px solid var(--field-border);
   border-radius: var(--r-sm);
   padding: var(--sp-2) var(--sp-3);
 }
@@ -775,6 +779,17 @@ body.page-grid {
   body .main { padding-left: var(--sp-4); padding-right: var(--sp-4); }
 
   .day-roster td { width: auto; }
+
+  /* The passkeys table on the Account page. At the report tables' padding
+     its four columns needed 369px of a 324px card at 390px wide, with every
+     date already wrapped to three lines, so the page scrolled sideways;
+     .table-scroll alone stopped that but hid half of Remove. Half the
+     padding, on the cells and on the quiet button (whose padding is only
+     its hover wash), brings it to 289px — it fits down to 360px, and
+     .table-scroll catches a longer name or larger text. */
+  .passkey-list .table th,
+  .passkey-list .table td { padding-left: var(--sp-2); padding-right: var(--sp-2); }
+  .passkey-list .btn { padding-left: var(--sp-2); padding-right: var(--sp-2); }
 
   .phone-only { display: block; }
 }
