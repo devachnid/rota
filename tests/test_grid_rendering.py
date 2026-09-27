@@ -113,11 +113,51 @@ def test_a_non_working_session_reads_off(admin_client):
 
 @pytest.mark.django_db
 def test_a_closed_day_stays_blank_for_a_non_working_session(admin_client):
+    """No OFF on a bank holiday — it would read as everyone being off —
+    just the day's closed shade."""
     c = make_clinician("Closed", initials="CD")
     _pattern(c, 0, "AM", works=False)
     ClosedDay.objects.create(day=MON, reason="Bank holiday")
     chips = _chips(_cells(admin_client))
-    assert chips[(c.id, _iso(0), "AM")] == "is-off"
+    assert chips[(c.id, _iso(0), "AM")] == "is-closed"
+
+
+@pytest.mark.django_db
+def test_a_closed_day_draws_no_placeholder_for_someone_who_usually_works(admin_client):
+    """The grey "working, nothing allocated" chip on everyone who would
+    usually be in made a bank holiday look like a day of gaps. The practice
+    is always closed then, so there is nothing to allocate: the cell takes
+    the day's closed shade. The day beside it still asks to be filled."""
+    c = make_clinician("Usual", initials="US")
+    _full_pattern(c)
+    ClosedDay.objects.create(day=MON, reason="Bank holiday")
+    chips = _chips(_cells(admin_client))
+    assert chips[(c.id, _iso(0), "AM")] == chips[(c.id, _iso(0), "PM")] == "is-closed"
+    assert chips[(c.id, _iso(1), "AM")] == "empty-slot"
+
+
+@pytest.mark.django_db
+def test_a_session_on_a_closed_day_still_draws(admin_client):
+    """Never expected — the practice is closed — but if one is there it is
+    real data, and hiding it would hide the mistake."""
+    c = make_clinician("Booked", initials="BK")
+    _full_pattern(c)
+    ClosedDay.objects.create(day=MON, reason="Bank holiday")
+    make_entry(c, day=MON, part="AM", session_type=make_session_type("Routine", code="ROUT"))
+    chips = _chips(_cells(admin_client))
+    assert chips[(c.id, _iso(0), "AM")] == ""
+    assert chips[(c.id, _iso(0), "PM")] == "is-closed"
+
+
+@pytest.mark.django_db
+def test_the_header_says_why_the_day_is_closed(admin_client):
+    """The words survive a printout; the shade does not."""
+    PracticeSettings.load()
+    ClosedDay.objects.create(day=MON, reason="Bank holiday")
+    ClosedDay.objects.create(day=MON + timedelta(days=1), reason="")
+    html = admin_client.get(f"/rota/?week={MON}").content.decode()
+    assert '<div class="grid-closed">Bank holiday</div>' in html
+    assert '<div class="grid-closed">Closed</div>' in html
 
 
 @pytest.mark.django_db

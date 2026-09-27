@@ -22,6 +22,14 @@
      grey that must read as a placeholder at a glance. tests/
      test_chrome_contrast.py holds it apart from --surface in both themes. */
   --slot:        #DDE0E6;
+  /* A day the surgery is closed. It was --sunken, which is 1.06:1 against
+     the white cell — invisible — while the grey "working, nothing
+     allocated" chip laid on it was 1.32:1, so a bank holiday read as a day
+     of unfilled work. The darkest neutral on the grid now (1.55:1 against
+     --surface in both themes, and past --slot), and the only one that
+     fills whole cells. Text on it is --ink-soft: --muted drops to 3.1:1
+     here. tests/test_chrome_contrast.py holds both. */
+  --closed:      #CBD0D8;
   --hairline:    #ECEDF1;
   /* Form-control boundaries, deliberately NOT --hairline. WCAG 1.4.11 holds
      the visible boundary of a UI component to 3:1, and --hairline (#ECEDF1)
@@ -113,6 +121,7 @@
     --surface:     #1A1D23;
     --sunken:      #21252C;
     --slot:        #262B33;
+    --closed:      #373D49;
     --hairline:    #2C313A;
     /* 3.18:1 on the dark --surface, 3.38:1 on --ground. See the light block. */
     --field-border: #626C7D;
@@ -138,6 +147,7 @@
   --surface:     #1A1D23;
   --sunken:      #21252C;
   --slot:        #262B33;
+  --closed:      #373D49;
   --hairline:    #2C313A;
   --field-border: #626C7D;
   --danger:      #F09A82;  --danger-soft:  #35201B;

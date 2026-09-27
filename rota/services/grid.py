@@ -109,8 +109,10 @@ class Window:
                 start_date__lte=self.end, end_date__gte=self.start)
         self.resolver = availability.AvailabilityResolver(
             pattern_rows, self.active, absences, BreatheLeaveMapping.as_dict())
-        self.closed = set(ClosedDay.objects.filter(day__in=days)
-                          .values_list("day", flat=True))
+        # Day -> reason. Membership is what most of this asks; the header
+        # also prints the reason.
+        self.closed = dict(ClosedDay.objects.filter(day__in=days)
+                           .values_list("day", "reason"))
         self.notes = {n.day: n for n in DayNote.objects.filter(day__in=days)}
 
     # ---- header --------------------------------------------------------
@@ -154,6 +156,7 @@ class Window:
             warnings = sorted(warnings, key=lambda w: w.level != "danger")
             out.append({
                 "day": d, "closed": d in self.closed, "note": self.notes.get(d),
+                "closed_reason": self.closed.get(d, ""),
                 "week_start": d in self.week_starts, "today": d == self.today,
                 "anchor": d == self.anchor_day,
                 "anchor_week": week_monday(d) == self.anchor,
