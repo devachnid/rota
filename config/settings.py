@@ -60,6 +60,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "config.middleware.PrivatePagesMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "axes.middleware.AxesMiddleware",
@@ -78,6 +79,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "rota.context_processors.waiting",
+                "accounts.context_processors.signed_in_recently",
             ],
         },
     },
@@ -232,14 +234,16 @@ AXES_CLIENT_IP_CALLABLE = "accounts.client_ip.client_ip"
 
 # Each top-level entry is an independent lockout; a nested list would be one
 # combined key. So this locks a username after AXES_FAILURE_LIMIT failures
-# *and, separately*, an address after the same — the second is what stops one
-# source spraying many accounts, which username-only keying cannot see.
+# *and, separately*, an address — the second is what stops one source
+# spraying many accounts, which username-only keying cannot see.
 #
-# The cost is that clinicians sharing the surgery's NAT share an address, so a
-# run of fumbled logins there could lock the building out. AXES_RESET_ON_SUCCESS
-# below is what makes that acceptable: any successful login clears the counters
-# for that client, so ordinary mistakes do not accumulate towards a lockout —
-# only an unbroken run of failures does.
+# How each is counted is accounts/axes_handler.py's: an address is locked by
+# failures against that many *different* accounts, and a success clears only
+# the signed-in person's own failures. Clinicians share the surgery's NAT
+# address, and axes' own reset — any success there clearing every counter
+# for the address — kept fumbles from locking the building out, but it also
+# let anyone with an account wipe a colleague's counter and keep guessing.
+AXES_HANDLER = "accounts.axes_handler.RotaAxesHandler"
 AXES_LOCKOUT_PARAMETERS = ["username", "ip_address"]
 # Django's login form — and the passkey login view — report a failure as
 # credentials={"username": ...} whatever USERNAME_FIELD is called; axes'
@@ -250,12 +254,20 @@ AXES_USERNAME_FORM_FIELD = "username"
 # ...and lower-case it, so "Tom@" and "tom@" are one name with one counter,
 # as they are one account to the login lookup.
 AXES_USERNAME_CALLABLE = "accounts.axes_username.axes_username"
+# A success clears the person's own counter — only theirs; see AXES_HANDLER.
 AXES_RESET_ON_SUCCESS = True
+# A lockout lasts AXES_COOLOFF_TIME from the failure that caused it. axes'
+# default restarts the hour on every attempt made while locked, which let
+# anyone who knew an address keep its owner locked out indefinitely, one
+# request an hour. The owner can still get in meanwhile — with a passkey,
+# or a password link by email; the lockout page says so.
+AXES_RESET_COOL_OFF_ON_FAILURE_DURING_LOCKOUT = False
+# The page or, for the passkey endpoints, the JSON a locked-out request gets.
+AXES_LOCKOUT_CALLABLE = "accounts.lockout.lockout_response"
 
-# AccessAttempt is a counter, and AXES_RESET_ON_SUCCESS wipes it for the
-# whole address as soon as anyone there logs in — so the admin's "Access
-# attempts" reads empty minutes after real failures. The failure log is the
-# permanent record; axes leaves it off by default.
+# AccessAttempt is a counter, and a success clears it — so the admin's
+# "Access attempts" can read empty minutes after real failures. The failure
+# log is the permanent record; axes leaves it off by default.
 AXES_ENABLE_ACCESS_FAILURE_LOG = True
 
 # axes requires a request object during authenticate(), which the test

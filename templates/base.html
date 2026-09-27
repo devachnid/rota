@@ -74,7 +74,10 @@
 </div>
 {% endif %}
 {% if user.is_authenticated %}
-{# Offered once per browser, by the script, where no passkey has been used here. #}
+{% comment %}Offered once per browser, by the script, where no passkey has been used
+here — and only in the minutes after signing in, the one time adding one needs
+no password (accounts/recent_auth.py).{% endcomment %}
+{% if signed_in_recently %}
 <div class="flashes" id="passkey-nudge" style="display:none">
   <div class="flash" role="status">
     <form id="passkey-nudge-form" onsubmit="return false;">
@@ -90,6 +93,7 @@
     </form>
   </div>
 </div>
+{% endif %}
 {# Shown by the script when Chrome has said the site can be installed here, or on iOS, where the steps stand in for the Add button. #}
 <div class="flashes" id="install-nudge" style="display:none">
   <div class="flash" role="status">

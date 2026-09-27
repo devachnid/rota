@@ -31,9 +31,11 @@
     {% else %}
     <p class="empty">No passkeys yet.</p>
     {% endif %}
+    {% if needs_password %}<p class="field-help">To add one, type your password too — a check that it's you, not someone at a computer you left signed in.</p>{% endif %}
     <form class="form-actions" id="passkey-form" onsubmit="return false;">
       {% csrf_token %}
-      <input name="name" maxlength="60" placeholder="Name this passkey, e.g. my iPhone" aria-label="Passkey name">
+      <input name="name" maxlength="60" placeholder="Name this passkey, e.g. my iPhone" aria-label="Passkey name" class="inline-input">
+      {% if needs_password %}<input type="password" name="password" autocomplete="current-password" placeholder="Your password" aria-label="Your password" class="inline-input">{% endif %}
       <button type="button" id="passkey-add" class="btn btn-primary" style="display:none"
               data-options-url="{% url 'passkey_register_options' %}"
               data-register-url="{% url 'passkey_register' %}">Add a passkey</button>
