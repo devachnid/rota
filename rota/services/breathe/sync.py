@@ -14,6 +14,7 @@ its kind and reason; later collisions contribute only their id.
 import logging
 from dataclasses import dataclass, replace
 
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
@@ -95,15 +96,21 @@ def run(client, *, dry_run=False, now=None):
     try:
         return _run(client, result, dry_run=dry_run)
     except Exception as e:
-        # The message can only ever be about Breathe's data or the database;
-        # the key is not in scope here and never reaches this string.
+        # Meant to be about Breathe's data or the database. But the message is
+        # whatever the exception says, and it is shown to every rota admin,
+        # so the key is struck out of it whatever raised it.
         log.warning("breathe sync failed with %s", type(e).__name__)
         result.ok = False
-        result.error = f"{type(e).__name__}: {e}"
+        result.error = _redacted(f"{type(e).__name__}: {e}")
         result.finished = timezone.now()
         if not dry_run:
             result.save()
         return result
+
+
+def _redacted(text):
+    key = settings.BREATHE_API_KEY
+    return text.replace(key, "[BREATHE_API_KEY]") if key else text
 
 
 def _run(client, result, *, dry_run):

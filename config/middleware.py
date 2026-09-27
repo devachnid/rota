@@ -1,4 +1,41 @@
+import logging
+import re
+import time
+
 from django.utils.cache import add_never_cache_headers
+
+from accounts.client_ip import client_ip
+
+access_log = logging.getLogger("rota.access")
+
+# A password link's path is the credential until it is used: /reset/<uid>/<token>/.
+_RESET_TOKEN = re.compile(r"^(/accounts/reset/)[^/]+/[^/]+/")
+
+
+class RequestLogMiddleware:
+    """One line per request to the journal: who (Cloudflare's address for
+    them, and the account if signed in), what, and how it ended. Behind the
+    tunnel gunicorn only ever sees 127.0.0.1, and Django logs nothing about
+    ordinary requests, so without this there is no record to look back at
+    after an incident.
+
+    The path is logged without its query string, and a password link's
+    token is replaced: the log must not become a place to collect working
+    links from. Static files never reach here (WhiteNoise sits above)."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        started = time.monotonic()
+        response = self.get_response(request)
+        user = getattr(request, "user", None)
+        who = f"user={user.pk}" if user is not None and user.is_authenticated else "anon"
+        path = _RESET_TOKEN.sub(r"\1<redacted>/", request.path)
+        access_log.info("%s %s %s %s %s %dms", client_ip(request) or "-", who,
+                        request.method, path, response.status_code,
+                        (time.monotonic() - started) * 1000)
+        return response
 
 
 class PrivatePagesMiddleware:

@@ -315,6 +315,10 @@ it came from.
 
 Deliberate choices, recorded so they stop being re-reported by each review pass.
 
+- **Breathe's free-text "other leave" reason is shown to everyone** who can
+  see the session, as "Other leave: <reason>" — not just to rota admins.
+  Raised by the 2026-09-27 security review, since HR may type something
+  personal there. Kept: the practice wants the reason visible. Tom, 2026-09-27.
 - **systemd units run as the `rota` user, sandboxed** — reversed 2026-09-27.
   The earlier ruling was that root is "correct for this single-purpose LXC",
   but the container is not single-purpose in the way that mattered.

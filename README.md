@@ -16,8 +16,9 @@ passkeys; the grid and fill round 2 — the eight-week grid, ticking mode, the s
     pytest
 
 `DEBUG=1` is what lets `manage.py` start on a box with no `SECRET_KEY` in the
-environment: with debug off, the settings refuse to run on the repository's
-placeholder key (see Deploy). The suite needs neither — it detects pytest.
+environment. It then uses a key of this checkout's own, generated once into
+the git-ignored `.dev_secret_key`. With debug off, the settings refuse to run
+without a real key (see Deploy). The suite needs neither — it detects pytest.
 With no `EMAIL_HOST` set, a dev box behaves as production does without a relay:
 the admin is shown each invitation link on screen instead of it being sent.
 
@@ -119,6 +120,13 @@ autofill mints a session per visit, so the table would otherwise only grow.
 
 `systemd-analyze security rota` scores the sandbox; it reads about 1.5 (OK),
 where the same app as root with no sandbox reads 9.6 (UNSAFE).
+
+**Logs** go to the journal: `journalctl -u rota`. There is one line per request
+(`rota.access`: the client's address from Cloudflare, `user=<id>` or `anon`,
+method, path, status, time), with no query strings, and with a password link's
+token replaced by `<redacted>`. Also logged: server errors with tracebacks,
+CSRF failures and disallowed hosts (`django.security`), and lockouts
+(`axes`).
 
 ### Moving an install that runs as root
 

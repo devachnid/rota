@@ -97,6 +97,13 @@ class BreatheClient:
         except (urllib.error.URLError, OSError) as e:
             log.warning("breathe %s unreachable: %s", path, e.__class__.__name__)
             raise BreatheError(f"Breathe unreachable for {path}", path=path) from None
+        except ValueError:
+            # http.client refuses a header value holding CR or LF — and says
+            # so with the value itself, which here is the key. Never repeat
+            # its message.
+            log.warning("breathe %s: the key has a line break in it", path)
+            raise BreatheError("BREATHE_API_KEY contains a line break; check /etc/rota.env",
+                               path=path) from None
         try:
             return json.loads(raw), headers
         except ValueError:
