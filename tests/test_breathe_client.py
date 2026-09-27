@@ -244,15 +244,17 @@ def test_the_repository_never_contains_the_test_accounts_key():
 # --- the key goes nowhere else -------------------------------------------------
 
 class _Redirector(http.server.BaseHTTPRequestHandler):
-    """Answers every request with a 302 to the other server, and records
-    the headers it was sent."""
+    """Answers every request with a 302 to a fixed URL on the other server,
+    and records the headers it was sent. The Location is fixed rather than
+    built from the request path: nothing of the request goes into a
+    response header, even in a test server."""
     seen = []
     target = ""
 
     def do_GET(self):
         type(self).seen.append(dict(self.headers))
         self.send_response(302)
-        self.send_header("Location", type(self).target + self.path)
+        self.send_header("Location", type(self).target)
         self.end_headers()
 
     def log_message(self, *args):
@@ -278,7 +280,7 @@ def test_a_redirect_is_not_followed_and_the_key_goes_nowhere():
 
     other = _serve(Elsewhere)
     api = _serve(Api)
-    Api.target = f"http://127.0.0.1:{other.server_port}"
+    Api.target = f"http://127.0.0.1:{other.server_port}/v1/employees"
     try:
         from rota.services.breathe import client as mod
         req = urllib.request.Request(f"http://127.0.0.1:{api.server_port}/v1/employees",
