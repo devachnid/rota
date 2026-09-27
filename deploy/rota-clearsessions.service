@@ -3,8 +3,39 @@ Description=Clear expired GP rota sessions
 
 [Service]
 Type=oneshot
-WorkingDirectory=/root/rota
+# The same user, directories and sandbox as the web service; see
+# gunicorn.service for why each is there.
+User=rota
+Group=rota
+WorkingDirectory=/srv/rota
+StateDirectory=rota
+StateDirectoryMode=0700
+UMask=0077
 # SECRET_KEY lives in the environment file; manage.py refuses to start
 # without it. See gunicorn.service for why the file is root-only.
 EnvironmentFile=/etc/rota.env
-ExecStart=/root/rota/.venv/bin/python manage.py clearsessions
+ExecStart=/srv/rota/.venv/bin/python manage.py clearsessions
+
+# Sandbox: identical in every rota unit (tests/test_deploy_units.py).
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM

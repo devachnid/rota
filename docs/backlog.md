@@ -315,8 +315,13 @@ it came from.
 
 Deliberate choices, recorded so they stop being re-reported by each review pass.
 
-- **systemd units run as root.** Correct for this single-purpose LXC. Revisit
-  only if the container ever hosts anything else.
+- **systemd units run as the `rota` user, sandboxed** — reversed 2026-09-27.
+  The earlier ruling was that root is "correct for this single-purpose LXC",
+  but the container is not single-purpose in the way that mattered.
+  cloudflared's tunnel credentials sit beside the app, and a root process can
+  also rewrite the app's own code. So a bug that let a request run code would
+  have given an attacker the middle of every user's session, and a way to stay
+  in. Code, data and secrets are now three owners (README › Deploy).
 - **Fill re-run has no preview step**, though the spec asks for previews on
   destructive actions. Accepted: re-run provably touches only its own unpublished
   drafts, never published or manually-set entries, and that is enforced by tests.

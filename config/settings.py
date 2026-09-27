@@ -88,7 +88,12 @@ WSGI_APPLICATION = "config.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        # Production keeps the database out of the code tree, in the rota
+        # user's state directory (deploy/gunicorn.service): SQLite needs to
+        # write the directory its database is in, and the app must be able to
+        # write its data without being able to write its own code. Unset, the
+        # database sits beside manage.py, which is what development wants.
+        "NAME": os.environ.get("DB_PATH") or BASE_DIR / "db.sqlite3",
         "OPTIONS": {
             # WAL lets readers and the single writer proceed together.
             "init_command": "PRAGMA journal_mode=WAL;",
