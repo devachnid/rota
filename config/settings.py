@@ -74,6 +74,7 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "config.middleware.RequestLogMiddleware",
+    "config.middleware.ContentSecurityPolicyMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -313,6 +314,11 @@ if not DEBUG:
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# The Content-Security-Policy (config/middleware.py) is enforced unless
+# this is set, when it is only reported — the way back, without a code
+# change, if the policy blocks something it should not.
+CSP_REPORT_ONLY = os.environ.get("CSP_REPORT_ONLY", "0") == "1"
 
 # Where the app's own warnings go: stderr, which systemd sends to the
 # journal (`journalctl -u rota`). Without this, Django sends nothing there

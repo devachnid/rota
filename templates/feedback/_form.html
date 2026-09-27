@@ -1,5 +1,5 @@
 <form hx-post="{% url 'feedback-send' %}" hx-target="#modal" hx-swap="innerHTML"
-      hx-vals='js:{"viewport": window.innerWidth + "x" + window.innerHeight}'
+      data-send-viewport
       hx-disabled-elt="find button[type=submit]">
   <div class="modal-head" id="modal-title">Feedback</div>
   <div class="modal-body">
@@ -21,6 +21,6 @@
   </div>
   <div class="modal-actions">
     <button type="submit" class="btn btn-primary">Send</button>
-    <button type="button" class="btn btn-quiet" onclick="document.getElementById('modal').innerHTML=''">Cancel</button>
+    <button type="button" class="btn btn-quiet" data-modal-close>Cancel</button>
   </div>
 </form>

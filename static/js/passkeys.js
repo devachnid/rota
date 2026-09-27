@@ -23,6 +23,17 @@
  * is HttpOnly on purpose (config/settings.py).
  */
 (function () {
+  // The two enrol forms are driven by their buttons, never submitted: Enter
+  // in the name field would otherwise send it — CSRF token and all — as a
+  // GET to the page's own address. (It was onsubmit="return false", which
+  // the Content-Security-Policy does not allow.) Before the check below, so
+  // it holds in a browser without passkeys too.
+  document.addEventListener("submit", function (e) {
+    if (e.target.matches && e.target.matches("#passkey-form, #passkey-nudge-form")) {
+      e.preventDefault();
+    }
+  });
+
   if (!window.PublicKeyCredential) { return; }
 
   var MARK = "rota-passkey";           // "1" once this browser has used a passkey here

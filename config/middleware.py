@@ -1,7 +1,9 @@
 import logging
 import re
+import secrets
 import time
 
+from django.conf import settings
 from django.utils.cache import add_never_cache_headers
 
 from accounts.client_ip import client_ip
@@ -66,4 +68,58 @@ class PrivatePagesMiddleware:
             add_never_cache_headers(response)
         if signed_in and not request.user.is_authenticated:
             response["Clear-Site-Data"] = '"cache"'
+        return response
+
+
+# No script runs but the app's own files: nothing inline, no eval, nothing
+# from another origin. Styles may be inline — the session tints are style
+# attributes and {% palette_css %} a <style> block — which lets a style be
+# injected but not a script. The nonce is for Cloudflare, not for us: the
+# app has no inline script, but Cloudflare injects one (its bot detection)
+# and stamps it with the nonce it finds in this header, which is the one
+# way to allow that script without 'unsafe-inline'. Its follow-up script is
+# under /cdn-cgi/ on this host, so 'self' covers it.
+POLICY = "; ".join((
+    "default-src 'self'",
+    "script-src 'self' 'nonce-{nonce}'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data:",
+    "object-src 'none'",
+    "base-uri 'none'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+))
+
+
+class ContentSecurityPolicyMiddleware:
+    """A Content-Security-Policy on every page the app renders, with a fresh
+    nonce each time (request.csp_nonce).
+
+    So an escaping bug somewhere in future — a name or a note rendered raw —
+    lands as inert text rather than as a script running in a colleague's
+    session. The admin is left out: django-unfold's pages run Alpine, which
+    needs eval, and the admin is a smaller audience behind its own login.
+    Only HTML carries the header; it governs documents, and JSON and static
+    files need none.
+
+    CSP_REPORT_ONLY=1 in /etc/rota.env sends the same policy as
+    Content-Security-Policy-Report-Only: the browser reports what it would
+    have blocked, in its console, and blocks nothing. That is the way back
+    if something the policy did not foresee breaks after a deploy, without
+    a code change.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        request.csp_nonce = secrets.token_urlsafe(18)
+        response = self.get_response(request)
+        if (request.path.startswith("/admin/")
+                or not response.get("Content-Type", "").startswith("text/html")
+                or response.has_header("Content-Security-Policy")):
+            return response
+        header = ("Content-Security-Policy-Report-Only" if settings.CSP_REPORT_ONLY
+                  else "Content-Security-Policy")
+        response[header] = POLICY.format(nonce=request.csp_nonce)
         return response

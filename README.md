@@ -128,6 +128,22 @@ token replaced by `<redacted>`. Also logged: server errors with tracebacks,
 CSRF failures and disallowed hosts (`django.security`), and lockouts
 (`axes`).
 
+**A Content-Security-Policy** is on every page the app renders (not the
+admin, whose theme needs `eval`; `config/middleware.py`). No script runs on
+those pages except the app's own files: no inline script, no event-handler
+attributes and no `eval`. So a future escaping bug shows as text, not as script
+running in a colleague's session. Styles may be inline.
+
+The header also carries a fresh nonce on each response. The app itself uses
+none: it's there for **Cloudflare**, which injects its own bot-detection
+script and stamps it with the nonce it finds in the header (a nonce in a
+`<meta>` tag doesn't count).
+
+After a deploy, open the site with the browser's console showing. A
+"Refused to…" line means the policy blocked something. To turn blocking off
+without a code change, set `CSP_REPORT_ONLY=1` in `/etc/rota.env` and
+restart; the browser then only reports what it would have blocked.
+
 ### Moving an install that runs as root
 
 Installs from before September 2026 run from `/root/rota` as root, with the

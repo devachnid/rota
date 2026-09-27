@@ -17,6 +17,12 @@
  * snoozes per browser for thirty days, in localStorage like the passkey
  * snooze — an install is per device, so the memory is too.
  */
+// The service worker (sw.js, served at /sw.js for its scope). It was an
+// inline <script> in base.html, which the Content-Security-Policy does not
+// allow; registering here, before the installed-app check below returns,
+// keeps it on every page as before.
+if ("serviceWorker" in navigator) { navigator.serviceWorker.register("/sw.js"); }
+
 (function () {
   var SNOOZE = "rota-install-snooze";   // ms timestamp until which the card stays away
   var SNOOZE_FOR = 30 * 24 * 60 * 60 * 1000;

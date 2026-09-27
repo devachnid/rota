@@ -12,6 +12,15 @@
  * The markup carries role="dialog", aria-modal and aria-labelledby (the
  * form's .modal-head is #modal-title). The mouse is unchanged: clicking
  * another cell while a form is open still swaps the form, as it did.
+ *
+ * It also carries the forms' little behaviours that used to be inline
+ * onclick/onchange attributes, which the Content-Security-Policy
+ * (config/middleware.py) does not allow:
+ *  - [data-modal-close] — Cancel and Close — empties the modal;
+ *  - select[data-partner-for] on the cell form shows the partner field only
+ *    when the mentoring session type (the attribute's value) is chosen;
+ *  - form[data-send-viewport] — Feedback — adds the window size to what it
+ *    sends, which was an htmx `js:` value and needed eval.
  */
 (function () {
   var modal = document.getElementById("modal");
@@ -38,6 +47,22 @@
     var again = modal.querySelector(".alert") && modal.querySelector('button[type="submit"]');
     var first = modal.querySelector("[autofocus]") || again || focusables()[0];
     if (first) { first.focus(); }
+  });
+
+  document.addEventListener("click", function (e) {
+    if (e.target.closest && e.target.closest("[data-modal-close]")) { modal.innerHTML = ""; }
+  });
+
+  document.addEventListener("change", function (e) {
+    var select = e.target.closest && e.target.closest("select[data-partner-for]");
+    var field = document.getElementById("partner-field");
+    if (select && field) { field.hidden = select.value !== select.dataset.partnerFor; }
+  });
+
+  document.body.addEventListener("htmx:configRequest", function (e) {
+    if (e.detail.elt.matches && e.detail.elt.matches("form[data-send-viewport]")) {
+      e.detail.parameters.viewport = window.innerWidth + "x" + window.innerHeight;
+    }
   });
 
   new MutationObserver(function () {

@@ -248,11 +248,13 @@ def _pair():
 
 
 def test_the_with_field_is_there_for_mentoring_and_preselects_the_natural_partner(admin_client):
-    _mentoring()
+    ment = _mentoring()
     trainer, trainee = _pair()
     html = admin_client.get(f"/rota/cell/{trainee.id}/{MON.isoformat()}/AM/").content.decode()
     assert 'id="partner-field" hidden' in html  # nothing selected yet, so hidden
-    assert "getElementById('partner-field').hidden" in html
+    # modal.js shows it when the select's value is this one — an attribute
+    # now, since the Content-Security-Policy allows no inline onchange.
+    assert f'data-partner-for="{ment.id}"' in html
     assert f'value="{trainer.id}" selected' in html
     html = admin_client.get(f"/rota/cell/{trainer.id}/{MON.isoformat()}/AM/").content.decode()
     assert f'value="{trainee.id}" selected' in html  # their only trainee
