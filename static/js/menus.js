@@ -15,8 +15,12 @@
     });
   }
 
+  // [data-close-menu]: an item that opens something over the page (Feedback
+  // opens the modal) shuts its menu on the way — it was an inline onclick,
+  // which the Content-Security-Policy does not allow.
   document.addEventListener("click", function (event) {
-    var inside = event.target.closest && event.target.closest(MENUS);
+    var closer = event.target.closest && event.target.closest("[data-close-menu]");
+    var inside = !closer && event.target.closest && event.target.closest(MENUS);
     closeAll(inside);
   });
 

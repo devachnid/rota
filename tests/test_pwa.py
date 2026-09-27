@@ -352,9 +352,15 @@ def test_the_worker_only_intercepts_navigations():
 
 
 def test_the_page_registers_the_worker_from_the_site_root():
-    assert "navigator.serviceWorker.register('/sw.js')" in BASE_HTML
+    """From install.js, which every page loads — no longer an inline
+    <script>, which the Content-Security-Policy does not allow."""
+    install = (ROOT / "static" / "js" / "install.js").read_text()
+    assert "js/install.js" in BASE_HTML
+    assert 'navigator.serviceWorker.register("/sw.js")' in install
     # A browser without workers is not an error condition.
-    assert "'serviceWorker' in navigator" in BASE_HTML
+    assert '"serviceWorker" in navigator' in install
+    # ...and it registers before the installed-app check returns early.
+    assert install.index("serviceWorker.register") < install.index("display-mode: standalone")
 
 
 @pytest.mark.django_db

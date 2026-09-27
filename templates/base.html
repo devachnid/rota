@@ -4,6 +4,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+{# htmx never evaluates code from the page: no code in its attributes, and no script elements run out of a swapped fragment. The Content-Security-Policy (config/middleware.py) would refuse both anyway. #}
+<meta name="htmx-config" content='{"allowEval": false, "allowScriptTags": false}'>
 <title>{% block title %}Rota{% endblock %}</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="{% static 'icons/favicon-32.png' %}" sizes="32x32" type="image/png">
@@ -32,7 +34,6 @@
 <script src="{% static 'js/install.js' %}" defer></script>
 <script src="{% static 'js/menus.js' %}" defer></script>
 <script src="{% static 'js/modal.js' %}" defer></script>
-<script>if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js'); }</script>
 </head>
 <body{% block body_attrs %}{% endblock %} hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
 <nav class="nav">
@@ -80,7 +81,7 @@ no password (accounts/recent_auth.py).{% endcomment %}
 {% if signed_in_recently %}
 <div class="flashes" id="passkey-nudge" style="display:none">
   <div class="flash" role="status">
-    <form id="passkey-nudge-form" onsubmit="return false;">
+    <form id="passkey-nudge-form">
       {% csrf_token %}
       <p><strong>Sign in faster next time.</strong> Add a passkey to this device and use your face, fingerprint or device PIN instead of a password.</p>
       <div class="form-actions">
@@ -129,7 +130,7 @@ forms and the Feedback form all render into it. #modal:empty is hidden.{% endcom
       {% if user.is_authenticated %}
         {# The sheet is a <details>; the modal opens over it, so close it on the way. #}
         <button type="button" class="tabbar-link" hx-get="{% url 'feedback-form' %}" hx-target="#modal"
-                onclick="this.closest('details').removeAttribute('open')">Feedback</button>
+                data-close-menu>Feedback</button>
         <a href="{% url 'account' %}" class="tabbar-user">{{ user.email }}</a>
         <form method="post" action="/accounts/logout/">{% csrf_token %}<button class="tabbar-link">Log out</button></form>
       {% endif %}

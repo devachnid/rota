@@ -40,7 +40,11 @@ def test_the_more_sheet_button_closes_the_sheet_it_sits_in(gp_client):
     html = gp_client.get("/rota/day/").content.decode()
     sheet = html.split('class="tabbar-sheet"', 1)[1]
     assert TRIGGER in sheet
-    assert "removeAttribute('open')" in sheet
+    # menus.js closes the sheet for a [data-close-menu] item — an attribute
+    # now, since the Content-Security-Policy allows no inline onclick.
+    assert "data-close-menu" in sheet.split("</details>", 1)[0]
+    menus = (Path(__file__).resolve().parents[1] / "static" / "js" / "menus.js").read_text()
+    assert "[data-close-menu]" in menus
 
 
 def test_the_control_is_as_quiet_as_the_theme_toggle():
