@@ -1,8 +1,12 @@
 """The Breathe client, against recorded responses. No network.
 
-tests/fixtures/breathe/ holds the test account's real responses, recorded
-once. A fake opener serves them, so these tests prove how the client reads
-Breathe without ever calling it.
+tests/fixtures/breathe/ holds the test account's responses, recorded once
+and then made synthetic: every field and its shape is Breathe's, but NI
+numbers, pay, dates of birth, contact details, bank details and photo links
+are placeholders, and the account owner is "Account Owner". This repository
+is public; test_the_fixtures_hold_no_personal_data keeps it that way. A fake
+opener serves them, so these tests prove how the client reads Breathe
+without ever calling it.
 """
 
 import http.server
@@ -322,3 +326,34 @@ def test_the_deploy_check_flags_a_plain_http_url(settings):
     settings.BREATHE_API_KEY = ""
     settings.BREATHE_API_URL = "http://x"
     assert breathe_url_is_https(None) == []
+
+
+def test_the_fixtures_hold_no_personal_data():
+    """The captures came from a live account, and this repository is public.
+    A recapture — from the practice's real account, say — must be made
+    synthetic before it is committed, or this fails: NI numbers only in
+    HMRC's reserved QQ example form, no photo links (a Gravatar hash names
+    an email address; Breathe's S3 links carry signed credentials), and
+    email addresses only on example or Breathe-demo domains."""
+    allowed_mail = re.compile(r"@(example\.(org|invalid)|breathehrdevachnidltd\.com)$")
+    problems = []
+
+    def walk(o, where):
+        if isinstance(o, dict):
+            for k, v in o.items():
+                if k == "national_insurance_no" and v not in (None, "", "QQ123456C"):
+                    problems.append(f"{where}: {k}")
+                if k == "photo_url" and v:
+                    problems.append(f"{where}: {k}")
+                if "email" in k and isinstance(v, str) and v and not allowed_mail.search(v):
+                    problems.append(f"{where}: {k}={v!r}")
+                walk(v, where)
+        elif isinstance(o, list):
+            for x in o:
+                walk(x, where)
+
+    for path in sorted(FIX.glob("*.json")):
+        walk(json.loads(path.read_text()), path.name)
+        if re.search(r"X-Amz-(Credential|Security-Token)", path.read_text()):
+            problems.append(f"{path.name}: signed AWS link")
+    assert not problems, problems

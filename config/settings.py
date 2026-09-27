@@ -28,8 +28,25 @@ if not os.environ.get("SECRET_KEY") and not _TESTING:
             "get_random_secret_key as k; print(k())\""
         )
 
+def _dev_secret_key():
+    """A development key private to this checkout. It was a constant,
+    published in this repository, so a server that ran with DEBUG=1 and no
+    SECRET_KEY had a key anyone could forge session cookies with. Now it
+    is random, written once to a git-ignored file beside manage.py, and
+    stable across restarts, so a dev box stays signed in."""
+    path = BASE_DIR / ".dev_secret_key"
+    try:
+        return path.read_text().strip()
+    except FileNotFoundError:
+        from django.core.management.utils import get_random_secret_key
+        key = get_random_secret_key()
+        path.touch(mode=0o600)
+        path.write_text(key)
+        return key
+
+
 SECRET_KEY = os.environ.get("SECRET_KEY") or (
-    "test-only-key-not-used-outside-pytest" if _TESTING else "dev-insecure-key"
+    "test-only-key-not-used-outside-pytest" if _TESTING else _dev_secret_key()
 )
 
 ALLOWED_HOSTS = [h for h in os.environ.get("ALLOWED_HOSTS", "").split(",") if h]
@@ -56,6 +73,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    "config.middleware.RequestLogMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -205,7 +223,10 @@ TRUSTED_PROXY_IPS = frozenset(
 # BreatheHR, which owns leave. Read-only. The key comes from /etc/rota.env
 # like SECRET_KEY and never from a file in this repository; with no key the
 # integration is off and every consumer degrades quietly.
-BREATHE_API_KEY = os.environ.get("BREATHE_API_KEY", "")
+# Stripped: a key pasted with a trailing newline or CR (a CRLF-edited
+# /etc/rota.env) makes http.client refuse the header — with the key itself
+# in the error text.
+BREATHE_API_KEY = os.environ.get("BREATHE_API_KEY", "").strip()
 BREATHE_API_URL = os.environ.get("BREATHE_API_URL", "https://api.breathehr.com/v1")
 
 # Outgoing mail: invitations and password-reset links, and nothing else.
@@ -280,9 +301,51 @@ if _TESTING:
 CSRF_COOKIE_HTTPONLY = True
 
 if not DEBUG:
-    SECURE_SSL_REDIRECT = False  # TLS terminates at the Cloudflare tunnel
+    # TLS terminates at the Cloudflare tunnel, and cloudflared says so in
+    # X-Forwarded-Proto (SECURE_PROXY_SSL_HEADER below), so a request that
+    # arrives as http really was http and is sent to https — whatever the
+    # Cloudflare zone's own "Always Use HTTPS" happens to be set to. Not
+    # under pytest: CI runs the suite with DEBUG off, over the test client's
+    # plain http.
+    SECURE_SSL_REDIRECT = not _TESTING
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# Where the app's own warnings go: stderr, which systemd sends to the
+# journal (`journalctl -u rota`). Without this, Django sends nothing there
+# when DEBUG is off — a 500, a CSRF failure or a request with a forged Host
+# header left no trace for anyone looking back at an incident.
+#
+# One handler, on the root logger; the named loggers only set levels and
+# propagate to it. (Naming "django" here also drops Django's own console
+# handler, which is DEBUG-only, and mail_admins, which ADMINS leaves idle.)
+# Propagation matters beyond the journal: tests read log records through
+# the root logger, and a logger that stopped propagating would pass every
+# "the key never appears in the log" test by logging nowhere they look.
+#   django.request at ERROR: 5xx responses, with tracebacks (4xx would be
+#     every scanner's 404).
+#   django.security: CSRF failures, disallowed hosts, suspicious operations.
+#   rota.access: one line per request (config/middleware.RequestLogMiddleware),
+#     with the client address from Cloudflare.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "plain": {"format": "%(levelname)s %(name)s: %(message)s"},
+    },
+    "handlers": {
+        "stderr": {"class": "logging.StreamHandler", "formatter": "plain"},
+    },
+    "root": {"handlers": ["stderr"], "level": "WARNING"},
+    "loggers": {
+        "django": {"level": "WARNING"},
+        "django.request": {"level": "ERROR"},
+        "django.security": {"level": "INFO"},
+        "rota": {"level": "INFO"},
+        "accounts": {"level": "INFO"},
+        "feedback": {"level": "INFO"},
+    },
+}
