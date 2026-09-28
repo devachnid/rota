@@ -1,5 +1,6 @@
 import pytest
 from django.contrib.auth import get_user_model
+from django.test import Client, override_settings
 
 from accounts.oidc import PracticeAccountBackend
 
@@ -48,13 +49,160 @@ def test_with_the_practice_account_only_a_superuser_uses_a_password(client, oidc
     assert _password_login(client, "Root@example.org").status_code == 302
 
 
-def test_a_refused_password_counts_towards_the_lockout(client, oidc_on, db, settings):
-    from axes.models import AccessAttempt
-    settings.AXES_ENABLED = True
-    settings.PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
+def test_the_refusal_says_where_to_go(client, oidc_on, db):
     User.objects.create_user(email="gp@example.org", password="pw")
-    _password_login(client, "gp@example.org")
-    assert AccessAttempt.objects.filter(username="gp@example.org").exists()
+    for password in ("pw", "wrong"):
+        body = _password_login(client, "gp@example.org", password).content.decode()
+        assert ("Sign in with the practice account; the rota password is for the "
+                "superuser only.") in body
+    # An address with no account reads the same, so the form tells nobody
+    # which addresses have rota accounts.
+    assert "the rota password is for the superuser only." in _password_login(
+        client, "nobody@example.org").content.decode()
+
+
+def test_the_form_refuses_before_any_password_is_checked(oidc_on, db, rf, monkeypatch):
+    """The login form, not a backend: authenticate() never runs for anyone
+    but the superuser, so nothing reaches the lockout's counters."""
+    from django.contrib import auth
+
+    from accounts.views import LoginForm
+    User.objects.create_user(email="gp@example.org", password="pw")
+    calls = []
+    monkeypatch.setattr("django.contrib.auth.forms.authenticate",
+                        lambda *a, **k: calls.append(k) or auth.authenticate(*a, **k))
+    form = LoginForm(rf.post("/accounts/login/"), data={"username": "GP@example.org",
+                                                          "password": "pw"})
+    assert not form.is_valid() and form.non_field_errors()[0].startswith(
+        "Sign in with the practice account")
+    assert calls == []
+    User.objects.create_superuser(email="root@example.org", password="pw")
+    form = LoginForm(rf.post("/accounts/login/"), data={"username": "root@example.org",
+                                                          "password": "pw"})
+    assert form.is_valid() and len(calls) == 1
+
+
+@override_settings(AXES_ENABLED=True,
+                   PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
+def test_staff_typing_their_right_passwords_do_not_lock_the_surgery_out(oidc_on, db):
+    """The re-review's probe of the backend this replaced: five staff each
+    typing their own right rota password once from the surgery counted as
+    five failures against five accounts, and locked the address — the
+    superuser and the practice-account callback with it — for an hour."""
+    from axes.models import AccessAttempt, AccessFailureLog
+    surgery = {"REMOTE_ADDR": "127.0.0.1", "HTTP_CF_CONNECTING_IP": "203.0.113.10"}
+    for i in range(5):
+        User.objects.create_user(email=f"gp{i}@example.org", password="pw")
+        r = Client().post("/accounts/login/", {"username": f"gp{i}@example.org",
+                                               "password": "pw"}, **surgery)
+        assert r.status_code == 200
+    assert not AccessAttempt.objects.exists() and not AccessFailureLog.objects.exists()
+    User.objects.create_superuser(email="root@example.org", password="pw")
+    r = Client().post("/accounts/login/", {"username": "root@example.org", "password": "pw"},
+                      **surgery)
+    assert r.status_code == 302
+
+
+@override_settings(AXES_ENABLED=True,
+                   PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
+def test_the_superusers_wrong_password_still_counts(oidc_on, db):
+    from axes.models import AccessAttempt
+    User.objects.create_superuser(email="root@example.org", password="pw")
+    Client().post("/accounts/login/", {"username": "root@example.org", "password": "no"})
+    assert AccessAttempt.objects.filter(username="root@example.org").exists()
+
+
+# --- adding a passkey later needs the practice account, not a password ---------------
+
+def _stale(client):
+    import time
+
+    from accounts import recent_auth
+    session = client.session
+    session["rota_auth_at"] = int(time.time()) - recent_auth.WINDOW - 1
+    session.save()
+
+
+def test_the_account_page_does_not_ask_staff_for_a_password(gp_client, oidc_on):
+    _stale(gp_client)
+    body = gp_client.get("/accounts/account/").content.decode()
+    assert 'name="password"' not in body
+    assert "sign in again with the practice account" in body
+
+
+@override_settings(AXES_ENABLED=True,
+                   PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
+def test_a_password_sent_anyway_is_refused_without_counting(gp_client, gp_user, oidc_on):
+    import json
+
+    from axes.models import AccessAttempt, AccessFailureLog
+    _stale(gp_client)
+    r = gp_client.post("/accounts/passkeys/register/options/", data=json.dumps({"password": "pw"}),
+                       content_type="application/json")
+    assert r.status_code == 403
+    assert r.json() == {"error": "Sign in again with the practice account to add a passkey."}
+    assert not AccessAttempt.objects.exists() and not AccessFailureLog.objects.exists()
+
+
+def test_the_superuser_is_still_asked_for_the_password(client, oidc_on, db):
+    client.force_login(User.objects.create_superuser(email="root@example.org", password="pw"))
+    _stale(client)
+    assert 'name="password"' in client.get("/accounts/account/").content.decode()
+
+
+# --- password links are the superuser's alone too -------------------------------------
+
+def _link(user):
+    from django.contrib.auth.tokens import default_token_generator
+    from django.utils.encoding import force_bytes
+    from django.utils.http import urlsafe_base64_encode
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    return f"/accounts/reset/{uid}/{default_token_generator.make_token(user)}/"
+
+
+def test_the_reset_form_sends_staff_nothing(client, oidc_on, db, configured):
+    from django.core import mail
+    User.objects.create_user(email="gp@example.org", password="pw")
+    User.objects.create_superuser(email="root@example.org", password="pw")
+    mail.outbox.clear()
+    assert client.post("/accounts/password_reset/", {"email": "gp@example.org"}).status_code == 302
+    assert mail.outbox == []
+    client.post("/accounts/password_reset/", {"email": "root@example.org"})
+    assert [m.to for m in mail.outbox] == [["root@example.org"]]
+
+
+def test_a_staff_link_opens_the_invalid_link_page(client, oidc_on, db):
+    """A link sent before PRACTICE_HR_URL was set, or an admin's invitation,
+    would otherwise sign them straight in, around the HR system."""
+    gp = User.objects.create_user(email="gp@example.org", password="pw")
+    r = client.get(_link(gp), follow=True)
+    assert "This link is no longer valid" in r.content.decode()
+    assert "_auth_user_id" not in client.session
+
+
+def test_an_invitation_for_staff_is_refused_too(client, oidc_on, db):
+    gp = User.objects.create_user(email="new@example.org")      # no usable password
+    r = client.get(_link(gp), follow=True)
+    assert "This link is no longer valid" in r.content.decode()
+
+
+def test_the_superusers_link_still_works(client, oidc_on, db):
+    root = User.objects.create_superuser(email="root@example.org", password="pw")
+    r = client.get(_link(root), follow=True)
+    assert "Choose a new password" in r.content.decode()
+
+
+def test_without_the_practice_account_staff_links_work(client, settings, db):
+    settings.PRACTICE_HR_URL = ""
+    gp = User.objects.create_user(email="gp@example.org", password="pw")
+    assert "Choose a new password" in client.get(_link(gp), follow=True).content.decode()
+
+
+def test_forgotten_password_is_inside_the_folded_section(client, oidc_on):
+    body = client.get("/accounts/login/").content.decode()
+    link = body.index('href="/accounts/password_reset/"')
+    assert body.index("<details") < link < body.index("</details>")
+    assert body.count('href="/accounts/password_reset/"') == 1
 
 
 def test_without_the_practice_account_passwords_work_as_before(client, settings, db):
