@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "axes",
+    "mozilla_django_oidc",
     "accounts",
     "rota",
     "feedback",
@@ -99,6 +100,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "rota.context_processors.waiting",
                 "accounts.context_processors.signed_in_recently",
+                "rota.context_processors.practice_hr",
             ],
         },
     },
@@ -207,6 +209,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTHENTICATION_BACKENDS = [
     "axes.backends.AxesStandaloneBackend",
     "django.contrib.auth.backends.ModelBackend",
+    "accounts.oidc.PracticeAccountBackend",
     "accounts.backends.RotaAdminBackend",
 ]
 AXES_FAILURE_LIMIT = 5
@@ -355,3 +358,23 @@ LOGGING = {
         "feedback": {"level": "INFO"},
     },
 }
+
+# Sign in with the practice account: the HR system is the OpenID Connect
+# provider. Every value comes from /etc/rota.env; with no PRACTICE_HR_URL the
+# login page shows only the local form.
+PRACTICE_HR_URL = os.environ.get("PRACTICE_HR_URL", "").rstrip("/")
+OIDC_RP_CLIENT_ID = os.environ.get("OIDC_RP_CLIENT_ID", "")
+OIDC_RP_CLIENT_SECRET = os.environ.get("OIDC_RP_CLIENT_SECRET", "")
+OIDC_RP_SIGN_ALGO = "RS256"
+OIDC_RP_SCOPES = "openid email"
+OIDC_OP_AUTHORIZATION_ENDPOINT = f"{PRACTICE_HR_URL}/o/authorize/"
+OIDC_OP_TOKEN_ENDPOINT = f"{PRACTICE_HR_URL}/o/token/"
+OIDC_OP_USER_ENDPOINT = f"{PRACTICE_HR_URL}/o/userinfo/"
+OIDC_OP_JWKS_ENDPOINT = f"{PRACTICE_HR_URL}/o/.well-known/jwks.json"
+OIDC_USE_PKCE = True
+OIDC_CREATE_USER = True
+# Kept in the session so signing out can hand it to the HR system's
+# sign-out as id_token_hint, which ends the HR session without a prompt
+# (accounts/oidc.practice_hr_logout_url). It says who signed in, nothing
+# more, and goes when the session does.
+OIDC_STORE_ID_TOKEN = True

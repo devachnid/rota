@@ -2,6 +2,7 @@ import logging
 import re
 import secrets
 import time
+from urllib.parse import urlsplit
 
 from django.conf import settings
 from django.utils.cache import add_never_cache_headers
@@ -86,9 +87,20 @@ POLICY = "; ".join((
     "img-src 'self' data:",
     "object-src 'none'",
     "base-uri 'none'",
-    "form-action 'self'",
+    "form-action 'self'{hr}",
     "frame-ancestors 'none'",
 ))
+
+
+def _practice_hr_origin():
+    """The HR system's origin, for form-action, when the practice account is
+    configured. Signing out is a form post here that redirects on to the HR
+    system's sign-out (accounts/oidc.py), and browsers hold the redirects
+    after a form submission to form-action too."""
+    if not settings.PRACTICE_HR_URL:
+        return ""
+    parts = urlsplit(settings.PRACTICE_HR_URL)
+    return f" {parts.scheme}://{parts.netloc}"
 
 
 class ContentSecurityPolicyMiddleware:
@@ -121,5 +133,5 @@ class ContentSecurityPolicyMiddleware:
             return response
         header = ("Content-Security-Policy-Report-Only" if settings.CSP_REPORT_ONLY
                   else "Content-Security-Policy")
-        response[header] = POLICY.format(nonce=request.csp_nonce)
+        response[header] = POLICY.format(nonce=request.csp_nonce, hr=_practice_hr_origin())
         return response

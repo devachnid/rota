@@ -31,12 +31,23 @@ def is_recent(request):
     return isinstance(stamped, int) and 0 <= time.time() - stamped < WINDOW
 
 
+def password_allowed(user):
+    """Whether this person signs in with a rota password at all. With the
+    practice account configured (PRACTICE_HR_URL) only the superuser does;
+    everyone else proves who they are on the HR system, so the rota never
+    checks their password — not at the login form, not here."""
+    from django.conf import settings
+    return not settings.PRACTICE_HR_URL or bool(user.is_superuser)
+
+
 def confirm_password(request, password):
     """Check the signed-in person's password and, if it is right, mark the
     session. Through authenticate(), so a wrong one counts towards the
     login lockout exactly as it would at the login page, and a locked
     account is refused here too."""
     if not isinstance(password, str) or not password:
+        return False
+    if not password_allowed(request.user):
         return False
     user = authenticate(request, username=request.user.get_username(), password=password)
     if user is None or user.pk != request.user.pk:
