@@ -13,6 +13,7 @@ urlpatterns = [
     # page is what it precaches, on the login page before anyone signs in.
     path("sw.js", service_worker, name="service-worker"),
     path("offline/", offline, name="offline"),
+    path("oidc/", include("mozilla_django_oidc.urls")),
     path("accounts/", include("accounts.urls")),
     path("feedback/", include("feedback.urls")),
     path("", include("rota.urls")),

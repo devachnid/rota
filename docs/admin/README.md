@@ -16,6 +16,7 @@ This is the *reference* for what each setting means once you are in there.
 |---|---|
 | [Practice settings](practice-settings.md) | The practice-wide singleton, sites |
 | [People](people.md) | Clinician groups, clinicians, login accounts (invitations, passkeys, lockouts), trainee profiles |
+| [Signing in with the practice account](sign-in.md) | The HR system as OpenID Connect provider, registering the rota as a client, what happens on first sign-in |
 | [Availability](availability.md) | Pattern slots and the bulk editor, recurring commitments, closed days |
 | [Session types](session-types.md) | Every flag on a session type, and what each one drives |
 | [Coverage rules](coverage-rules.md) | The rules that tell the fill engine what must be staffed, plus trainee stage rules |
