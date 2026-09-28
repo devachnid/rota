@@ -145,3 +145,50 @@ def test_only_a_superuser_sees_the_binding(db, client, admin_client):
     client.force_login(root)
     assert 'name="oidc_sub"' in client.get(f"/admin/accounts/user/{u.pk}/change/").content.decode()
     assert 'name="oidc_sub"' not in admin_client.get(f"/admin/accounts/user/{u.pk}/change/").content.decode()
+
+
+# --- signing out signs out of the HR system too (review I7, rota half) ---------------
+
+from urllib.parse import parse_qs, urlsplit  # noqa: E402
+
+
+def test_logging_out_goes_on_to_the_hr_systems_sign_out(client, oidc_on, db):
+    u = User.objects.create_user(email="gp@example.org", password="pw")
+    client.force_login(u)
+    session = client.session
+    session["oidc_id_token"] = "the.id.token"
+    session.save()
+    r = client.post("/accounts/logout/")
+    assert r.status_code == 302
+    url = urlsplit(r["Location"])
+    assert f"{url.scheme}://{url.netloc}{url.path}" == "https://hr.example/o/logout/"
+    assert parse_qs(url.query) == {
+        "post_logout_redirect_uri": ["http://testserver/accounts/login/"],
+        "client_id": ["abc"], "id_token_hint": ["the.id.token"]}
+    assert "_auth_user_id" not in client.session
+    assert r["Clear-Site-Data"] == '"cache"'
+
+
+def test_without_an_id_token_the_hint_is_left_out(client, oidc_on, db):
+    client.force_login(User.objects.create_superuser(email="root@example.org", password="pw"))
+    r = client.post("/admin/logout/")
+    query = parse_qs(urlsplit(r["Location"]).query)
+    assert r["Location"].startswith("https://hr.example/o/logout/")
+    assert "id_token_hint" not in query and query["client_id"] == ["abc"]
+
+
+def test_without_the_practice_account_logout_is_unchanged(client, settings, db):
+    settings.PRACTICE_HR_URL = ""
+    client.force_login(User.objects.create_user(email="gp@example.org", password="pw"))
+    assert client.post("/accounts/logout/")["Location"] == "/accounts/login/"
+
+
+def test_the_id_token_is_kept_for_sign_out(settings):
+    assert settings.OIDC_STORE_ID_TOKEN is True
+
+
+def test_the_policy_lets_the_sign_out_form_redirect_to_the_hr_system(client, oidc_on, db):
+    """Browsers apply form-action to the redirects after a form post."""
+    client.force_login(User.objects.create_user(email="gp@example.org", password="pw"))
+    policy = client.get("/accounts/account/")["Content-Security-Policy"]
+    assert "form-action 'self' https://hr.example;" in policy

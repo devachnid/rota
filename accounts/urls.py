@@ -11,7 +11,7 @@ from . import views
 
 urlpatterns = [
     path("login/", auth_views.LoginView.as_view(), name="login"),
-    path("logout/", auth_views.LogoutView.as_view(), name="logout"),
+    path("logout/", views.LogoutView.as_view(), name="logout"),
     path("account/", views.account, name="account"),
     path("passkeys/register/options/", views.passkey_register_options,
          name="passkey_register_options"),

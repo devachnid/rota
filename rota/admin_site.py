@@ -62,8 +62,11 @@ class RotaAdminSite(UnfoldAdminSite):
     def logout(self, request, extra_context=None):
         if request.method != "POST":
             return HttpResponseNotAllowed(["POST"])
+        from accounts.oidc import practice_hr_logout_url
+        id_token = request.session.get("oidc_id_token")
         auth_logout(request)
-        return HttpResponseRedirect(settings.LOGOUT_REDIRECT_URL)
+        return HttpResponseRedirect(practice_hr_logout_url(request, id_token)
+                                    or settings.LOGOUT_REDIRECT_URL)
 
 
 # ---- values settings.UNFOLD reaches by dotted path ------------------------

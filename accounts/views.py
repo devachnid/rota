@@ -15,16 +15,18 @@ from django.contrib.auth import login as auth_login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordResetForm, SetPasswordForm
 from django.contrib.auth.signals import user_login_failed
+from django.contrib.auth import views as auth_views
 from django.contrib.auth.views import (PasswordChangeView, PasswordResetConfirmView,
                                        PasswordResetView)
 from django.core.exceptions import ValidationError
-from django.http import JsonResponse
+from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils.http import url_has_allowed_host_and_scheme, urlsafe_base64_decode
 from django.views.decorators.http import require_POST
 
 from . import passkeys, recent_auth
+from .oidc import practice_hr_logout_url
 from .mail import email_is_configured, send_passkey_added, send_password_link
 from .models import Passkey, User
 
@@ -120,6 +122,18 @@ class ChangePasswordView(PasswordChangeView):
         response = super().form_valid(form)
         recent_auth.mark(self.request)   # they have just typed it
         return response
+
+
+class LogoutView(auth_views.LogoutView):
+    """Django's, then on to the HR system's sign-out when the practice
+    account is configured (accounts/oidc.py). The ID token is read before
+    Django's logout flushes the session it is kept in."""
+
+    def post(self, request, *args, **kwargs):
+        id_token = request.session.get("oidc_id_token")
+        response = super().post(request, *args, **kwargs)
+        onward = practice_hr_logout_url(request, id_token)
+        return HttpResponseRedirect(onward) if onward else response
 
 
 @login_required

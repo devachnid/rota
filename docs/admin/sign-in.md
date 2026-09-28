@@ -1,7 +1,8 @@
 # Signing in with the practice account
 
-**Where:** `/etc/rota.env` (environment variables only — nothing here is set
-in the admin).
+**Where:** `/etc/rota.env` (environment variables). The one thing in the
+admin is each login account's **Practice account id**, which sign-in sets
+itself — see [What happens on first sign-in](#what-happens-on-first-sign-in).
 
 The practice's HR system (`practice-hr`) is an OpenID Connect provider. Once
 it is configured, the rota's login page offers **Sign in with the practice
@@ -10,7 +11,7 @@ says they are. Nothing about this is required — with no `PRACTICE_HR_URL`
 set the login page is exactly as it was, local password (and passkey)
 only.
 
-## The four environment variables
+## The three environment variables
 
 ```
 PRACTICE_HR_URL=https://hr.example.org
@@ -19,33 +20,42 @@ OIDC_RP_CLIENT_SECRET=…
 ```
 
 `PRACTICE_HR_URL` is the HR system's base URL, no trailing slash needed —
-the rota builds `/o/authorize/`, `/o/token/`, `/o/userinfo/` and
-`/o/.well-known/jwks.json` from it. `OIDC_RP_CLIENT_ID` and
+the rota builds `/o/authorize/`, `/o/token/`, `/o/userinfo/`,
+`/o/.well-known/jwks.json` and the sign-out address `/o/logout/` from it. `OIDC_RP_CLIENT_ID` and
 `OIDC_RP_CLIENT_SECRET` come from registering the rota as a client on the
 HR box (below). Add all three to `/etc/rota.env` and restart gunicorn — see
 the README's Deploy section for the file's format (root-only, `chmod 600`,
 no unquoted `<` or trailing comments).
 
-A fourth pair of settings, `OIDC_RP_SIGN_ALGO`, `OIDC_RP_SCOPES` and PKCE, is
-fixed in `config/settings.py` and never needs changing: RS256 signatures,
-the `openid email` scope, and PKCE are required, matching what the HR
-system's provider issues.
+The rest is fixed in `config/settings.py` and never needs changing: RS256
+signatures (`OIDC_RP_SIGN_ALGO`), the `openid email` scope
+(`OIDC_RP_SCOPES`), PKCE, and keeping the ID token in the session
+(`OIDC_STORE_ID_TOKEN`) for signing out — matching what the HR system's
+provider issues and expects.
 
 ## Registering the rota as a client
 
 This step runs on the **HR box**, not here — its `manage.py` opens its own
 database, not the rota's. From the `practice-hr` checkout there, its
-`register_oidc_client` command takes `--name rota` and `--redirect-uri`
-(the exact URL the rota will be sent back to,
-`https://rota.example.org/oidc/callback/`); see that project's own deploy
-docs for how commands are run on that box.
+`register_oidc_client` command takes `--name rota`, `--redirect-uri` (the
+exact URL the rota will be sent back to after signing in,
+`https://rota.example.org/oidc/callback/`) and, optionally,
+`--post-logout-redirect-uri` (where signing out of the rota lands after
+signing out of HR too). Left out, that is the redirect URI's origin plus
+`/accounts/login/` — `https://rota.example.org/accounts/login/`, the rota's
+login page — which is what the rota sends; pass it only if the rota is
+reached at a different address. See that project's own deploy docs for how
+commands are run on that box.
 
 It prints a `client_id` and a `client_secret` **once** — the secret is
 stored hashed on the HR side and cannot be shown again. Paste both into
 `/etc/rota.env` as `OIDC_RP_CLIENT_ID` and `OIDC_RP_CLIENT_SECRET`, then
 restart the rota (`systemctl restart rota`). If the secret is lost, run the
-command again with the same `--name`: it replaces the registration rather
-than creating a second one.
+command again with the same `--name` and add `--rotate`: that prints a new
+secret, and the old one stops working at once, so update
+`OIDC_RP_CLIENT_SECRET` straight away. Without `--rotate`, running it again
+only updates the redirect addresses and keeps the secret; it never creates
+a second registration.
 
 ## What happens on first sign-in
 
@@ -80,6 +90,18 @@ linked to a Clinician, are both still set by hand in **People › Login
 accounts** — see [Login accounts](people.md#login-accounts). Signing in with
 the practice account only proves who someone is; what they can do in the
 rota is exactly what it always was.
+
+## Signing out
+
+With `PRACTICE_HR_URL` set, **Log out** (and the admin's own) signs the
+person out of the rota and then sends them to the HR system's sign-out,
+which ends their session there too and returns them to the rota's login
+page. Without that second step, on a shared PC, the next person to press
+**Sign in with the practice account** would be signed straight in as the
+last one: the HR system skips its consent screen for the rota, and its
+session was still open. Someone who signed in with the practice account is
+signed out of HR without a question; anyone else (the superuser, with the
+rota password) is asked by HR whether to sign out there too.
 
 ## The rota's password form is for the superuser
 
