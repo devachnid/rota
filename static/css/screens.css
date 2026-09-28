@@ -677,6 +677,19 @@ body.page-grid {
   width: 100%;
   margin-top: var(--sp-2);
 }
+/* The rota's own password form, folded away under the practice-account
+   button once PRACTICE_HR_URL is set: it is for the superuser only. */
+.auth-local {
+  margin-top: var(--sp-4);
+}
+.auth-local > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+.auth-local[open] > summary {
+  margin-bottom: var(--sp-3);
+}
 
 /* -------------------------------------------------- modal partials --- */
 

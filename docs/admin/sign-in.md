@@ -5,10 +5,10 @@ in the admin).
 
 The practice's HR system (`practice-hr`) is an OpenID Connect provider. Once
 it is configured, the rota's login page offers **Sign in with the practice
-account** above the local password form: a person authenticates against HR,
-and the rota trusts its `email` claim. Nothing about this is required —
-with no `PRACTICE_HR_URL` set the login page is exactly as it was, local
-password (and passkey) only.
+account**: a person authenticates against HR, and the rota trusts who HR
+says they are. Nothing about this is required — with no `PRACTICE_HR_URL`
+set the login page is exactly as it was, local password (and passkey)
+only.
 
 ## The four environment variables
 
@@ -81,10 +81,18 @@ accounts** — see [Login accounts](people.md#login-accounts). Signing in with
 the practice account only proves who someone is; what they can do in the
 rota is exactly what it always was.
 
-## The local password form stays
+## The rota's password form is for the superuser
 
-The password form below the practice-account link never goes away. It is
-how the superuser created by `createsuperuser` signs in — that account has
-no HR record and never will — and it is the fallback if HR is ever
-unreachable. Passkeys, described in
-[Login accounts](people.md#signing-in-and-lockouts), work alongside both.
+With `PRACTICE_HR_URL` set, the login page leads with **Sign in with the
+practice account**, and the rota's own password form is folded away under
+**Rota password (superusers only)**. It is for the superuser created by
+`createsuperuser` — that account has no HR record and never will — and it
+is the way in if HR is ever unreachable. Anyone else's password is refused
+there (`accounts/backends.py`), even a right one, and the refusal counts
+towards the login lockout like a wrong password: everyone else's password,
+lockout and leaving date live on the HR system.
+
+With no `PRACTICE_HR_URL` the page is as it always was, the password form
+open for everyone. Passkeys, described in
+[Login accounts](people.md#signing-in-and-lockouts), work either way until
+they are retired.

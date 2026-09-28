@@ -20,7 +20,47 @@ def test_login_page_offers_practice_account_when_configured(client, oidc_on):
 
 def test_login_page_silent_when_not_configured(client, settings):
     settings.PRACTICE_HR_URL = ""
-    assert "practice account" not in client.get("/accounts/login/").content.decode()
+    body = client.get("/accounts/login/").content.decode()
+    assert "practice account" not in body
+    assert "auth-local" not in body and 'id="login-form"' in body
+
+
+# --- the rota's password is the superuser's alone (review I8) -------------------------
+
+def test_the_password_form_is_folded_away_for_superusers(client, oidc_on):
+    body = client.get("/accounts/login/").content.decode()
+    assert body.index("Sign in with the practice account") < body.index("<details")
+    assert "<summary>Rota password (superusers only)</summary>" in body
+    assert '<details class="auth-local">' in body, "closed until it has an error to show"
+    assert body.index("<details") < body.index('id="login-form"') < body.index("</details>")
+
+
+def _password_login(client, email, password="pw"):
+    return client.post("/accounts/login/", {"username": email, "password": password})
+
+
+def test_with_the_practice_account_only_a_superuser_uses_a_password(client, oidc_on, db):
+    User.objects.create_user(email="gp@example.org", password="pw")
+    r = _password_login(client, "gp@example.org")
+    assert r.status_code == 200 and "_auth_user_id" not in client.session
+    assert '<details class="auth-local" open>' in r.content.decode()
+    User.objects.create_superuser(email="root@example.org", password="pw")
+    assert _password_login(client, "Root@example.org").status_code == 302
+
+
+def test_a_refused_password_counts_towards_the_lockout(client, oidc_on, db, settings):
+    from axes.models import AccessAttempt
+    settings.AXES_ENABLED = True
+    settings.PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
+    User.objects.create_user(email="gp@example.org", password="pw")
+    _password_login(client, "gp@example.org")
+    assert AccessAttempt.objects.filter(username="gp@example.org").exists()
+
+
+def test_without_the_practice_account_passwords_work_as_before(client, settings, db):
+    settings.PRACTICE_HR_URL = ""
+    User.objects.create_user(email="gp@example.org", password="pw")
+    assert _password_login(client, "gp@example.org").status_code == 302
 
 
 def test_existing_user_matched_by_case_insensitive_email(db):

@@ -6,14 +6,25 @@
   <div class="auth-card">
     <h1>Log in</h1>
     {% if settings_practice_hr_url %}
+    {% comment %}Everyone signs in with the practice account. The rota's own
+    password form is for the superuser only (accounts/backends.py refuses
+    anyone else), so it is folded away; open when it has an error to show.{% endcomment %}
     <p><a class="btn btn-primary" href="{% url 'oidc_authentication_init' %}">Sign in with the practice account</a></p>
-    <p class="field-help">Or use your rota password below.</p>
-    {% endif %}
+    <details class="auth-local"{% if form.errors %} open{% endif %}>
+      <summary>Rota password (superusers only)</summary>
+      <form method="post" id="login-form">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn">Log in with the rota password</button>
+      </form>
+    </details>
+    {% else %}
     <form method="post" id="login-form">
       {% csrf_token %}
       {{ form.as_p }}
       <button type="submit" class="btn btn-primary">Log in</button>
     </form>
+    {% endif %}
     <div class="form-actions">
       <button type="button" id="passkey-login" class="btn" style="display:none"
               data-options-url="{% url 'passkey_login_options' %}"
