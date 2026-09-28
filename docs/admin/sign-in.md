@@ -107,14 +107,35 @@ rota password) is asked by HR whether to sign out there too.
 
 With `PRACTICE_HR_URL` set, the login page leads with **Sign in with the
 practice account**, and the rota's own password form is folded away under
-**Rota password (superusers only)**. It is for the superuser created by
-`createsuperuser` — that account has no HR record and never will — and it
-is the way in if HR is ever unreachable. Anyone else's password is refused
-there (`accounts/backends.py`), even a right one, and the refusal counts
-towards the login lockout like a wrong password: everyone else's password,
-lockout and leaving date live on the HR system.
+**Rota password (superusers only)**, with **Forgotten your password?**
+beside it. It is for the superuser created by `createsuperuser` — that
+account has no HR record and never will — and it is the way in if HR is
+ever unreachable. Everyone else's password, lockout and leaving date live
+on the HR system, so the rota never checks their password at all:
+
+- **The login form** turns anyone but the superuser away before looking at
+  the password — *"Sign in with the practice account; the rota password is
+  for the superuser only."* — and it reads the same whether the password
+  was right, wrong, or the address has no account. Because no password is
+  checked, nothing is counted towards the login lockout: staff typing their
+  old rota password out of habit cannot lock the surgery's address (and the
+  superuser, and the practice-account sign-in with it) out. The superuser's
+  own wrong passwords still count, as before.
+- **Password links** — *Forgotten your password?*, and invitations or reset
+  links sent from **Login accounts** — work for the superuser only. The
+  reset form sends nobody else anything, and a link for anyone else, even
+  one sent before `PRACTICE_HR_URL` was set, opens the *link no longer
+  valid* page instead of signing them in. Otherwise a leaver disabled on
+  the HR system would keep a way in here. Sending an invitation to a new
+  account from the admin is therefore pointless while the practice account
+  is on: the account is made for them at their first practice-account
+  sign-in.
+- **Adding a passkey** more than ten minutes after signing in asks the
+  superuser for their password, as before; anyone else is asked to sign in
+  again with the practice account first, and a password sent anyway is
+  refused without being checked.
 
 With no `PRACTICE_HR_URL` the page is as it always was, the password form
-open for everyone. Passkeys, described in
-[Login accounts](people.md#signing-in-and-lockouts), work either way until
-they are retired.
+and its links open to everyone. Passkeys, described in
+[Login accounts](people.md#signing-in-and-lockouts), still sign in either
+way until they are retired.

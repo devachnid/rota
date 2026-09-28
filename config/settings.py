@@ -208,9 +208,6 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 AUTHENTICATION_BACKENDS = [
     "axes.backends.AxesStandaloneBackend",
-    # With PRACTICE_HR_URL set, a password sign-in is for the superuser only
-    # (accounts/backends.py); before ModelBackend so it can stop the rest.
-    "accounts.backends.SuperuserPasswordOnly",
     "django.contrib.auth.backends.ModelBackend",
     "accounts.oidc.PracticeAccountBackend",
     "accounts.backends.RotaAdminBackend",
