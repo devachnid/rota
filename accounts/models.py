@@ -44,6 +44,15 @@ class User(AbstractUser):
     # reset form (accounts/mail.py). Null until the first link.
     password_link_sent_at = models.DateTimeField(null=True, blank=True)
 
+    # The practice HR system's `sub` for this person, stored at their first
+    # sign-in with the practice account (accounts/oidc.py). From then on
+    # sign-in matches on it, not on the email claim, so an email edited on
+    # the HR side cannot move someone into a different rota account.
+    oidc_sub = models.CharField(
+        "practice account id", max_length=255, blank=True, default="", db_index=True,
+        help_text="Set at their first sign-in with the practice account. Clear it only "
+                  "if their login on the HR system was replaced by a new one.")
+
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
     objects = UserManager()

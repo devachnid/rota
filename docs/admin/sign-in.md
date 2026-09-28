@@ -49,12 +49,28 @@ than creating a second one.
 
 ## What happens on first sign-in
 
-The HR system's `email` and `employee_id` claims come back after
-authentication. The rota matches `email` against existing login accounts,
-case-insensitively, exactly like the local login form does. A match signs
-that person in as themselves. No match creates a new login account for that
-email, with no usable password — they can never fall back to a local
-password sign-in unless an admin sets one — and `is_active=True`.
+The HR system's `sub` (its own id for the person's login), `email` and
+`employee_id` claims come back after authentication.
+
+- **The first time**, the rota matches `email` against existing login
+  accounts, case-insensitively, exactly like the local login form does. A
+  match signs that person in as themselves and stores the HR system's `sub`
+  on their account (**Practice account id**, shown to superusers in the
+  account's System section). No match creates a new login account for that
+  email, with no usable password, `is_active=True`, and the `sub` stored.
+- **Every time after that**, the rota matches on the stored `sub` alone. An
+  email changed on the HR side — by accident, or by an HR admin trying to
+  sign in as someone else — cannot move anyone into a different rota
+  account: an account already bound to one `sub` is never matched by email
+  for another, and no second account is made for its address. That sign-in
+  is refused, and the person lands back on the login page.
+- **The superuser is never signed in this way**, whatever the HR system
+  says. It signs in with the rota's own password form (below).
+
+If someone's login on the HR system is replaced by a new one, they cannot
+sign in with the practice account until a superuser clears **Practice
+account id** on their rota account; their next sign-in binds the new one.
+
 `employee_id` is read but not stored: it exists to identify the person on
 the HR side, not to grant anything here.
 

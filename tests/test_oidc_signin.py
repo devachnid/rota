@@ -37,3 +37,71 @@ def test_new_user_created_without_password_and_not_admin(db):
 
 def test_no_email_claim_matches_nobody(db):
     assert list(PracticeAccountBackend().filter_users_by_claims({})) == []
+
+
+# --- who a sign-in is: sub once seen, never the superuser (review I9) ---------------
+
+from django.core.exceptions import SuspiciousOperation  # noqa: E402
+
+
+def _sign_in(claims, monkeypatch):
+    """The backend's matching, as mozilla-django-oidc runs it after the code
+    exchange, with the userinfo response standing in for the HR system."""
+    b = PracticeAccountBackend()
+    monkeypatch.setattr(b, "get_userinfo", lambda *a: claims)
+    return b.get_or_create_user("access", "id", {})
+
+
+def test_the_first_sign_in_binds_the_sub(db, monkeypatch):
+    u = User.objects.create_user(email="tom@example.org", password="pw")
+    assert _sign_in({"sub": "12", "email": "Tom@Example.org"}, monkeypatch) == u
+    u.refresh_from_db()
+    assert u.oidc_sub == "12"
+
+
+def test_later_sign_ins_match_on_sub_whatever_the_email_says(db, monkeypatch):
+    u = User.objects.create_user(email="tom@example.org", password="pw", oidc_sub="12")
+    assert _sign_in({"sub": "12", "email": "tom.hodges@example.org"}, monkeypatch) == u
+    assert User.objects.count() == 1
+
+
+def test_an_edited_email_on_the_hr_side_cannot_take_over_a_bound_account(db, monkeypatch):
+    """An HR admin changes another HR login's email to a rota admin's: the
+    rota admin is bound to their own sub, so the email match is refused,
+    and no second account is made for the address."""
+    admin = User.objects.create_user(email="boss@example.org", password="pw",
+                                     is_rota_admin=True, oidc_sub="1")
+    with pytest.raises(SuspiciousOperation):
+        _sign_in({"sub": "99", "email": "boss@example.org"}, monkeypatch)
+    assert list(User.objects.all()) == [admin]
+    admin.refresh_from_db()
+    assert admin.oidc_sub == "1"
+
+
+def test_the_superuser_is_never_signed_in_by_the_practice_account(db, monkeypatch):
+    root = User.objects.create_superuser(email="root@example.org", password="pw")
+    with pytest.raises(SuspiciousOperation):
+        _sign_in({"sub": "5", "email": "root@example.org"}, monkeypatch)
+    root.refresh_from_db()
+    assert root.oidc_sub == "" and User.objects.count() == 1
+
+
+def test_not_even_with_a_sub_stored_against_them(db, monkeypatch):
+    User.objects.create_superuser(email="root@example.org", password="pw", oidc_sub="5")
+    assert not PracticeAccountBackend().filter_users_by_claims(
+        {"sub": "5", "email": "root@example.org"}).exists()
+
+
+def test_a_new_person_is_created_bound_to_their_sub(db, monkeypatch):
+    u = _sign_in({"sub": "40", "email": "new@example.org"}, monkeypatch)
+    assert u.email == "new@example.org" and u.oidc_sub == "40"
+    assert not u.has_usable_password() and not u.is_rota_admin and not u.is_superuser
+
+
+def test_only_a_superuser_sees_the_binding(db, client, admin_client):
+    """So a superuser can clear it when someone's HR login is replaced."""
+    u = User.objects.create_user(email="tom@example.org", password="pw", oidc_sub="12")
+    root = User.objects.create_superuser(email="root2@example.org", password="pw")
+    client.force_login(root)
+    assert 'name="oidc_sub"' in client.get(f"/admin/accounts/user/{u.pk}/change/").content.decode()
+    assert 'name="oidc_sub"' not in admin_client.get(f"/admin/accounts/user/{u.pk}/change/").content.decode()

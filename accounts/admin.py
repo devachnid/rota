@@ -132,7 +132,7 @@ class CustomUserAdmin(UserAdmin, ModelAdmin):
         if request.user.is_superuser:
             # is_staff is derived on save (accounts/models.py), so it is
             # not offered here.
-            sets.append(("System", {"fields": ("is_active", "is_superuser")}))
+            sets.append(("System", {"fields": ("is_active", "is_superuser", "oidc_sub")}))
         else:
             sets.append(("Status", {"fields": ("is_active",)}))
         return sets
