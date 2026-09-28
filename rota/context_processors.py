@@ -11,6 +11,8 @@ of its email before the @: the whole address is 25-plus characters that
 pushed a rota admin's header to wrap below 1080px, and it is shown in full
 inside the menu."""
 
+from django.conf import settings
+
 from rota.models import Clinician, SwapRequest
 
 
@@ -29,3 +31,9 @@ def waiting(request):
         out["swaps_for_admin"] = SwapRequest.objects.filter(
             status=SwapRequest.Status.ACCEPTED).count()
     return out
+
+
+def practice_hr(request):
+    """Whether the login page should offer the practice account: set once
+    PRACTICE_HR_URL is configured (config/settings.py), nothing before."""
+    return {"settings_practice_hr_url": settings.PRACTICE_HR_URL}
