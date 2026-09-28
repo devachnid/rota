@@ -376,3 +376,8 @@ OIDC_OP_USER_ENDPOINT = f"{PRACTICE_HR_URL}/o/userinfo/"
 OIDC_OP_JWKS_ENDPOINT = f"{PRACTICE_HR_URL}/o/.well-known/jwks.json"
 OIDC_USE_PKCE = True
 OIDC_CREATE_USER = True
+# Kept in the session so signing out can hand it to the HR system's
+# sign-out as id_token_hint, which ends the HR session without a prompt
+# (accounts/oidc.practice_hr_logout_url). It says who signed in, nothing
+# more, and goes when the session does.
+OIDC_STORE_ID_TOKEN = True
