@@ -14,6 +14,7 @@ from .mail import link_expires, send_password_link
 from .models import Passkey, User
 
 
+NO_INVITATION = "This person signs in with the practice account; no invitation is needed."
 ADMIN_FROM_HR = ("Set on the HR system: Login accounts › Apps › Admin of rota. It is "
                  "updated at each sign-in.")
 
@@ -198,6 +199,12 @@ class CustomUserAdmin(UserAdmin, ModelAdmin):
         # after the save — so the two send_* methods below fire from here.
         super().save_model(request, obj, form, change)
         if not change:
+            if settings.PRACTICE_HR_URL:
+                # The link would open the invalid-link page anyway
+                # (accounts/views.py); the account is theirs at their first
+                # practice-account sign-in.
+                messages.info(request, NO_INVITATION)
+                return
             _report(request, obj, send_password_link(request, obj, invite=True), invite=True)
 
     def get_actions_submit_line(self, request, object_id):

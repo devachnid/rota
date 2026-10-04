@@ -76,3 +76,47 @@ def test_only_the_count_and_the_path_are_printed(logins, tmp_path):
     assert out.strip() == f"Wrote 5 logins to {path}."
     for user in logins:
         assert user.password not in out
+
+
+def test_a_login_with_no_hash_at_all_is_written_unusable(db, tmp_path):
+    """The HR import refuses an empty or unrecognisable password, and would
+    abort the whole file over one. Such a login has no password to carry
+    across, so it goes as unusable; real hashes go exactly as stored."""
+    from django.contrib.auth.hashers import is_password_usable
+    real = User.objects.create_user(email="real@example.org", password="pw")
+    for email, stored in (("empty@example.org", ""), ("odd@example.org", "not-a-hash")):
+        User.objects.filter(pk=User.objects.create_user(email=email).pk).update(password=stored)
+    path = tmp_path / "logins.json"
+    _run(path)
+    by_email = {r["email"]: r["password"] for r in json.loads(path.read_text())["logins"]}
+    assert by_email["real@example.org"] == real.password
+    for email in ("empty@example.org", "odd@example.org"):
+        assert by_email[email].startswith("!") and len(by_email[email]) > 1
+        assert not is_password_usable(by_email[email])
+
+
+def test_a_failed_write_leaves_no_partial_file(logins, tmp_path, monkeypatch):
+    from accounts.management.commands import export_logins
+
+    real_fdopen = os.fdopen
+
+    class Full:
+        def __init__(self, f):
+            self.f = f
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            self.f.close()
+
+        def write(self, data):
+            self.f.write(data[:10])
+            self.f.flush()
+            raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(export_logins.os, "fdopen", lambda *a, **k: Full(real_fdopen(*a, **k)))
+    path = tmp_path / "logins.json"
+    with pytest.raises(OSError):
+        _run(path)
+    assert not path.exists()

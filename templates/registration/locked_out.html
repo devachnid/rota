@@ -5,11 +5,17 @@
 password sign-in is refused: too many failures for this account, or against
 too many accounts from this address. Only the password is paused — the two
 ways in below do not go through it — so the page leads with those rather
-than with the wait.{% endcomment %}
+than with the wait. With the practice account configured there is no rota
+password, passkey or password link at all, so the page points there
+alone.{% endcomment %}
 <div class="auth-wrap">
   <p class="auth-brand">Rota</p>
   <div class="auth-card">
     <h1>Too many attempts</h1>
+    {% if settings_practice_hr_url %}
+    <p>You sign in to the rota with the practice account.</p>
+    <p><a class="btn btn-primary" href="{% url 'oidc_authentication_init' %}">Sign in with the practice account</a></p>
+    {% else %}
     <p>Signing in with a password is paused for an hour after too many wrong
       passwords, for this account or from this connection. You can still get in:</p>
     <ul>
@@ -17,6 +23,7 @@ than with the wait.{% endcomment %}
       <li><a href="{% url 'password_reset' %}">Get a password link by email</a>. Choosing a new password signs you straight in.</li>
     </ul>
     <p class="field-help">If the wrong passwords weren't yours, tell a rota admin.</p>
+    {% endif %}
   </div>
 </div>
 {% endblock %}
