@@ -6,27 +6,18 @@
   <div class="auth-card">
     <h1>Log in</h1>
     {% if settings_practice_hr_url %}
-    {% comment %}Everyone signs in with the practice account. The rota's own
-    password form is for the superuser only (accounts/views.LoginForm turns
-    anyone else away), so it is folded away, with the reset link; open when
-    it has an error to show.{% endcomment %}
+    {% comment %}Everyone signs in with the practice account, the superuser
+    included: no rota password, no reset link, no passkey (accounts/views.py
+    refuses all three). A password posted anyway gets the form's refusal,
+    which says where to go.{% endcomment %}
+    {% for error in form.non_field_errors %}<p class="field-error" role="alert">{{ error }}</p>{% endfor %}
     <p><a class="btn btn-primary" href="{% url 'oidc_authentication_init' %}">Sign in with the practice account</a></p>
-    <details class="auth-local"{% if form.errors %} open{% endif %}>
-      <summary>Rota password (superusers only)</summary>
-      <form method="post" id="login-form">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit" class="btn">Log in with the rota password</button>
-      </form>
-      <p class="field-help"><a href="{% url 'password_reset' %}">Forgotten your password?</a></p>
-    </details>
     {% else %}
     <form method="post" id="login-form">
       {% csrf_token %}
       {{ form.as_p }}
       <button type="submit" class="btn btn-primary">Log in</button>
     </form>
-    {% endif %}
     <div class="form-actions">
       <button type="button" id="passkey-login" class="btn" style="display:none"
               data-options-url="{% url 'passkey_login_options' %}"
@@ -34,7 +25,6 @@
               data-next="{{ next }}">Sign in with a passkey</button>
     </div>
     <p id="passkey-error" class="field-error" style="display:none" role="alert"></p>
-    {% if not settings_practice_hr_url %}
     <p class="field-help"><a href="{% url 'password_reset' %}">Forgotten your password?</a></p>
     {% endif %}
   </div>

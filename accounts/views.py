@@ -7,6 +7,7 @@ and signs the person in.
 """
 
 import json
+from functools import wraps
 
 from django import forms
 from django.conf import settings
@@ -19,7 +20,7 @@ from django.contrib.auth import views as auth_views
 from django.contrib.auth.views import (PasswordChangeView, PasswordResetConfirmView,
                                        PasswordResetView)
 from django.core.exceptions import ValidationError
-from django.http import HttpResponseRedirect, JsonResponse
+from django.http import Http404, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils.http import url_has_allowed_host_and_scheme, urlsafe_base64_decode
@@ -31,31 +32,31 @@ from .mail import email_is_configured, send_passkey_added, send_password_link
 from .models import Passkey, User
 
 
-PRACTICE_ACCOUNT_ONLY = ("Sign in with the practice account; the rota password is for "
-                         "the superuser only.")
+PRACTICE_ACCOUNT_ONLY = "Sign in with the practice account."
 
 
 def _password_accounts():
     """The accounts that may use a rota password, or a link to set one: all
-    of them, or with the practice account configured the superuser only
-    (accounts/recent_auth.password_allowed)."""
+    of them, or with the practice account configured none at all
+    (accounts/recent_auth.password_allowed). Everyone, the superuser
+    included, signs in through the HR system then; removing PRACTICE_HR_URL
+    is the way back to passwords if it is ever unreachable."""
     users = User._default_manager.all()
-    return users.filter(is_superuser=True) if settings.PRACTICE_HR_URL else users
+    return users.none() if settings.PRACTICE_HR_URL else users
 
 
 class LoginForm(AuthenticationForm):
-    """Django's login form. With the practice account configured, anyone but
-    the superuser is turned away here, before authenticate() runs: the rota
-    never checks their password, so a right one is not counted as a wrong
-    one by the login lockout (axes counts failed authenticate() calls, and
-    five staff each typing their own right password from the surgery used to
-    lock its address out, the superuser and the practice-account callback
-    with it). The superuser goes through Django's form exactly as before."""
+    """Django's login form. With the practice account configured, every
+    password sign-in is turned away here, before authenticate() runs: the
+    rota never checks a password then, so a right one is not counted as a
+    wrong one by the login lockout (axes counts failed authenticate() calls,
+    and five staff each typing their own right password from the surgery
+    used to lock its address out, and the practice-account callback with
+    it). The refusal reads the same for every address, so it tells nobody
+    which have accounts. Without the setting it is Django's form as before."""
 
     def clean(self):
-        username = self.cleaned_data.get("username")
-        if (settings.PRACTICE_HR_URL and username is not None
-                and not _password_accounts().filter(email__iexact=username).exists()):
+        if settings.PRACTICE_HR_URL:
             raise ValidationError(PRACTICE_ACCOUNT_ONLY, code="practice_account")
         return super().clean()
 
@@ -68,9 +69,9 @@ class RequestPasswordLinkForm(PasswordResetForm):
     the link never reaches a public screen."""
 
     def get_users(self, email):
-        # With the practice account configured, only the superuser gets a
-        # link: anyone else would be signed straight in by it, around the
-        # HR system — a leaver disabled there would keep a way in.
+        # With the practice account configured, nobody gets a link: it would
+        # sign them straight in, around the HR system — a leaver disabled
+        # there would keep a way in.
         return _password_accounts().filter(email__iexact=email, is_active=True)
 
     def save(self, *args, request=None, **kwargs):
@@ -127,9 +128,9 @@ class SetPasswordFromLinkView(PasswordResetConfirmView):
         try:
             uid = urlsafe_base64_decode(uidb64).decode()
             # Only accounts that may have a rota password: with the practice
-            # account configured, a link for anyone but the superuser —
-            # emailed from the reset form before, or an admin's invitation —
-            # opens the invalid-link page instead of signing them in.
+            # account configured, a link for anyone — emailed from the reset
+            # form before, or an admin's invitation — opens the invalid-link
+            # page instead of signing them in.
             return _password_accounts().get(pk=uid, is_active=True)
         except (TypeError, ValueError, OverflowError, User.DoesNotExist, ValidationError):
             return None
@@ -175,11 +176,12 @@ class LogoutView(auth_views.LogoutView):
 @login_required
 def account(request):
     """The person's own page: who they are signed in as, and the things
-    only they can do to it — the password, and their passkeys."""
+    only they can do to it — the password, and their passkeys. With the
+    practice account configured both live on the HR system, and the page
+    says so instead (the template reads settings_practice_hr_url)."""
     return render(request, "accounts/account.html", {
         "passkeys": request.user.passkeys.all(),
         "needs_password": not recent_auth.is_recent(request),
-        "password_allowed": recent_auth.password_allowed(request.user),
     })
 
 
@@ -211,16 +213,20 @@ def _needs_password(message):
     return JsonResponse({"error": message, "password": True}, status=403)
 
 
-def _needs_fresh_sign_in(request):
-    """The refusal for a session past the window: ask for the password, or,
-    for someone who signs in with the practice account, send them back
-    through it — the rota never checks their password."""
-    if recent_auth.password_allowed(request.user):
-        return _needs_password("Enter your password to add a passkey.")
-    return JsonResponse({"error": "Sign in again with the practice account to add a passkey."},
-                        status=403)
+def _passkeys_retired(view):
+    """With the practice account configured, a passkey endpoint does not
+    exist: a passkey here would be a way in around the HR system, which is
+    where the person's sign-in, lockout and leaving date now live. The rows
+    are left alone, and work again if PRACTICE_HR_URL is removed."""
+    @wraps(view)
+    def wrapped(request, *args, **kwargs):
+        if settings.PRACTICE_HR_URL:
+            raise Http404
+        return view(request, *args, **kwargs)
+    return wrapped
 
 
+@_passkeys_retired
 @login_required
 @require_POST
 def passkey_register_options(request):
@@ -229,8 +235,8 @@ def passkey_register_options(request):
     borrowed session must not be able to add a key of its own."""
     if not recent_auth.is_recent(request):
         body = _json_body(request) or {}
-        if not recent_auth.password_allowed(request.user) or not body.get("password"):
-            return _needs_fresh_sign_in(request)
+        if not body.get("password"):
+            return _needs_password("Enter your password to add a passkey.")
         if not recent_auth.confirm_password(request, body["password"]):
             # A locked account lands here too; axes then swaps this for its
             # own answer (accounts/lockout.py).
@@ -238,11 +244,12 @@ def passkey_register_options(request):
     return JsonResponse(json.loads(passkeys.registration_options(request, request.user)))
 
 
+@_passkeys_retired
 @login_required
 @require_POST
 def passkey_register(request):
     if not recent_auth.is_recent(request):
-        return _needs_fresh_sign_in(request)
+        return _needs_password("Enter your password to add a passkey.")
     body, credential = _credential_from(request)
     if credential is None:
         return JsonResponse({"error": "Malformed request."}, status=400)
@@ -266,11 +273,13 @@ def passkey_remove(request, pk):
     return redirect("account")
 
 
+@_passkeys_retired
 @require_POST
 def passkey_login_options(request):
     return JsonResponse(json.loads(passkeys.login_options(request)))
 
 
+@_passkeys_retired
 @require_POST
 def passkey_login(request):
     """Possession of the private key, proven, is the whole login: no

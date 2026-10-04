@@ -77,8 +77,9 @@
 {% if user.is_authenticated %}
 {% comment %}Offered once per browser, by the script, where no passkey has been used
 here — and only in the minutes after signing in, the one time adding one needs
-no password (accounts/recent_auth.py).{% endcomment %}
-{% if signed_in_recently %}
+no password (accounts/recent_auth.py). Never while the practice account is on:
+passkeys are retired then (accounts/views.py).{% endcomment %}
+{% if signed_in_recently and not settings_practice_hr_url %}
 <div class="flashes" id="passkey-nudge" style="display:none">
   <div class="flash" role="status">
     <form id="passkey-nudge-form">

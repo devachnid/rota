@@ -1,4 +1,5 @@
 from django import forms
+from django.conf import settings
 from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -11,6 +12,10 @@ from unfold.forms import AdminPasswordChangeForm, UserChangeForm
 
 from .mail import link_expires, send_password_link
 from .models import Passkey, User
+
+
+ADMIN_FROM_HR = ("Set on the HR system: Login accounts › Apps › Admin of rota. It is "
+                 "updated at each sign-in.")
 
 
 class InviteForm(forms.ModelForm):
@@ -114,8 +119,20 @@ class CustomUserAdmin(UserAdmin, ModelAdmin):
         except (model.DoesNotExist, ValidationError, ValueError):
             return None
 
+    def get_form(self, request, obj=None, **kwargs):
+        # A read-only field takes its help text from the form's Meta, not
+        # from a form field, so this is where it is reworded.
+        if settings.PRACTICE_HR_URL:
+            kwargs.setdefault("help_texts", {"is_rota_admin": ADMIN_FROM_HR})
+        return super().get_form(request, obj, **kwargs)
+
     def get_fieldsets(self, request, obj=None):
         if obj is None:
+            # With the practice account on, rota admin comes from the HR
+            # system's `admin` claim at sign-in (accounts/oidc.py), so it
+            # is not chosen here.
+            if settings.PRACTICE_HR_URL:
+                return ((None, {"fields": ("email",)}),)
             return self.add_fieldsets
         # No password field for anyone: an admin sends a link, they never
         # set one. (A superuser's direct set-password view stays reachable
@@ -141,6 +158,10 @@ class CustomUserAdmin(UserAdmin, ModelAdmin):
         fields = super().get_readonly_fields(request, obj)
         if not request.user.is_superuser:
             fields = tuple(fields) + ("is_superuser",)
+        if settings.PRACTICE_HR_URL:
+            # Set from the HR system at each sign-in (accounts/oidc.py); a
+            # tick here would be undone at the person's next one.
+            fields = tuple(fields) + ("is_rota_admin",)
         return fields
 
     def has_view_permission(self, request, obj=None):

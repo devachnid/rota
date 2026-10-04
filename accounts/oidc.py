@@ -9,12 +9,17 @@ let an HR admin who edited an HR login's email sign in to the rota as
 whoever had that email here — a rota admin, or the superuser. So:
 
 - an email match is only offered to a rota user not yet bound to a `sub`;
-- a superuser is never signed in this way (the superuser signs in with the
-  rota's own password form, which stays for exactly that);
 - a new user is created only when no rota user has the email at all, with
   no usable password.
 
-is_rota_admin stays local to the rota and is never set by sign-in."""
+Superusers sign in this way like everyone else: with the practice account
+configured there is no rota password (accounts/views.py). is_superuser
+stays a local flag, set only in the rota's admin by a superuser.
+
+is_rota_admin is the HR system's `admin` claim, a boolean it sends for the
+rota's own client: set from it at every sign-in, so it is managed on the HR
+system. A claim missing altogether (an HR system older than it) reads as
+not an admin."""
 
 from urllib.parse import urlencode
 
@@ -35,27 +40,41 @@ class PracticeAccountBackend(OIDCAuthenticationBackend):
             users = User.objects.filter(email__iexact=email, oidc_sub="")
         else:
             return User.objects.none()
-        return users.exclude(is_superuser=True)
+        return users
 
     def create_user(self, claims):
         # Reached when filter_users_by_claims matched nobody. If the email
         # belongs to a rota user all the same, that user is one sign-in may
-        # not reach — a superuser, or someone already bound to another
-        # sub — and a second account cannot share the address anyway.
+        # not reach — someone already bound to another sub — and a second
+        # account cannot share the address anyway.
         if User.objects.filter(email__iexact=claims["email"]).exists():
             raise SuspiciousOperation("practice-account sign-in refused: the email belongs "
                                       "to a rota account this sign-in may not use")
-        user = User(email=claims["email"], oidc_sub=str(claims.get("sub") or ""))
+        user = User(email=claims["email"], oidc_sub=str(claims.get("sub") or ""),
+                    is_rota_admin=_is_admin(claims))
         user.set_unusable_password()
         user.save()
         return user
 
     def update_user(self, user, claims):
+        changed = []
         sub = str(claims.get("sub") or "")
         if sub and not user.oidc_sub:
             user.oidc_sub = sub
-            user.save(update_fields=["oidc_sub"])
+            changed.append("oidc_sub")
+        if user.is_rota_admin != _is_admin(claims):
+            user.is_rota_admin = _is_admin(claims)
+            # is_staff follows it on save (accounts/models.py).
+            changed += ["is_rota_admin", "is_staff"]
+        if changed:
+            user.save(update_fields=changed)
         return user
+
+
+def _is_admin(claims):
+    # The claim is a JSON boolean. Only true itself makes an admin: missing,
+    # null, or anything else that is not a boolean reads as not one.
+    return claims.get("admin") is True
 
 
 def practice_hr_logout_url(request, id_token=None):
