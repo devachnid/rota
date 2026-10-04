@@ -22,6 +22,14 @@
      grey that must read as a placeholder at a glance. tests/
      test_chrome_contrast.py holds it apart from --surface in both themes. */
   --slot:        #DDE0E6;
+  /* A day the surgery is closed. It was --sunken, which is 1.06:1 against
+     the white cell — invisible — while the grey "working, nothing
+     allocated" chip laid on it was 1.32:1, so a bank holiday read as a day
+     of unfilled work. The darkest neutral on the grid now (1.55:1 against
+     --surface in both themes, and past --slot), and the only one that
+     fills whole cells. Text on it is --ink-soft: --muted drops to 3.1:1
+     here. tests/test_chrome_contrast.py holds both. */
+  --closed:      #CBD0D8;
   --hairline:    #ECEDF1;
   /* Form-control boundaries, deliberately NOT --hairline. WCAG 1.4.11 holds
      the visible boundary of a UI component to 3:1, and --hairline (#ECEDF1)
@@ -56,8 +64,20 @@
   --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
   --sp-5: 24px; --sp-6: 32px; --sp-7: 48px;
 
-  --fs-xs: 11.5px; --fs-sm: 12.5px; --fs-md: 13.5px;
-  --fs-lg: 15px;   --fs-xl: 21px;   --fs-2xl: 30px;
+  /* The scale was 11.5 / 12.5 / 13.5 / 15, and 11.5px carried nineteen
+     things — form help and errors, warnings, badges, the AM/PM headings.
+     Contrast was AA throughout, but size is not contrast, and the people
+     reading this are GPs at a practice monitor at arm's length. Each step
+     is up by half a pixel to a pixel; the page titles stay where they
+     were, since they were never the problem. */
+  --fs-xs: 12px;   --fs-sm: 13px;   --fs-md: 14.5px;
+  --fs-lg: 16px;   --fs-xl: 22px;   --fs-2xl: 30px;
+  /* Except the chip, which keeps 11.5px: a grid session column is 56px,
+     and the code that fits it — six characters, rota/services/
+     legibility.py's CODE_FITS — was measured at this size. The chip's
+     text is a code read at a glance, not prose, and its tint does the
+     rest. */
+  --fs-chip: 11.5px;
 
   --r-sm: 6px; --r-md: 8px; --r-lg: 12px;
   --row-h: 34px;
@@ -101,6 +121,7 @@
     --surface:     #1A1D23;
     --sunken:      #21252C;
     --slot:        #262B33;
+    --closed:      #373D49;
     --hairline:    #2C313A;
     /* 3.18:1 on the dark --surface, 3.38:1 on --ground. See the light block. */
     --field-border: #626C7D;
@@ -126,6 +147,7 @@
   --surface:     #1A1D23;
   --sunken:      #21252C;
   --slot:        #262B33;
+  --closed:      #373D49;
   --hairline:    #2C313A;
   --field-border: #626C7D;
   --danger:      #F09A82;  --danger-soft:  #35201B;

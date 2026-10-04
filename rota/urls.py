@@ -1,9 +1,10 @@
 from django.urls import path
 
-from rota.views import day, edit, fill, grid, my_schedule, reports, requests as requests_views
+from rota.views import day, edit, fill, grid, my_schedule, reports, requests as requests_views, week
 
 urlpatterns = [
     path("rota/", grid.grid, name="grid"),
+    path("rota/week/", week.week_view, name="phone-week"),
     path("rota/day/", day.day_view, name="day"),
     path("rota/day/<str:day>/", day.day_view, name="day"),
     path("rota/cell/<int:clinician_id>/<str:day>/<str:part>/",

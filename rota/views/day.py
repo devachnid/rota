@@ -3,12 +3,8 @@ from datetime import date, timedelta
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 
-from rota.models import (BreatheAbsence, BreatheLeaveMapping, Clinician,
-                         ClosedDay, DayNote, PatternSlot, PracticeSettings,
-                         RotaEntry, SessionType)
-from rota.services import availability
-from rota.services.cells import (cell_state, day_note, one_block,
-                                 shows_on_roster)
+from rota.models import ClosedDay, PracticeSettings
+from rota.services.roster import RosterSource
 
 _STEP_LIMIT = 14  # a fortnight: enough to clear Christmas, short enough to end
 
@@ -49,141 +45,22 @@ def day_view(request, day=None):
     prev_day = _adjacent_open_day(target, -1, open_weekdays, nearby_closed)
     next_day = _adjacent_open_day(target, +1, open_weekdays, nearby_closed)
 
-    is_closed = (target in nearby_closed
-                 or target.weekday() not in open_weekdays)
-
-    entries = RotaEntry.objects.filter(day=target).select_related(
-        "session_type", "clinician", "site", "entered_by", "entered_by__clinician")
-    if not request.user.is_rota_admin:
-        entries = entries.filter(is_published=True)
-    entries = list(entries)
-
-    by_clinician = {}
-    for e in entries:
-        by_clinician.setdefault(e.clinician_id, {})[e.part] = e
-
-    partner = {}
-    groups = {}
-    for e in entries:
-        if e.companion_group:
-            groups.setdefault(e.companion_group, []).append(e)
-    for pair in groups.values():
-        if len(pair) == 2:
-            a, b = pair
-            partner[(a.clinician_id, a.part)] = b.clinician.name
-            partner[(b.clinician_id, b.part)] = a.clinician.name
-
-    active = list(Clinician.objects.filter(active=True)
-                 .select_related("group").order_by("display_order", "name"))
-    pattern_rows = list(PatternSlot.objects.filter(clinician__in=active))
-    absences = BreatheAbsence.objects.filter(
-        clinician__in=active,
-        start_date__lte=target, end_date__gte=target,
-    )
-    resolver = availability.AvailabilityResolver(
-        pattern_rows, active, absences, BreatheLeaveMapping.as_dict())
-
-    roster, on_leave, not_in = [], [], []
-    shown_cells = []  # every listed clinician's cells, for the pinned block
-    for c in active:
-        if not shows_on_roster(is_locum=c.group.is_locum_group,
-                               has_entry=c.id in by_clinician,
-                               in_service=resolver.in_service(c.id, target)):
-            continue
-        mine = by_clinician.get(c.id, {})
-        cells = [
-            cell_state(c.id, target, part, entry=mine.get(part),
-                       resolver=resolver, closed=is_closed,
-                       partner=partner.get((c.id, part)))
-            for part in ("AM", "PM")
-        ]
-        # On-leave means every part the clinician works is covered — either
-        # by a Breathe absence for this day/part, or (for history predating
-        # the overlay) by an absence-category entry. A cell is "off" when
-        # nothing is expected there at all (cell_state already worked that
-        # out); a part where off is False is a part they work, and it needs
-        # one of those two to count as covered. A clinician with no worked
-        # parts at all (nothing to cover) is never "on leave" — that's
-        # not_in below.
-        #
-        # `on_leave`, not `absence`: `absence` is the mapped chip, so with a
-        # kind's default mapping row missing, a sick clinician read "1 in ·
-        # 0 on leave" — the count and the scheduler disagreeing about the
-        # same person. What renders is still `absence`; what is counted is
-        # what Breathe said.
-        absence = SessionType.Category.ABSENCE
-        worked_cells = [cell for cell in cells if not cell["off"]]
-        is_on_leave = bool(worked_cells) and all(
-            cell["on_leave"]
-            or (cell["entry"] and cell["entry"].session_type.category == absence)
-            for cell in worked_cells
-        )
-        # Drawn as the grid draws it: matching halves are one chip across
-        # both columns, with the two notes folded into one line.
-        am, pm = cells
-        if one_block(am, pm):
-            drawn = [{**am, "part": "DAY", "merged": True,
-                      "note": day_note(am, pm)}]
-        else:
-            drawn = [{**am, "merged": False}, {**pm, "merged": False}]
-        shown_cells.append((c, drawn))
-        if is_on_leave:
-            on_leave.append({"clinician": c, "cells": drawn})
-        elif mine or any(not cell["off"] or cell["absence"]
-                          for cell in cells):
-            # cell["absence"] alone (off True, no entry) is the "no pattern
-            # entered yet" case: cell_state shows it precisely because
-            # nothing else would ever show for that clinician. The grid
-            # renders that chip too; filing them under "Not in" instead
-            # would drop the integrity warning and assert a lie — that they
-            # do not work this day — when the truth is nobody has entered
-            # their pattern.
-            roster.append({"clinician": c, "cells": drawn})
-        else:
-            not_in.append(c)
-
-    # Built from the drawn cells rather than the raw entries so a pinned
-    # type one person holds all day is one row saying so, not an AM row
-    # and a PM row. Every entry belongs to a listed clinician (an entry
-    # earns its clinician a row whatever their dates say), so nothing is
-    # lost by starting from the rows.
-    pinned = sorted(
-        ({"clinician": c, "entry": cell["entry"], "note": cell["note"],
-          "part": "All day" if cell["merged"] else cell["part"]}
-         for c, drawn in shown_cells for cell in drawn
-         if cell["entry"] and cell["entry"].session_type.pin_on_day_view),
-        key=lambda r: (r["entry"].session_type.name, r["clinician"].name,
-                       r["entry"].part),
-    )
-
-    # A closure statement is true and worth showing, but it is not a reason
-    # to withhold rostered work: when the day carries real RotaEntry rows,
-    # the body renders alongside the closure line, not instead of it. This
-    # is deliberately keyed on `entries`, not on `roster` being non-empty —
-    # a clinician whose pattern says they work a closed Tuesday still lands
-    # in `roster` as a dash row even with zero entries that day, and that
-    # must not be enough to light up the body on its own. Only a closed day
-    # with no entries at all keeps the old behaviour — the closure line
-    # alone, and the header count line suppressed along with the body it
-    # would otherwise describe.
-    has_entries = bool(entries)
-    show_body = not is_closed or has_entries
+    shown = RosterSource([target], include_drafts=request.user.is_rota_admin).day(target)
 
     return render(request, "rota/day.html", {
         "target": target,
-        "is_closed": is_closed,
-        "show_body": show_body,
-        "closed_reason": next(
-            (cd.reason for cd in ClosedDay.objects.filter(day=target)), ""),
-        "roster": roster,
-        "on_leave": on_leave,
-        "not_in": not_in,
-        "in_count": len(roster),
-        "leave_count": len(on_leave),
+        "is_closed": shown.is_closed,
+        "show_body": shown.show_body,
+        "closed_reason": shown.closed_reason,
+        "roster": shown.roster,
+        "on_leave": shown.on_leave,
+        "not_in": shown.not_in,
+        "in_count": shown.in_count,
+        "leave_count": shown.leave_count,
         "weekday_name": target.strftime("%A"),
-        "day_note": DayNote.objects.filter(day=target).first(),
+        "day_note": shown.note,
         "is_admin": request.user.is_rota_admin,
-        "pinned": pinned,
+        "pinned": shown.pinned,
         "prev_day": prev_day,
         "next_day": next_day,
     })

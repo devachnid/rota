@@ -171,7 +171,7 @@ def stored_ranges_parse(app_configs, **kwargs):
     from django.core.exceptions import ValidationError
     from django.db import DatabaseError
 
-    from rota.models import CoverageRule, PracticeSettings
+    from rota.models import CoverageRule, PersonalRequirement, PracticeSettings
     from rota.services.ranges import validate_int_list
 
     def problem(label, value, low, high):
@@ -194,6 +194,10 @@ def stored_ranges_parse(app_configs, **kwargs):
                 msg = problem(field, value, low, high)
                 if msg:
                     found.append(f"Coverage rule “{rule}” {field}={value!r}: {msg}")
+        for req in PersonalRequirement.objects.select_related("session_type"):
+            msg = problem("weekdays", req.weekdays, 0, 6)
+            if msg:
+                found.append(f"Personal requirement “{req}” weekdays={req.weekdays!r}: {msg}")
     except DatabaseError:
         return []
     if found:
@@ -203,5 +207,26 @@ def stored_ranges_parse(app_configs, **kwargs):
             hint="Open each named record in the admin and save it; the form "
                  "names the bad value and refuses it.",
             id="rota.E006",
+        )]
+    return []
+
+
+# The Breathe key reads every employee's HR record — NI number, salary,
+# bank details. The client will not send it anywhere but https
+# (services/breathe/client.py), so a plain-http BREATHE_API_URL would fail
+# every sync quietly, in the status page's error line. Say so where
+# someone is deploying. Quiet when the integration is off.
+@register(deploy=True)
+def breathe_url_is_https(app_configs, **kwargs):
+    from urllib.parse import urlparse
+
+    if not settings.BREATHE_API_KEY:
+        return []
+    if urlparse(settings.BREATHE_API_URL).scheme != "https":
+        return [Error(
+            f"BREATHE_API_URL is {settings.BREATHE_API_URL!r}, which is not https; "
+            "the Breathe key is never sent over it, so every sync will fail.",
+            hint="Set BREATHE_API_URL=https://api.breathehr.com/v1 in /etc/rota.env.",
+            id="rota.E007",
         )]
     return []

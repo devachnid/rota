@@ -27,7 +27,7 @@
       <tbody>
       {% for d in days %}
       <tr><td><a href="/rota/?week={{ d.day|date:'Y-m-d' }}">{{ d.day|date:"D j M Y" }}</a></td>
-          <td>{% for w in d.warnings %}<div class="warn">{{ w.message }}</div>{% endfor %}</td></tr>
+          <td>{% for w in d.warnings %}<div class="alert alert-compact alert-{{ w.level }}">{{ w.message }}</div>{% endfor %}</td></tr>
       {% empty %}
       <tr><td colspan="2" class="empty">No gaps found. 🎉</td></tr>
       {% endfor %}
@@ -47,6 +47,33 @@
       <tbody>
       {% for r in accrual_rows %}
       <tr><td>{{ r.name }}</td><td class="warn">{{ r.behind }} behind target</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  {% if personal_rows %}
+  <h2 id="personal">Personal requirements</h2>
+  <div class="table-scroll">
+    <table class="table">
+      <thead>
+        <tr>
+          <th scope="col">Requirement</th>
+          <th scope="col">Clinician</th>
+          <th scope="col">Last done</th>
+          <th scope="col">Due</th>
+          <th scope="col">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for r in personal_rows %}
+      <tr>
+        <td>{{ r.requirement }}</td>
+        <td>{{ r.clinician.name }}</td>
+        <td>{% if r.last %}{{ r.last|date:"D j M" }}{% else %}never{% endif %}</td>
+        <td>week of {{ r.due|date:"j M" }}</td>
+        <td{% if r.overdue %} class="warn"{% endif %}>{{ r.label }}</td>
+      </tr>
       {% endfor %}
       </tbody>
     </table>

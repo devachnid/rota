@@ -24,3 +24,4 @@ class RotaAdminBackend(BaseBackend):
 
     def has_module_perms(self, user_obj, app_label):
         return _is_rota_admin(user_obj) and app_label in ROTA_APPS
+

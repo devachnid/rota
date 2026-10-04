@@ -114,6 +114,58 @@ GPs who do them."
 - Preferred weekdays: `3,1`
 - Priority: higher number than Duty, so Duty gets first pick of people
 
+## Personal requirements
+
+`/admin/rota/personalrequirement/` — *each of these named clinicians does
+this session type once every N weeks*. The example is a nursing home ward
+round: a handful of GPs each owe one every six weeks, on no fixed day, as
+an aim to fit in rather than a fixture.
+
+It is not a coverage rule, which counts practice-wide (one keen GP could
+satisfy six people's rounds), and not a recurring commitment, which pins
+a weekday and silently drops a missed occurrence.
+
+### Session type / Clinicians
+
+What is owed, and who owes it. Each named clinician must be eligible for
+the session type — the form refuses anyone who is not, by name. Only
+active clinicians are offered.
+
+### Every N weeks
+
+**The clock is rolling.** A clinician is due N weeks after their most
+recent session of the type, however it got there — assisted fill, placed
+by hand, or imported. A clinician with none yet is due from **Active
+from**. Once due they stay due until one is placed, and a slip restarts
+the clock from when it actually happened, so the aim is "never more than
+N weeks apart", not a fixed calendar cadence.
+
+A worked example: six GPs, every six weeks. Dr A did one on 4 August, so
+is due in the week of 14 September. The fill runs on 7 September for four
+weeks and places Dr A's next round in that week, in the session where the
+most other people are free. Dr B's slipped a fortnight — nobody was free —
+so the fill reports "no free session" for that week and tries again the
+next; when it lands on 29 September, Dr B's next is due six weeks after
+that, not after the date it was originally due.
+
+### Part / Weekdays
+
+Which half-day it may take (AM, PM or either) and which days it may fall
+on. Blank weekdays means every open day.
+
+### Active from / until
+
+Nothing is due or placed outside the window.
+
+### Where it shows
+
+The **Staffing report** lists every clinician on every live requirement:
+last done, the week it is due, and on track / due this week / overdue by
+n weeks, overdue first. The dashboard's **Health** card counts the
+overdue. The fill screen's unfilled list says "no free session" for a
+week where a due clinician could not be placed. Nothing appears in the
+grid's day headers: a rolling aim has no per-day shortfall.
+
 ## Trainee stage rules
 
 `/admin/rota/traineestagerule/` — one row per training stage, **seeded

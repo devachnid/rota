@@ -82,26 +82,31 @@ WASHES = {name: _alphas(body)["wash"] for name, body in _BLOCKS.items()}
 PAIRS = [
     ("ink", "ground", "h1/h2/h3 and .grid-day over the page ground"),
     ("ink", "surface", ".table th, .field label, .grid-clin, .stat-value in a .card"),
-    ("ink", "sunken", ".table th over a .closed / .empty-slot cell"),
+    ("ink", "sunken", ".table th over a .closed / .empty-slot cell, .nav-menu-item:hover"),
     ("ink", "accent-soft", ".flash, .mine's clinician cell, today's header cells"),
     ("ink-soft", "ground", "body text"),
-    ("ink-soft", "surface", ".btn, .nav-link, .report-nav a, card body text"),
+    ("ink-soft", "surface", ".btn, .nav-link, .nav-account-toggle, .nav-menu-item, .report-nav a, card body text"),
     ("ink-soft", "sunken", ".btn:hover, .btn-quiet:hover"),
     ("muted", "ground", ".empty, .field-help, .stat-label on the page ground"),
-    ("muted", "surface", ".nav-user, .btn-quiet, .grid-part, .grid-group td, .badge"),
+    ("muted", "surface", ".nav-menu-sub, .btn-quiet, .grid-part, .grid-group td, .badge, .alert-more"),
     ("muted", "sunken", ".badge default, .closed body cells, .chip fallback fg, the OFF chip"),
     ("accent", "ground", "a, .report-nav a:hover"),
     ("accent", "surface", ".nav-link.is-active, links in a card"),
     ("accent", "sunken", "links over a sunken cell"),
     ("accent-ink", "accent", ".btn-primary"),
+    ("accent", "accent-soft", "the phone week's Today label and today in its day strip"),
+    ("ink-soft", "closed", "a closed day's header — date, AM/PM, reason, day note"),
     ("danger", "ground", ".neg, .warn, .field-error on the page ground"),
     ("danger", "surface", ".warn in a grid header, .field-error in a modal, .errorlist"),
     ("danger", "sunken", ".warn over a sunken cell"),
-    ("danger", "danger-soft", ".badge.POSSIBLE"),
+    ("danger", "danger-soft", ".badge.POSSIBLE, .flash-error's rule, .alert's rule and compact text"),
+    ("ink", "danger-soft", ".flash-error's message text, an .alert's text"),
     ("warning", "surface", ".daynote in the grid header"),
     ("warning", "ground", ".daynote / warning text on the page ground"),
-    ("warning", "warning-soft", ".badge.ADVERTISED"),
-    ("ok", "ok-soft", ".badge.BOOKED"),
+    ("warning", "warning-soft", ".badge.ADVERTISED, .flash-warning's rule, .alert-warning's rule and compact text"),
+    ("ink", "warning-soft", ".flash-warning's message text, an .alert-warning's text"),
+    ("ok", "ok-soft", ".badge.BOOKED, .flash-success's rule"),
+    ("ink", "ok-soft", ".flash-success's message text"),
 ]
 
 
@@ -207,7 +212,7 @@ def test_wash_moves_away_from_the_chip_background(theme):
 # 3. the no-literals rule that keeps all of the above meaningful
 # --------------------------------------------------------------------------
 
-@pytest.mark.parametrize("sheet", ["components.css", "screens.css"])
+@pytest.mark.parametrize("sheet", ["components.css", "screens.css", "print.css"])
 def test_no_colour_literals_outside_tokens_css(sheet):
     """Contrast can only be audited from tokens.css if that is where every
     colour lives. The draft hatch was the one sanctioned literal; it now takes
@@ -250,6 +255,41 @@ def test_control_boundaries_meet_non_text_contrast(theme, token, bg, where):
         f"{ratio:.2f}:1, below WCAG 1.4.11's {NON_TEXT}:1 for a UI component "
         f"boundary ({where})"
     )
+
+
+def _auth_card_input_tokens() -> tuple[str, str, str]:
+    """(border, fill, card) — the tokens the sign-in pages' inputs actually
+    draw with, read out of screens.css rather than restated here. Found by
+    prefix: the first `.auth-card form input` rule is the text-input one
+    whether or not it excludes checkboxes, and its :focus rule follows it."""
+    screens = _strip_comments((CSS_DIR / "screens.css").read_text())
+    rule = _block(screens, ".auth-card form input")
+    card = _block(screens, ".auth-card {")
+    border = re.search(r"border:\s*1px solid var\(--([a-z-]+)\)", rule)
+    fill = re.search(r"background:\s*var\(--([a-z-]+)\)", rule)
+    behind = re.search(r"background:\s*var\(--([a-z-]+)\)", card)
+    assert border and fill and behind, (
+        "the .auth-card input rule no longer reads as border/background tokens"
+    )
+    return border.group(1), fill.group(1), behind.group(1)
+
+
+@pytest.mark.parametrize("theme", list(THEMES))
+def test_auth_card_inputs_meet_non_text_contrast(theme):
+    """Sign-in, set-password and change-password style their own inputs
+    (`.auth-card form input`, screens.css) instead of taking the .field rule,
+    and that copy stayed on --hairline — 1.17:1 — after .field moved off it.
+    Whatever token the rule names is measured against the input's own fill
+    and the card it sits on."""
+    border, fill, card = _auth_card_input_tokens()
+    tokens = THEMES[theme]
+    for bg in (fill, card):
+        ratio = palette.contrast_ratio(tokens[border], tokens[bg])
+        assert ratio >= NON_TEXT, (
+            f"{theme}: .auth-card input border --{border} {tokens[border]} on "
+            f"--{bg} {tokens[bg]} = {ratio:.2f}:1, below WCAG 1.4.11's "
+            f"{NON_TEXT}:1 for a UI component boundary"
+        )
 
 
 def test_form_controls_do_not_use_the_decorative_hairline_for_their_border():

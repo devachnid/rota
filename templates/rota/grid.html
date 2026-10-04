@@ -2,6 +2,10 @@
 {% block title %}Rota — weeks of {{ start|date:"j M" }} – {{ end|date:"j M Y" }}{% endblock %}
 {% block body_attrs %} class="page-grid{% if tick %} is-ticking{% endif %}"{% endblock %}
 {% block content %}
+{# Logging in lands here, and on a phone this is forty columns. #}
+<p class="phone-only wk-list-link"><a href="/rota/week/?week={{ anchor|date:'Y-m-d' }}">See this week as a list &rarr;</a></p>
+{# Paper gets one week — the one the page opened on — and says which. #}
+<h1 class="print-only">Rota — week of {{ anchor|date:"j F Y" }}</h1>
 <div class="toolbar">
   <a href="?week={{ earlier|date:'Y-m-d' }}{% if tick %}&tick=1{% endif %}" class="btn">&larr; Earlier</a>
   <a href="?week={{ today|date:'Y-m-d' }}{% if tick %}&tick=1{% endif %}" class="btn" id="grid-today"{% if today_shown %} data-scroll="1"{% endif %}>Today</a>
@@ -19,7 +23,7 @@
 <div class="flash">Ticking mode — click a session to mark it entered in the clinical system; click again to unmark. Turn it off to edit cells.</div>
 {% endif %}
 {% if unlinked_count %}
-<div class="warn">{{ unlinked_count }} clinician{{ unlinked_count|pluralize }} not linked to Breathe — no leave is read for them. <a href="{{ unlinked_url }}">Link them</a>.</div>
+<div class="alert alert-warning">{{ unlinked_count }} clinician{{ unlinked_count|pluralize }} not linked to Breathe — no leave is read for them. <a href="{{ unlinked_url }}">Link them</a>.</div>
 {% endif %}
 <script src="{% static 'js/grid.js' %}" defer></script>
 <div class="grid-wrap">
@@ -30,7 +34,7 @@
 <tr>
   <th class="grid-clin"></th>
   {% for w in weeks %}
-  <th colspan="{{ w.colspan }}" scope="colgroup" class="grid-week week-start" data-monday="{{ w.monday|date:'Y-m-d' }}">
+  <th colspan="{{ w.colspan }}" scope="colgroup" class="grid-week week-start{% if w.is_anchor %} anchor-week{% endif %}" data-monday="{{ w.monday|date:'Y-m-d' }}">
     {% if w.drafts %}
     <form hx-post="/rota/publish/" class="week-publish">
       <input type="hidden" name="start" value="{{ w.monday|date:'Y-m-d' }}">
@@ -38,7 +42,7 @@
       <button class="btn btn-primary">Publish week of {{ w.monday|date:"j M" }} · {{ w.drafts }} draft{{ w.drafts|pluralize }}</button>
     </form>
     {% endif %}
-    {% for x in w.warnings %}<div class="warn">{{ x.message }}</div>{% endfor %}
+    {% for x in w.warnings %}<div class="alert alert-compact alert-{{ x.level }}">{{ x.message }}</div>{% endfor %}
   </th>
   {% endfor %}
 </tr>
@@ -46,34 +50,36 @@
 <tr>
   <th class="grid-clin"></th>
   {% for h in day_headers %}
-  <th colspan="2" scope="colgroup" class="grid-day{% if h.closed %} closed{% endif %}{% if h.week_start %} week-start{% endif %}{% if h.today %} is-today{% endif %}{% if h.anchor %} is-anchor{% endif %}"
-      {% if is_admin %}hx-get="/rota/daynote/{{ h.day|date:'Y-m-d' }}/" hx-target="#modal"{% endif %}{% if h.tooltip %} title="{{ h.tooltip }}"{% endif %}>
+  <th colspan="2" scope="colgroup" class="grid-day{% if h.closed %} closed{% endif %}{% if h.week_start %} week-start{% endif %}{% if h.today %} is-today{% endif %}{% if h.anchor %} is-anchor{% endif %}{% if h.anchor_week %} anchor-week{% endif %}"
+      {% if is_admin %}hx-get="/rota/daynote/{{ h.day|date:'Y-m-d' }}/" hx-target="#modal" tabindex="0"{% endif %}{% if h.tooltip %} title="{{ h.tooltip }}"{% endif %}>
     {{ h.day|date:"D j M" }}
+    {% if h.closed %}<div class="grid-closed">{{ h.closed_reason|default:"Closed" }}</div>{% endif %}
     {% if h.note %}<div class="daynote">{{ h.note.text }}</div>{% endif %}
-    {% for w in h.shown %}<div class="warn">{{ w.message }}</div>{% endfor %}
-    {% if h.more %}<div class="warn warn-more">+{{ h.more }} more</div>{% endif %}
+    {% for w in h.shown %}<div class="alert alert-compact alert-{{ w.level }}">{{ w.message }}</div>{% endfor %}
+    {% if h.more %}<div class="alert-more">+{{ h.more }} more</div>{% endif %}
   </th>
   {% endfor %}
 </tr>
-<tr><th class="grid-clin"></th>{% for h in day_headers %}<th class="grid-part{% if h.closed %} closed{% endif %}{% if h.week_start %} week-start{% endif %}{% if h.today %} is-today{% endif %}" scope="col">AM</th><th class="grid-part{% if h.closed %} closed{% endif %}{% if h.today %} is-today{% endif %}" scope="col">PM</th>{% endfor %}</tr>
+<tr><th class="grid-clin"></th>{% for h in day_headers %}<th class="grid-part{% if h.closed %} closed{% endif %}{% if h.week_start %} week-start{% endif %}{% if h.today %} is-today{% endif %}{% if h.anchor_week %} anchor-week{% endif %}" scope="col">AM</th><th class="grid-part{% if h.closed %} closed{% endif %}{% if h.today %} is-today{% endif %}{% if h.anchor_week %} anchor-week{% endif %}" scope="col">PM</th>{% endfor %}</tr>
 </thead>
 {% for section in sections %}
 <tbody>
-<tr class="grid-group"><td colspan="{{ colspan }}">{{ section.group.name }}</td></tr>
+<tr class="grid-group"><td colspan="{{ colspan }}"><span class="grid-group-label">{{ section.group.name }}</span></td></tr>
 {% for row in section.rows %}{% include "rota/_grid_row.html" %}{% endfor %}
 {% if section.group.is_locum_group %}
 <tr>
   <th class="grid-clin" scope="row">Need</th>
   {% for cell in locum_cells %}
-  <td class="{% if cell.week_start %}week-start{% endif %}">
+  <td class="{% if cell.week_start %}week-start{% endif %}{% if cell.anchor_week %} anchor-week{% endif %}">
     {% for r in cell.reqs %}
     <span class="badge {{ r.status }}"
-          {% if is_admin %}hx-get="/rota/locum/{{ r.id }}/form/" hx-target="#modal"{% endif %}
+          {% if is_admin %}hx-get="/rota/locum/{{ r.id }}/form/" hx-target="#modal" tabindex="0" role="button"{% endif %}
           title="{% if r.covering %}Covering {{ r.covering.name }}{% if r.details %} — {% endif %}{% endif %}{{ r.details }}">{{ r.get_status_display }}</span>
     {% endfor %}
     {% if is_admin %}
     <span class="badge" hx-get="/rota/locum/new/?day={{ cell.day_str }}&part={{ cell.part }}"
-          hx-target="#modal">+</span>
+          hx-target="#modal" tabindex="0" role="button"
+          aria-label="Add a locum need, {{ cell.day|date:'D j M' }} {{ cell.part }}">+</span>
     {% endif %}
   </td>
   {% endfor %}

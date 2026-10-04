@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Too many attempts{% endblock %}
+{% block content %}
+{% comment %}accounts/lockout.py renders this, with status 429, when a
+password sign-in is refused: too many failures for this account, or against
+too many accounts from this address. Only the password is paused — the two
+ways in below do not go through it — so the page leads with those rather
+than with the wait.{% endcomment %}
+<div class="auth-wrap">
+  <p class="auth-brand">Rota</p>
+  <div class="auth-card">
+    <h1>Too many attempts</h1>
+    <p>Signing in with a password is paused for an hour after too many wrong
+      passwords, for this account or from this connection. You can still get in:</p>
+    <ul>
+      <li><a href="{% url 'login' %}">Sign in with a passkey</a>, if you added one on this device.</li>
+      <li><a href="{% url 'password_reset' %}">Get a password link by email</a>. Choosing a new password signs you straight in.</li>
+    </ul>
+    <p class="field-help">If the wrong passwords weren't yours, tell a rota admin.</p>
+  </div>
+</div>
+{% endblock %}

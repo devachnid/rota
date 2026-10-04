@@ -1,0 +1,95 @@
+/* Paper. Loaded with media="print" (base.html), so none of this touches a
+   screen. Colours come from the tokens as everywhere else; theme.js puts
+   the page in the light palette for the length of a print, because a dark
+   theme printed as it stands is light text on a page the printer leaves
+   white — browsers drop backgrounds by default. */
+
+@page { margin: 12mm; }
+/* The week grid is wide and the other screens are not, so the grid asks
+   for its own landscape page — orientation only; the paper is whatever
+   the printer holds. A named page is honoured by Chrome and Firefox;
+   elsewhere the grid prints on the default page and still fits its one
+   week, just smaller. */
+@page grid { size: landscape; margin: 10mm; }
+.page-grid .main { page: grid; }
+
+body {
+  background: none;
+  padding: 0;
+}
+.main {
+  max-width: none;
+  padding: 0;
+}
+.print-only { display: block; }
+
+/* What is for working at a screen: the navigation, the nudges and
+   messages, the modal and every control. And on the week grid, the
+   admin's warnings — a gap list is a to-do, not part of the rota that
+   goes on the wall. Only there: the staffing report's issues are the
+   report. */
+.nav,
+.tabbar,
+.flashes,
+#modal,
+.toolbar,
+.day-step,
+.report-nav,
+.form-actions,
+.week-publish,
+.page-grid .alert,
+.page-grid .alert-more,
+.main form[method="get"],
+.badge[hx-get^="/rota/locum/new/"] {
+  display: none;
+}
+
+/* Browsers leave backgrounds off paper unless told otherwise; a chip is
+   nothing but its tint, and a badge's ground is its status. */
+.chip,
+.badge {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* ------------------------------------------------------------- grid --- */
+
+/* On screen the grid is a pane a fixed height tall that scrolls inside
+   itself, with a sticky header and column. On paper it is a table that
+   runs on to the next page, repeating its header. */
+body.page-grid { height: auto; }
+.page-grid .main { display: block; }
+.grid-wrap { overflow: visible; }
+.table-grid {
+  min-width: 0;
+  font-size: var(--fs-sm);
+}
+.table-grid thead,
+.table-grid .grid-clin { position: static; }
+.table-grid tbody tr {
+  height: auto;
+  break-inside: avoid;
+}
+.table-grid .chip { padding: 3px 2px; }
+
+/* One week: the one the page opened on — "Today", or whatever week Go
+   picked. The screen shows eight, and forty columns on a sheet of A4 is
+   25px each, too narrow to read a code. The group label rows span the
+   table and the clinician column is every week's, so both stay. */
+.table-grid tr:not(.grid-group) > :not(.grid-clin):not(.anchor-week) {
+  display: none;
+}
+/* ...and the group label rows must stop spanning the full eight weeks.
+   Each is one cell with colspan = every column on screen (81), so with the
+   other weeks hidden it alone kept 70 empty columns in the table, and the
+   fixed layout shared the page between all 81: ~11px a session, found by
+   printing it. A block in a row is wrapped in an anonymous one-column
+   cell, so the label sits in the clinician column and runs on over the
+   empty row to its right. */
+.table-grid .grid-group td {
+  display: block;
+  white-space: nowrap;
+}
+/* A week's first column carries a heavier rule on screen to separate it
+   from the week before; on paper there is no week before. */
+.table-grid .week-start { border-left: 0; }

@@ -28,8 +28,25 @@ if not os.environ.get("SECRET_KEY") and not _TESTING:
             "get_random_secret_key as k; print(k())\""
         )
 
+def _dev_secret_key():
+    """A development key private to this checkout. It was a constant,
+    published in this repository, so a server that ran with DEBUG=1 and no
+    SECRET_KEY had a key anyone could forge session cookies with. Now it
+    is random, written once to a git-ignored file beside manage.py, and
+    stable across restarts, so a dev box stays signed in."""
+    path = BASE_DIR / ".dev_secret_key"
+    try:
+        return path.read_text().strip()
+    except FileNotFoundError:
+        from django.core.management.utils import get_random_secret_key
+        key = get_random_secret_key()
+        path.touch(mode=0o600)
+        path.write_text(key)
+        return key
+
+
 SECRET_KEY = os.environ.get("SECRET_KEY") or (
-    "test-only-key-not-used-outside-pytest" if _TESTING else "dev-insecure-key"
+    "test-only-key-not-used-outside-pytest" if _TESTING else _dev_secret_key()
 )
 
 ALLOWED_HOSTS = [h for h in os.environ.get("ALLOWED_HOSTS", "").split(",") if h]
@@ -48,6 +65,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "axes",
+    "mozilla_django_oidc",
     "accounts",
     "rota",
     "feedback",
@@ -56,10 +74,13 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    "config.middleware.RequestLogMiddleware",
+    "config.middleware.ContentSecurityPolicyMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "config.middleware.PrivatePagesMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "axes.middleware.AxesMiddleware",
@@ -78,6 +99,8 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "rota.context_processors.waiting",
+                "accounts.context_processors.signed_in_recently",
+                "rota.context_processors.practice_hr",
             ],
         },
     },
@@ -88,7 +111,12 @@ WSGI_APPLICATION = "config.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        # Production keeps the database out of the code tree, in the rota
+        # user's state directory (deploy/gunicorn.service): SQLite needs to
+        # write the directory its database is in, and the app must be able to
+        # write its data without being able to write its own code. Unset, the
+        # database sits beside manage.py, which is what development wants.
+        "NAME": os.environ.get("DB_PATH") or BASE_DIR / "db.sqlite3",
         "OPTIONS": {
             # WAL lets readers and the single writer proceed together.
             "init_command": "PRAGMA journal_mode=WAL;",
@@ -181,6 +209,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTHENTICATION_BACKENDS = [
     "axes.backends.AxesStandaloneBackend",
     "django.contrib.auth.backends.ModelBackend",
+    "accounts.oidc.PracticeAccountBackend",
     "accounts.backends.RotaAdminBackend",
 ]
 AXES_FAILURE_LIMIT = 5
@@ -198,7 +227,10 @@ TRUSTED_PROXY_IPS = frozenset(
 # BreatheHR, which owns leave. Read-only. The key comes from /etc/rota.env
 # like SECRET_KEY and never from a file in this repository; with no key the
 # integration is off and every consumer degrades quietly.
-BREATHE_API_KEY = os.environ.get("BREATHE_API_KEY", "")
+# Stripped: a key pasted with a trailing newline or CR (a CRLF-edited
+# /etc/rota.env) makes http.client refuse the header — with the key itself
+# in the error text.
+BREATHE_API_KEY = os.environ.get("BREATHE_API_KEY", "").strip()
 BREATHE_API_URL = os.environ.get("BREATHE_API_URL", "https://api.breathehr.com/v1")
 
 # Outgoing mail: invitations and password-reset links, and nothing else.
@@ -227,14 +259,16 @@ AXES_CLIENT_IP_CALLABLE = "accounts.client_ip.client_ip"
 
 # Each top-level entry is an independent lockout; a nested list would be one
 # combined key. So this locks a username after AXES_FAILURE_LIMIT failures
-# *and, separately*, an address after the same — the second is what stops one
-# source spraying many accounts, which username-only keying cannot see.
+# *and, separately*, an address — the second is what stops one source
+# spraying many accounts, which username-only keying cannot see.
 #
-# The cost is that clinicians sharing the surgery's NAT share an address, so a
-# run of fumbled logins there could lock the building out. AXES_RESET_ON_SUCCESS
-# below is what makes that acceptable: any successful login clears the counters
-# for that client, so ordinary mistakes do not accumulate towards a lockout —
-# only an unbroken run of failures does.
+# How each is counted is accounts/axes_handler.py's: an address is locked by
+# failures against that many *different* accounts, and a success clears only
+# the signed-in person's own failures. Clinicians share the surgery's NAT
+# address, and axes' own reset — any success there clearing every counter
+# for the address — kept fumbles from locking the building out, but it also
+# let anyone with an account wipe a colleague's counter and keep guessing.
+AXES_HANDLER = "accounts.axes_handler.RotaAxesHandler"
 AXES_LOCKOUT_PARAMETERS = ["username", "ip_address"]
 # Django's login form — and the passkey login view — report a failure as
 # credentials={"username": ...} whatever USERNAME_FIELD is called; axes'
@@ -245,12 +279,20 @@ AXES_USERNAME_FORM_FIELD = "username"
 # ...and lower-case it, so "Tom@" and "tom@" are one name with one counter,
 # as they are one account to the login lookup.
 AXES_USERNAME_CALLABLE = "accounts.axes_username.axes_username"
+# A success clears the person's own counter — only theirs; see AXES_HANDLER.
 AXES_RESET_ON_SUCCESS = True
+# A lockout lasts AXES_COOLOFF_TIME from the failure that caused it. axes'
+# default restarts the hour on every attempt made while locked, which let
+# anyone who knew an address keep its owner locked out indefinitely, one
+# request an hour. The owner can still get in meanwhile — with a passkey,
+# or a password link by email; the lockout page says so.
+AXES_RESET_COOL_OFF_ON_FAILURE_DURING_LOCKOUT = False
+# The page or, for the passkey endpoints, the JSON a locked-out request gets.
+AXES_LOCKOUT_CALLABLE = "accounts.lockout.lockout_response"
 
-# AccessAttempt is a counter, and AXES_RESET_ON_SUCCESS wipes it for the
-# whole address as soon as anyone there logs in — so the admin's "Access
-# attempts" reads empty minutes after real failures. The failure log is the
-# permanent record; axes leaves it off by default.
+# AccessAttempt is a counter, and a success clears it — so the admin's
+# "Access attempts" can read empty minutes after real failures. The failure
+# log is the permanent record; axes leaves it off by default.
 AXES_ENABLE_ACCESS_FAILURE_LOG = True
 
 # axes requires a request object during authenticate(), which the test
@@ -263,9 +305,76 @@ if _TESTING:
 CSRF_COOKIE_HTTPONLY = True
 
 if not DEBUG:
-    SECURE_SSL_REDIRECT = False  # TLS terminates at the Cloudflare tunnel
+    # TLS terminates at the Cloudflare tunnel, and cloudflared says so in
+    # X-Forwarded-Proto (SECURE_PROXY_SSL_HEADER below), so a request that
+    # arrives as http really was http and is sent to https — whatever the
+    # Cloudflare zone's own "Always Use HTTPS" happens to be set to. Not
+    # under pytest: CI runs the suite with DEBUG off, over the test client's
+    # plain http.
+    SECURE_SSL_REDIRECT = not _TESTING
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# The Content-Security-Policy (config/middleware.py) is enforced unless
+# this is set, when it is only reported — the way back, without a code
+# change, if the policy blocks something it should not.
+CSP_REPORT_ONLY = os.environ.get("CSP_REPORT_ONLY", "0") == "1"
+
+# Where the app's own warnings go: stderr, which systemd sends to the
+# journal (`journalctl -u rota`). Without this, Django sends nothing there
+# when DEBUG is off — a 500, a CSRF failure or a request with a forged Host
+# header left no trace for anyone looking back at an incident.
+#
+# One handler, on the root logger; the named loggers only set levels and
+# propagate to it. (Naming "django" here also drops Django's own console
+# handler, which is DEBUG-only, and mail_admins, which ADMINS leaves idle.)
+# Propagation matters beyond the journal: tests read log records through
+# the root logger, and a logger that stopped propagating would pass every
+# "the key never appears in the log" test by logging nowhere they look.
+#   django.request at ERROR: 5xx responses, with tracebacks (4xx would be
+#     every scanner's 404).
+#   django.security: CSRF failures, disallowed hosts, suspicious operations.
+#   rota.access: one line per request (config/middleware.RequestLogMiddleware),
+#     with the client address from Cloudflare.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "plain": {"format": "%(levelname)s %(name)s: %(message)s"},
+    },
+    "handlers": {
+        "stderr": {"class": "logging.StreamHandler", "formatter": "plain"},
+    },
+    "root": {"handlers": ["stderr"], "level": "WARNING"},
+    "loggers": {
+        "django": {"level": "WARNING"},
+        "django.request": {"level": "ERROR"},
+        "django.security": {"level": "INFO"},
+        "rota": {"level": "INFO"},
+        "accounts": {"level": "INFO"},
+        "feedback": {"level": "INFO"},
+    },
+}
+
+# Sign in with the practice account: the HR system is the OpenID Connect
+# provider. Every value comes from /etc/rota.env; with no PRACTICE_HR_URL the
+# login page shows only the local form.
+PRACTICE_HR_URL = os.environ.get("PRACTICE_HR_URL", "").rstrip("/")
+OIDC_RP_CLIENT_ID = os.environ.get("OIDC_RP_CLIENT_ID", "")
+OIDC_RP_CLIENT_SECRET = os.environ.get("OIDC_RP_CLIENT_SECRET", "")
+OIDC_RP_SIGN_ALGO = "RS256"
+OIDC_RP_SCOPES = "openid email"
+OIDC_OP_AUTHORIZATION_ENDPOINT = f"{PRACTICE_HR_URL}/o/authorize/"
+OIDC_OP_TOKEN_ENDPOINT = f"{PRACTICE_HR_URL}/o/token/"
+OIDC_OP_USER_ENDPOINT = f"{PRACTICE_HR_URL}/o/userinfo/"
+OIDC_OP_JWKS_ENDPOINT = f"{PRACTICE_HR_URL}/o/.well-known/jwks.json"
+OIDC_USE_PKCE = True
+OIDC_CREATE_USER = True
+# Kept in the session so signing out can hand it to the HR system's
+# sign-out as id_token_hint, which ends the HR session without a prompt
+# (accounts/oidc.practice_hr_logout_url). It says who signed in, nothing
+# more, and goes when the session does.
+OIDC_STORE_ID_TOKEN = True

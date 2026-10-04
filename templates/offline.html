@@ -21,7 +21,11 @@
   main { max-width: 26rem; text-align: center; }
   h1 { font-size: 1.375rem; margin: 0 0 .5rem; }
   p { margin: 0 0 1.25rem; line-height: 1.5; }
-  button {
+  /* A link to this same address rather than a button calling location.reload():
+     the page is served under a Content-Security-Policy with no inline script,
+     and following it retries the navigation just the same. */
+  .retry {
+    display: inline-block; text-decoration: none;
     font: inherit; padding: .6rem 1.2rem; border-radius: .5rem;
     border: 1px solid #2F5D50; background: #2F5D50; color: #fff; cursor: pointer;
   }
@@ -31,7 +35,7 @@
 <main>
   <h1>You’re offline</h1>
   <p>The rota is only ever read live, so there is nothing to show until you are back on a network.</p>
-  <button type="button" onclick="location.reload()">Try again</button>
+  <a class="retry" href="">Try again</a>
 </main>
 </body>
 </html>

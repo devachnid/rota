@@ -271,10 +271,17 @@ def test_closed_wins_on_a_grid_day_header():
     """`.closed` alone is inert on a <th class="grid-day closed">: the header
     background comes from `.table-grid thead th` and the colour from
     screens.css's `.grid-day`, and both out-rank a bare class."""
-    assert declares(".table-grid thead th.closed", "background") == "var(--sunken)"
-    assert declares(".table-grid thead th.closed", "color") == "var(--muted)"
+    assert declares(".table-grid thead th.closed", "background") == "var(--closed)"
+    # --muted is 3.1:1 on --closed; --ink-soft holds AA (test_chrome_contrast).
+    assert declares(".table-grid thead th.closed", "color") == "var(--ink-soft)"
     assert_outranks(".table-grid thead th.closed", ".table-grid thead th", "background")
     assert_outranks(".table-grid thead th.closed", ".grid-day", "color")
+
+
+def test_a_closed_today_reads_closed():
+    """A bank holiday that happens to be today is still closed."""
+    assert declares(".table-grid thead th.is-today.closed", "background") == "var(--closed)"
+    assert_outranks(".table-grid thead th.is-today.closed", ".table-grid thead th.is-today", "background")
 
 
 def test_the_closed_header_matches_the_closed_treatment_elsewhere():
@@ -299,6 +306,15 @@ def test_empty_wins_inside_a_table_cell(table):
     assert declares(cell_state, "padding") == "var(--sp-6)"
     assert_outranks(cell_state, f"{table} td", "text-align")
     assert_outranks(cell_state, f"{table} td", "padding")
+
+
+def test_a_message_level_outranks_the_plain_flash():
+    """The nudges and an info message keep .flash's accent-soft card; a
+    success, warning or error has to beat it outright, not by sitting later
+    in the sheet."""
+    for cls in ("flash-error", "flash-warning", "flash-success"):
+        assert declares(f".flash.{cls}", "background") != declares(".flash", "background")
+        assert_outranks(f".flash.{cls}", ".flash", "background")
 
 
 def test_a_hidden_button_is_actually_hidden():

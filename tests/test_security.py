@@ -83,13 +83,16 @@ def test_secret_key_is_demanded_when_debug_is_off():
     assert "SECRET_KEY env var must be set" in src
 
 
-def test_the_placeholder_key_is_only_reachable_with_debug_explicitly_on():
-    """The fallback key is public — it is in this file's own repository — so
-    it must never be reachable by omission."""
+def test_the_development_key_is_only_reachable_with_debug_explicitly_on():
+    """The fallback used to be a constant published in this repository. It
+    is now a random key per checkout (test_ops_hardening.py) — and still
+    reachable only when SECRET_KEY is missing under DEBUG=1, since without
+    DEBUG the settings refuse to start."""
     src = (settings.BASE_DIR / "config" / "settings.py").read_text()
-    i = src.index('"dev-insecure-key"')
+    assert '"dev-insecure-key"' not in src, "the published key is back"
+    i = src.index("_dev_secret_key()", src.index("SECRET_KEY = os.environ.get"))
     assert "_TESTING" in src[i - 200:i], (
-        "the placeholder SECRET_KEY is no longer guarded"
+        "the development SECRET_KEY is no longer guarded"
     )
 
 
@@ -102,7 +105,8 @@ def test_production_settings_secure_the_cookies_and_transport():
     process runs with DEBUG off but without the env var that triggers it."""
     src = (settings.BASE_DIR / "config" / "settings.py").read_text()
     block = src[src.index("if not DEBUG:"):]
-    for setting in ("SESSION_COOKIE_SECURE = True",
+    for setting in ("SECURE_SSL_REDIRECT = not _TESTING",
+                    "SESSION_COOKIE_SECURE = True",
                     "CSRF_COOKIE_SECURE = True",
                     "SECURE_HSTS_SECONDS",
                     "SECURE_HSTS_INCLUDE_SUBDOMAINS = True",

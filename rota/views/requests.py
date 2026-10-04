@@ -1,9 +1,10 @@
-from datetime import date
+from datetime import date, timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from rota import mail as swap_mail
@@ -11,6 +12,26 @@ from rota.forms import SwapForm
 from rota.models import Clinician, RotaEntry, SwapRequest
 from rota.services import swaps as swaps_svc
 from rota.views.decorators import admin_required
+
+
+# Each proposal emails the colleague from the practice's address, quoting
+# the proposer's message. Without a limit, a script could send a colleague
+# hundreds of them; the same one twice is refused outright, and ten in an
+# hour — more than anyone arranges by hand — is the ceiling, as for feedback.
+HOURLY_LIMIT = 10
+TOO_MANY = "That's a lot of swap proposals in one hour — please try again later."
+OPEN = (SwapRequest.Status.PROPOSED, SwapRequest.Status.ACCEPTED)
+
+
+def _already_open(req):
+    """The same swap — both people, both sessions — still waiting on the
+    colleague or an admin."""
+    return SwapRequest.objects.filter(
+        proposer=req.proposer, colleague=req.colleague,
+        proposer_day=req.proposer_day, proposer_part=req.proposer_part,
+        colleague_day=req.colleague_day, colleague_part=req.colleague_part,
+        status__in=OPEN,
+    ).first()
 
 
 @admin_required
@@ -77,9 +98,21 @@ def swap_new(request):
             colleague_part=their_entry.part,
             message=form.cleaned_data["message"],
         )
-        # Checked now as well as at approval, so a colleague is never asked
-        # about a swap that could not be applied as the rota stands.
-        problems = swaps_svc.validate(req)
+        existing = _already_open(req)
+        since = timezone.now() - timedelta(hours=1)
+        if existing is not None:
+            waiting = ("your colleague" if existing.status == SwapRequest.Status.PROPOSED
+                       else "an admin")
+            problems = [f"You have already proposed this swap; it is waiting for {waiting}."]
+        elif SwapRequest.objects.filter(proposer=clinician,
+                                        created_at__gte=since).count() >= HOURLY_LIMIT:
+            problems = [TOO_MANY]
+        else:
+            # Checked now as well as at approval, so a colleague is never
+            # asked about a swap that could not be applied as the rota
+            # stands — as this GP can see it: published entries only
+            # (services/swaps.py).
+            problems = swaps_svc.validate(req, published_only=True)
         if not problems:
             req.save()
             swap_mail.swap_proposed(request, req)

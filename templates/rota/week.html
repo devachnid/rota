@@ -1,0 +1,56 @@
+{% extends "base.html" %}{% load static %}
+{% block title %}Week of {{ monday|date:"j M Y" }}{% endblock %}
+{% block body_attrs %} class="page-week"{% endblock %}
+{% block content %}
+<div class="wk-head">
+  <h1>Week of {{ monday|date:"j M" }}</h1>
+  <div class="day-step">
+    <a href="?week={{ prev_week|date:'Y-m-d' }}" class="btn" rel="prev">&larr;<span class="visually-hidden"> previous week</span></a>
+    <a href="?week={{ next_week|date:'Y-m-d' }}" class="btn" rel="next">&rarr;<span class="visually-hidden"> next week</span></a>
+  </div>
+</div>
+{% if cards %}
+<nav class="wk-strip" aria-label="Days">
+  {% for c in cards %}<a href="#{{ c.anchor }}"{% if c.today %} class="is-today" aria-current="date"{% endif %}>{{ c.day.day|date:"D" }}<small>{{ c.day.day|date:"j" }}</small></a>{% endfor %}
+</nav>
+{% endif %}
+{% for c in cards %}
+<details class="wk-day{% if c.today %} is-today{% endif %}" id="{{ c.anchor }}"{% if c.today %} open{% endif %}>
+  <summary>
+    <span class="wk-line">
+      <span class="wk-date">{{ c.day.day|date:"D j M" }}{% if c.today %} <span class="wk-today">Today</span>{% endif %}</span>
+      <span class="wk-count">{% if c.day.show_body %}{{ c.day.in_count }} in &middot; {{ c.day.leave_count }} on leave{% else %}closed{% endif %}</span>
+    </span>
+    {% if c.day.is_closed %}<span class="wk-closed">{{ c.day.closed_reason|default:"Surgery closed" }}</span>{% endif %}
+    {% if c.day.note %}<span class="wk-daynote">{{ c.day.note.text }}</span>{% endif %}
+    {% for pin in c.pins %}
+    <span class="wk-pinned">
+      <span class="wk-pin-role" style="--chip-bg: var(--tint-{{ pin.type.tint.key }}-bg); --chip-fg: var(--tint-{{ pin.type.tint.key }}-fg);">{{ pin.type.name }}</span>
+      <span class="wk-pin-who">{% for r in pin.people %}{{ r.clinician.name }} <span class="wk-part">{{ r.part }}</span>{% if r.clash %} <span class="wk-clash">— on leave</span>{% endif %}{% if not forloop.last %} &middot; {% endif %}{% endfor %}</span>
+    </span>
+    {% endfor %}
+  </summary>
+  {% if c.day.show_body %}
+  <div class="wk-roster">
+    {% for row in c.day.roster %}
+    <div class="wk-row{% if row.clinician.user_id == request.user.id %} mine{% endif %}">
+      <span class="wk-who">{{ row.clinician.name }}</span>
+      {% for cell in row.cells %}
+      <span class="wk-cell{% if cell.merged %} wk-span{% endif %}">{% if cell.entry or cell.absence %}{% include "rota/_chip.html" with clash_title=True %}{% else %}<span class="wk-dash">&mdash;</span>{% endif %}</span>
+      {% endfor %}
+      {% for cell in row.cells %}{% if cell.note or cell.partner %}<span class="wk-note">{% if not cell.merged %}{{ cell.part }} — {% endif %}{% if cell.partner %}with {{ cell.partner }}{% if cell.note %}; {% endif %}{% endif %}{{ cell.note }}</span>{% endif %}{% endfor %}
+    </div>
+    {% empty %}
+    <p class="wk-aside">Nobody rostered.</p>
+    {% endfor %}
+  </div>
+  {% if c.leave %}<p class="wk-aside"><b>On leave</b> {% for who, code in c.leave %}{{ who.name }}{% if code %} ({{ code }}){% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+  {% if c.day.not_in %}<p class="wk-aside"><b>Not in</b> {% for who in c.day.not_in %}{{ who.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+  {% endif %}
+</details>
+{% empty %}
+<p class="empty">The surgery has no open days set.</p>
+{% endfor %}
+<p class="wk-grid-link"><a href="/rota/?week={{ monday|date:'Y-m-d' }}">Open this week on the grid</a></p>
+<script src="{% static 'js/week.js' %}" defer></script>
+{% endblock %}

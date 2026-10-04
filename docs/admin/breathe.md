@@ -14,13 +14,16 @@ is off and assisted fill never assigns them.
    BREATHE_API_URL=https://api.breathehr.com/v1
    ```
    and restart gunicorn. The key never goes in a file in the repository.
-2. **Migrate.** `python manage.py migrate`.
+   The URL must be `https`. The key is never sent over anything else, even by
+   a redirect, and `check --deploy` flags a plain-http URL (`rota.E007`).
+2. **Migrate.** `deploy/manage migrate`, as root, from `/srv/rota` (see the
+   README's Deploy section for why not plain `manage.py`).
 3. **Link every clinician except locums.** `/admin/rota/clinician/` — each
    clinician's **Breathe employee** field is a dropdown of your Breathe
    employees. Pick the right one and save. Where a clinician's login email matches a Breathe
    employee's email, that person is pre-selected; you still have to save.
 4. **Run the first sync.** `/admin/rota/breathesyncrun/` → **Refresh now**, or
-   `python manage.py breathe_sync`. Add `--dry-run` to fetch and count without
+   `deploy/manage breathe_sync`. Add `--dry-run` to fetch and count without
    writing, to check a real account's shape first.
 5. **Enable the timer.** `systemctl enable --now rota-breathe.timer`.
 

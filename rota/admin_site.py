@@ -62,8 +62,11 @@ class RotaAdminSite(UnfoldAdminSite):
     def logout(self, request, extra_context=None):
         if request.method != "POST":
             return HttpResponseNotAllowed(["POST"])
+        from accounts.oidc import practice_hr_logout_url
+        id_token = request.session.get("oidc_id_token")
         auth_logout(request)
-        return HttpResponseRedirect(settings.LOGOUT_REDIRECT_URL)
+        return HttpResponseRedirect(practice_hr_logout_url(request, id_token)
+                                    or settings.LOGOUT_REDIRECT_URL)
 
 
 # ---- values settings.UNFOLD reaches by dotted path ------------------------
@@ -130,6 +133,7 @@ def navigation(request):
         {"title": "Sessions & rules", "separator": True, "items": [
             _item("Session types", "category", rl("admin:rota_sessiontype_changelist")),
             _item("Coverage rules", "rule", rl("admin:rota_coveragerule_changelist")),
+            _item("Personal requirements", "person_check", rl("admin:rota_personalrequirement_changelist")),
             _item("Trainee stage rules", "menu_book", rl("admin:rota_traineestagerule_changelist")),
             _item("Sites", "location_on", rl("admin:rota_site_changelist"))]},
         {"title": "Leave from Breathe", "separator": True, "items": [

@@ -23,14 +23,16 @@ Delete drafts card below, which can remove hand-placed work, does. That
 clearing is written to the rota entry log as a "deleted drafts" line, even
 when there was nothing to clear, so every run leaves a trace.
 
-**Then it runs six passes in order:**
+**Then it runs seven passes in order:**
 
 1. **Recurring commitments** — personal fixtures, never overwritten
 2. **Trainee VTS** — anchored sessions protected before anything competes
 3. **Coverage rules** — in `priority` order, lowest first
-4. **Mentoring** — pairs each trainee with an available trainer
-5. **Trainee SDL** — placed where it costs least cover
-6. **Default fill** — only if you tick the box
+4. **Personal requirements** — one session for each clinician who is due
+   (see [Personal requirements](coverage-rules.md#personal-requirements))
+5. **Mentoring** — pairs each trainee with an available trainer
+6. **Trainee SDL** — placed where it costs least cover
+7. **Default fill** — only if you tick the box
 
 Order is the mechanism: an earlier pass takes people, and later passes work with
 whoever is left.
@@ -49,7 +51,7 @@ configuration:
 | **anchored slot unavailable** | A trainee's anchored VTS session is one they do not work, or are already busy in |
 | **quota unfilled this week** | A per-week or per-month rule could not place its full quota |
 | **no session with trainer free** | No trainer was free in a session the trainee was also free |
-| **no free session** | The trainee had no free session left for SDL — earlier passes took them all |
+| **no free session** | The trainee had no free session left for SDL, or a clinician due a personal requirement had no free session that week — earlier passes took them all. Tried again the next week for a personal requirement. |
 
 A long list of "no eligible clinician" across every rule almost always means
 pattern slots are missing rather than that the rules are wrong.
@@ -102,7 +104,11 @@ entry's fields in the admin does not clear it. Only admins see the strike;
 GPs see the session as usual.
 
 On the grid, the cell you clicked is ringed while its form is open, so there
-is no doubt which one is being edited. A day whose AM and PM would show the
+is no doubt which one is being edited. The grid works from the keyboard too:
+**Tab** moves through the day headings and then the cells, **Enter** (or Space)
+opens one, **Tab** stays inside the form while it is open, and **Escape**
+closes it and puts you back on the cell. After a save the page reloads with you
+on the same cell; in ticking mode Enter ticks and leaves you where you were. A day whose AM and PM would show the
 same chip — same session type, same site, both published or both drafts, the
 same leave clash and the same mentoring partner — is drawn as **one chip across
 both columns**, however the two halves came to be (assisted fill, the import,
@@ -147,8 +153,10 @@ says so and asks you to save again before replacing it.
 
 ## Warnings on the grid
 
-The red strips in a day's header come from **five separate sources**, so if you
-want to silence one, you need to know which:
+The strips in a day's header come from **five separate sources**, so if you
+want to silence one, you need to know which. The first four are **red** — a
+session nobody is covering, or someone rostered who is not there. A ceiling
+is **amber**: a soft limit you chose, worth a look rather than an alarm.
 
 1. **Coverage warnings** — "No Duty cover (AM)", or "Routine 3/4 (AM)" when
    some but not all of the count are placed. From coverage rules with
@@ -167,11 +175,12 @@ want to silence one, you need to know which:
 5. **Ceiling warnings** — "Too many Urgent (PM): 2, max 1" or "Too many
    Urgent today: 3 sessions, max 2". From a session type's
    [ceiling](session-types.md#ceiling). The per-week ceiling has no day to
-   sit on, so it appears on a line under the week toolbar instead: "Too many
-   LARC this week: 3 sessions, max 2".
+   sit on, so it appears in that week's header instead: "Too many LARC
+   this week: 3 sessions, max 2".
 
-A day's header shows the first two lines and then "+N more"; hover the
-header for the full list. An unfilled week would otherwise carry a dozen
+A day's header shows two lines, red before amber, and then "+N more"; hover
+the header for the full list. The ordering means an uncovered session is
+never the line folded away behind a ceiling. An unfilled week would otherwise carry a dozen
 lines per day, and the header row is as tall as its tallest cell across
 every day on the page.
 
@@ -180,6 +189,33 @@ Closed days generate no warnings at all.
 Where a coverage warning has a matching locum requirement, the warning says so —
 "No Duty cover (AM) — locum advertised" — so you can tell an unaddressed gap
 from one you are already working on.
+
+## The week on a phone
+
+The phone's **Week** tab opens `/rota/week/` rather than the grid, which is
+forty columns wide. It shows one week at a time (← and → step a week), with a
+card for each open day: the date, how many are in and on leave, the day note,
+and the pinned roles (the session types ticked **Pin on day view** — Duty,
+typically) are visible while the card is closed; tap it for everyone's
+sessions, then "On leave" and "Not in". Today's card starts open, and the strip
+of days at the top jumps to a day and opens it. Someone pinned but on Breathe
+leave is marked "on leave" on the pinned line, as the grid rings their chip.
+
+It is read-only for everyone and shows no staffing warnings — editing stays on
+the grid. On a phone the grid carries a "See this week as a list" link, since
+signing in lands there; the list links back to the grid. Each day's lists come
+from the same code as the day view's, so the two always agree.
+
+## Printing
+
+Print from the browser (Ctrl+P, or ⌘P). The **week grid** prints one week —
+the one the page opened on, so **Today** or the week you picked with **Go** —
+on a landscape page, a clinician per row, repeating the day headings on each
+page. The staffing warnings, the Publish buttons and every other control stay
+off paper: the printout is the rota, not your to-do list. The **day view** and
+**My Schedule** print as they stand, without their buttons, and the
+**staffing report** prints its issues. Whatever theme is showing, a printout
+is in the light palette, because a printer leaves the page white.
 
 ## Locum requirements
 
@@ -273,7 +309,13 @@ for a session they would take on. A full duty day counts as a whole on either
 side.
 
 The propose form runs the same checks, so a colleague is never asked about a
-swap that could not be applied as the rota stands.
+swap that could not be applied as the rota stands. It checks against the
+**published** rota, the one the GP can see. Checking against drafts would
+tell a GP about sessions you haven't published. If one of your drafts is in
+the way, the swap reaches you, and its problems show here when you come to
+approve it. The form also refuses the same proposal twice while the first is
+still open, and allows ten proposals an hour from one GP, since each one
+emails the colleague.
 
 ### Approving
 
@@ -316,14 +358,17 @@ declining; the proposer sees it under *Your requests* on My schedule.
 `/admin/rota/rotaentrylog/` — **read-only**, every field.
 
 Every change to a rota entry writes an audit log entry: who, when, which cell,
-and what changed.
+and what changed. That includes changes made here in the admin, under **Rota
+entries**. Those carry *in the admin:* and the fields changed in their detail.
 
 One row per change: what day and part, which clinician, who did it, what action,
 and a free-text detail such as `ROUT -> DUTY`.
 
 Clinician name is stored as **text, not a link**, so the log still reads
 correctly after a clinician record changes. For a swap, one clinician's name is
-on the row and the other appears in the detail.
+on the row and the other appears in the detail. **Who** is kept as text too:
+the login's email at the time, so the log still names them if their login is
+later deleted.
 
 Nothing writes to this except the app, and nothing should delete from it.
 

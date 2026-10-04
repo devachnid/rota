@@ -85,7 +85,7 @@ def test_today_is_marked_when_inside_the_window(admin_client, monkeypatch):
     html = _page(admin_client)
     wed = MON + timedelta(days=2)
     assert "grid-day is-today" in html
-    assert html.count('class="grid-part is-today"') == 2
+    assert html.count('class="grid-part is-today') == 2
     # The header alone marks today: per-cell edges drew a bar at each side
     # of the AM/PM pair and a double bar between them.
     i = html.index(f'hx-get="/rota/cell/{c.id}/{wed}/AM/"')
@@ -187,7 +187,7 @@ def test_a_day_header_shows_two_warnings_and_counts_the_rest(admin_client):
     for name in ("Duty", "Urgent", "Routine"):
         CoverageRule.objects.create(session_type=make_session_type(name, code=name[:4].upper()))
     cell = _day_cell(_page(admin_client), MON)
-    assert cell.count('<div class="warn">') == 2
+    assert cell.count('class="alert alert-compact') == 2
     assert "+4 more" in cell
     assert 'title="' in cell
     for name in ("Duty", "Urgent", "Routine"):
@@ -201,5 +201,5 @@ def test_a_day_with_two_warnings_shows_both_and_no_count(admin_client):
         pk=1, defaults={"min_clinical_per_session": 0})
     CoverageRule.objects.create(session_type=make_session_type("Duty", code="DUTY"))
     cell = _day_cell(_page(admin_client), MON)
-    assert cell.count('<div class="warn">') == 2
+    assert cell.count('class="alert alert-compact') == 2
     assert "more" not in cell

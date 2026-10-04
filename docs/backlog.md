@@ -26,6 +26,19 @@ autofill v2 review processes had accumulated:
 
 ## Settled
 
+- **Personal requirements** (2026-09-19; spec
+  `docs/superpowers/specs/2026-09-15-personal-requirements-design.md`).
+  A new rule kind: each named clinician does a session type once every N
+  weeks, on no fixed day. `PersonalRequirement` (migration 0031), admin
+  under Sessions & rules with eligibility checked on the form, one clock
+  in `rota/services/personal.py` (rolling from the last one done; due
+  from active_from until then), a fill pass after coverage rules that
+  places one session per due clinician per week in the cheapest free
+  candidate and reports "no free session" otherwise, a table on the
+  staffing report and a count on the Health card. Not done on purpose:
+  full-day requirements, preferred weekdays, a site override, membership
+  by group, placing early, a grid marker.
+
 - **Grid and fill, round 2** (2026-09-15; spec
   `docs/superpowers/specs/2026-09-15-grid-fill-round-2-design.md`). The
   grid renders eight weeks in one table — a header cell per week with
@@ -283,8 +296,6 @@ Parked by the account-access work (2026-09-04), none blocking:
   Practice-scale; worst case is two emails to the same inbox.
 - **`EMAIL_USE_TLS` honours only the literal `1`**, matching `DEBUG`'s parsing;
   `=true` would silently turn STARTTLS off. The README documents `=0` only.
-- **The signed-in email in the header is now a link and carries the browser's
-  default underline**; no CSS was added. A look call for Tom on staging.
 - **The dashboard's query count scales with coverage rules and entries** (from
   the admin overhaul, PR #8). `day_warnings` now takes a prefetched `WarningBundle` and the grid passes one; the dashboard and the staffing report still call it per day and could pass one too. Also from that branch: the colour-swatch radios carry no `id`; the
   ordered-checkbox widget hard-codes `max="7"`.
@@ -304,8 +315,17 @@ it came from.
 
 Deliberate choices, recorded so they stop being re-reported by each review pass.
 
-- **systemd units run as root.** Correct for this single-purpose LXC. Revisit
-  only if the container ever hosts anything else.
+- **Breathe's free-text "other leave" reason is shown to everyone** who can
+  see the session, as "Other leave: <reason>" — not just to rota admins.
+  Raised by the 2026-09-27 security review, since HR may type something
+  personal there. Kept: the practice wants the reason visible. Tom, 2026-09-27.
+- **systemd units run as the `rota` user, sandboxed** — reversed 2026-09-27.
+  The earlier ruling was that root is "correct for this single-purpose LXC",
+  but the container is not single-purpose in the way that mattered.
+  cloudflared's tunnel credentials sit beside the app, and a root process can
+  also rewrite the app's own code. So a bug that let a request run code would
+  have given an attacker the middle of every user's session, and a way to stay
+  in. Code, data and secrets are now three owners (README › Deploy).
 - **Fill re-run has no preview step**, though the spec asks for previews on
   destructive actions. Accepted: re-run provably touches only its own unpublished
   drafts, never published or manually-set entries, and that is enforced by tests.

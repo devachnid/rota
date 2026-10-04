@@ -36,6 +36,7 @@ class FillContext:
         self._type_count = {}
         self._day_types = {}
         self._clinician_type_count = {}
+        self._type_days = {}
         for entry in RotaEntry.objects.filter(day__range=(start, end)):
             self._index_entry(entry)
 
@@ -95,6 +96,8 @@ class FillContext:
         ct_key = (entry.clinician_id, entry.session_type_id)
         self._clinician_type_count[ct_key] = (
             self._clinician_type_count.get(ct_key, 0) + 1)
+        self._type_days.setdefault(
+            (entry.clinician_id, entry.session_type_id), set()).add(entry.day)
 
     def available(self, cid, day, part):
         """Active, inside the date window, works this session, and not on
@@ -113,6 +116,13 @@ class FillContext:
         present at prefetch time (e.g. published from an earlier fill) plus
         any recorded via record() so far in this pass."""
         return self._clinician_type_count.get((cid, st_id), 0)
+
+    def days_with_type(self, cid, st_id):
+        """The days in [start, end] on which this clinician already holds
+        this session type — present at prefetch or recorded since. The
+        personal-requirement pass reads it to fold a hand-placed session
+        into a clinician's rolling clock."""
+        return self._type_days.get((cid, st_id), set())
 
     def day_type_ids(self, cid, day):
         return self._day_types.get((cid, day), set())

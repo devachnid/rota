@@ -4,8 +4,39 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-WorkingDirectory=/root/rota
+# The same user, directories and sandbox as the web service; see
+# gunicorn.service for why each is there.
+User=rota
+Group=rota
+WorkingDirectory=/srv/rota
+StateDirectory=rota
+StateDirectoryMode=0700
+UMask=0077
 # BREATHE_API_KEY and BREATHE_API_URL live in the same environment file as
 # SECRET_KEY, readable only by root. See gunicorn.service for why.
 EnvironmentFile=/etc/rota.env
-ExecStart=/root/rota/.venv/bin/python manage.py breathe_sync
+ExecStart=/srv/rota/.venv/bin/python manage.py breathe_sync
+
+# Sandbox: identical in every rota unit (tests/test_deploy_units.py).
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM

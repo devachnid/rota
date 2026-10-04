@@ -53,6 +53,10 @@ body.page-grid {
 .table-grid th.is-editing {
   box-shadow: inset 0 0 0 2px var(--accent);
 }
+/* Keyboard focus on a cell, a day heading or a badge: the site's focus
+   ring, drawn inside the box. Outside it, the table's 2px border-spacing
+   gives it nowhere to go and the neighbouring cell paints over it. */
+.table-grid [tabindex]:focus-visible { outline-offset: -2px; }
 
 .grid-day {
   font-size: var(--fs-lg);
@@ -98,6 +102,185 @@ body.page-grid {
   font-weight: 700;
   color: var(--muted);
 }
+/* The label rides the pane's left edge. The row is one cell spanning the
+   whole window, so the name sat at the far left of eight weeks — and the
+   grid scrolls to the current week on load, a week in, so no group name
+   was ever on screen: seen in a headless-Chrome screenshot as a gap
+   between Partners and Salaried with nothing in it. The group row has no
+   sticky clinician cell of its own, so nothing covers the label there. */
+.grid-group-label {
+  display: inline-block;
+  position: sticky;
+  left: var(--sp-2);
+}
+
+/* ------------------------------------------------------- phone week --- */
+
+/* /rota/week/: the week as a card per day, for a phone (review 7B). A card
+   is a <details>; its summary — the date, the counts, the day note and the
+   pinned roles — shows while it is closed, because "who is on Duty on
+   Thursday" is the question a phone is opened for, and it should not take
+   a tap. On a desktop the column stays phone-shaped rather than stretching
+   a list of names across 1280px. */
+.page-week .main { max-width: 40rem; }
+.wk-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+.wk-head h1 { font-size: var(--fs-xl); }
+.wk-strip {
+  display: flex;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+}
+.wk-strip a {
+  flex: 1;
+  padding: var(--sp-2) 0;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+}
+.wk-strip a small {
+  display: block;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+}
+.wk-strip a.is-today {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.wk-day {
+  margin-bottom: var(--sp-3);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  scroll-margin-top: var(--sp-3);
+}
+.wk-day.is-today { border-color: var(--accent); }
+.wk-day > summary {
+  display: block;
+  list-style: none;
+  padding: var(--sp-3) var(--sp-4);
+  cursor: pointer;
+}
+.wk-day > summary::-webkit-details-marker { display: none; }
+.wk-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+.wk-date {
+  color: var(--ink);
+  font-size: var(--fs-lg);
+  font-weight: 800;
+}
+.wk-today {
+  margin-left: var(--sp-1);
+  padding: 1px 6px;
+  border-radius: var(--r-sm);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  vertical-align: 2px;
+}
+.wk-count {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+/* Open / closed, drawn in the text's own colour: the font has no ▸. */
+.wk-count::after {
+  content: "";
+  display: inline-block;
+  margin-left: 6px;
+  border: 5px solid transparent;
+  border-left-color: currentColor;
+  border-right: 0;
+}
+.wk-day[open] .wk-count::after {
+  border: 5px solid transparent;
+  border-top-color: currentColor;
+  border-bottom: 0;
+  vertical-align: 2px;
+}
+.wk-closed,
+.wk-daynote {
+  display: block;
+  margin-top: var(--sp-1);
+  font-size: var(--fs-sm);
+}
+.wk-closed { color: var(--muted); }
+.wk-daynote { color: var(--warning); }
+.wk-pinned {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+  font-size: var(--fs-sm);
+}
+/* The role's own tint, set per pin by the template, as a chip's is. */
+.wk-pin-role {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: var(--r-sm);
+  background: var(--chip-bg);
+  color: var(--chip-fg);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+.wk-pin-who { color: var(--ink); font-weight: 600; }
+.wk-part { color: var(--muted); font-size: var(--fs-xs); font-weight: 500; }
+/* Pinned on a session but on Breathe leave: the grid rings that chip for
+   everyone, so the pinned line says it too, in the same colour. */
+.wk-clash { color: var(--danger); font-size: var(--fs-xs); font-weight: 700; }
+.wk-roster { border-top: 1px solid var(--hairline); }
+/* Name, AM, PM: two chip columns wide enough for a six-character code and
+   a site letter. A whole day spans both. */
+.wk-row {
+  display: grid;
+  grid-template-columns: 1fr 5.25rem 5.25rem;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-2);
+  padding: 6px var(--sp-4);
+  border-bottom: 1px solid var(--hairline);
+}
+.wk-row:last-child { border-bottom: 0; }
+.wk-row.mine { background: var(--accent-soft); }
+.wk-who {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wk-cell { min-width: 0; }
+.wk-span { grid-column: span 2; }
+.wk-dash { display: block; color: var(--muted); text-align: center; }
+.wk-note { grid-column: 1 / -1; color: var(--muted); font-size: var(--fs-xs); }
+.wk-aside {
+  margin: 0;
+  padding: var(--sp-2) var(--sp-4) var(--sp-3);
+  border-top: 1px solid var(--hairline);
+  color: var(--ink-soft);
+  font-size: var(--fs-sm);
+}
+.wk-aside b { color: var(--ink); }
+.wk-grid-link { font-size: var(--fs-sm); }
+.wk-list-link { margin: 0 0 var(--sp-3); font-size: var(--fs-sm); font-weight: 700; }
 
 /* -------------------------------------------------------- my schedule --- */
 
@@ -171,7 +354,8 @@ body.page-grid {
 /* The report tables scroll inside their own pane on narrow viewports rather
    than forcing the whole page to scroll sideways. My Schedule's own agenda
    used to be one of these (the five-column table this phase replaces); the
-   rule stays for the four report screens that still use it. */
+   rule stays for the four report screens that still use it, and for the
+   passkeys on the Account page. */
 .table-scroll {
   overflow-x: auto;
 }
@@ -448,18 +632,39 @@ body.page-grid {
   font-size: var(--fs-sm);
   color: var(--ink);
 }
-.auth-card form input {
+.auth-card form input:not([type="checkbox"]) {
   font-family: var(--font);
   font-size: var(--fs-md);
   color: var(--ink);
   background: var(--surface);
-  border: 1px solid var(--hairline);
+  /* --field-border, as .field's inputs (components.css): --hairline was
+     1.17:1 here, below WCAG 1.4.11's 3:1 for the edge of a field.
+     tests/test_chrome_contrast.py measures whatever this names. */
+  border: 1px solid var(--field-border);
   border-radius: var(--r-sm);
   padding: var(--sp-2) var(--sp-3);
 }
-.auth-card form input:focus {
+.auth-card form input:not([type="checkbox"]):focus {
   border-color: var(--accent);
 }
+/* A checkbox field — "Also remove all my passkeys" on the password-link
+   form. as_p renders label, box, help in that order; this puts the box
+   first, beside its label, with the help under the label, and leaves the
+   box the browser's own (the text-input rule above excludes it). */
+.auth-card form p:has(> input[type="checkbox"]) {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: var(--sp-2);
+  align-items: start;
+}
+.auth-card form p > input[type="checkbox"] {
+  grid-column: 1;
+  grid-row: 1;
+  margin: .2em 0 0;
+  accent-color: var(--accent);
+}
+.auth-card form p:has(> input[type="checkbox"]) > label { grid-column: 2; grid-row: 1; }
+.auth-card form p:has(> input[type="checkbox"]) > .helptext { grid-column: 2; }
 .auth-card form ul.errorlist {
   list-style: none;
   margin: 0 0 var(--sp-2);
@@ -471,6 +676,19 @@ body.page-grid {
 .auth-card .btn {
   width: 100%;
   margin-top: var(--sp-2);
+}
+/* The rota's own password form, folded away under the practice-account
+   button once PRACTICE_HR_URL is set: it is for the superuser only. */
+.auth-local {
+  margin-top: var(--sp-4);
+}
+.auth-local > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+.auth-local[open] > summary {
+  margin-bottom: var(--sp-3);
 }
 
 /* -------------------------------------------------- modal partials --- */
@@ -574,4 +792,17 @@ body.page-grid {
   body .main { padding-left: var(--sp-4); padding-right: var(--sp-4); }
 
   .day-roster td { width: auto; }
+
+  /* The passkeys table on the Account page. At the report tables' padding
+     its four columns needed 369px of a 324px card at 390px wide, with every
+     date already wrapped to three lines, so the page scrolled sideways;
+     .table-scroll alone stopped that but hid half of Remove. Half the
+     padding, on the cells and on the quiet button (whose padding is only
+     its hover wash), brings it to 289px — it fits down to 360px, and
+     .table-scroll catches a longer name or larger text. */
+  .passkey-list .table th,
+  .passkey-list .table td { padding-left: var(--sp-2); padding-right: var(--sp-2); }
+  .passkey-list .btn { padding-left: var(--sp-2); padding-right: var(--sp-2); }
+
+  .phone-only { display: block; }
 }

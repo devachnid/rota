@@ -46,18 +46,118 @@
   color: var(--accent);
   border-bottom-color: var(--accent);
 }
-.nav-spacer { flex: 1; }
-.nav-user {
-  color: var(--muted);
-  font-size: var(--fs-sm);
+/* The right-hand block — Feedback and the account menu. margin-left: auto
+   rather than a spacer element: when the row wraps (a rota admin's header
+   below ~900px), a spacer stays behind on the first line and the menu
+   lands alone at the left of the second; an auto margin travels with the
+   block and keeps it at the right. */
+.nav-end {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+  margin-left: auto;
+}
+/* Between everyone's destinations and a rota admin's tools. A hairline is
+   enough: it is a grouping cue, not a boundary anyone has to find. */
+.nav-divider {
+  width: 1px;
+  height: 1.25rem;
+  background: var(--hairline);
 }
 
-/* The theme toggle and the Feedback control are nav controls, not page
-   actions — quiet by default so they do not compete with the links beside
-   them. */
-#theme-toggle, #feedback-open {
+/* Feedback, and the theme toggle on the login page (signed in, the toggle
+   lives in the account menu) — nav controls, not page actions, so quiet
+   enough not to compete with the links. `.nav-end > #theme-toggle` and not
+   the bare id: the menu's copy is a .nav-menu-item and must not be shrunk. */
+.nav-end > #theme-toggle, #feedback-open {
   font-size: var(--fs-xs);
   white-space: nowrap;
+}
+
+/* The account menu: who is signed in, always showing — surgery PCs are
+   shared, so "whose session is this" is a real question — and behind it
+   the three things nobody needs every visit. A <details>, so it works
+   with no script; static/js/menus.js adds closing on an outside click and
+   on Escape. Before this the right of the header was Theme, Feedback, a
+   27-character email with a stray browser underline and Log out, all at
+   one weight, and the row wrapped below ~890px. */
+.nav-account { position: relative; }
+.nav-account-toggle {
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  color: var(--ink-soft);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.nav-account-toggle::-webkit-details-marker { display: none; }
+/* A caret drawn in the text's own colour, so it holds in both themes with
+   no token of its own. */
+.nav-account-toggle::after {
+  content: "";
+  border: 4px solid transparent;
+  border-top-color: currentColor;
+  border-bottom: 0;
+}
+.nav-account-toggle:hover,
+.nav-account[open] > .nav-account-toggle {
+  background: var(--sunken);
+  color: var(--ink);
+}
+/* z-index 25: over the grid's sticky header and column (1-3), under the
+   modal (30), which a menu item can open. */
+.nav-menu {
+  position: absolute;
+  top: calc(100% + var(--sp-1));
+  right: 0;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  /* As wide as its longest line: an absolutely positioned box shrinks to
+     fit its containing block, which here is the toggle — narrower than an
+     email address — so without this the address broke at its hyphen.
+     Capped at the viewport less the header's padding. */
+  width: max-content;
+  min-width: 14rem;
+  max-width: calc(100vw - 2 * var(--sp-5));
+  padding: var(--sp-1);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  box-shadow: 0 var(--sp-2) var(--sp-5) var(--shadow);
+}
+.nav-menu form { margin: 0; }
+.nav-menu-item {
+  display: block;
+  width: 100%;
+  padding: var(--sp-2) var(--sp-3);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--ink-soft);
+  font-family: var(--font);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.nav-menu-item:hover { background: var(--sunken); color: var(--ink); }
+.nav-menu-sub {
+  display: block;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ------------------------------------------------------------ layout --- */
@@ -230,7 +330,8 @@ fieldset.field {
    around the native glyph instead of a normal checkbox. */
 .field input:not([type="checkbox"]):not([type="radio"]),
 .field select,
-.field textarea {
+.field textarea,
+.inline-input {
   font-family: var(--font);
   font-size: var(--fs-md);
   color: var(--ink);
@@ -243,7 +344,23 @@ fieldset.field {
 }
 .field input:not([type="checkbox"]):not([type="radio"]):focus,
 .field select:focus,
-.field textarea:focus { border-color: var(--accent); }
+.field textarea:focus,
+.inline-input:focus { border-color: var(--accent); }
+
+/* A field and the button it belongs to, on one line: the reason for
+   declining a swap sits against Decline, since that is the only button
+   that sends it. It was a bare browser input — a different font, a 1px
+   grey box, "comment (optional)" as its only label — wedged between two
+   buttons. The row takes what .form-actions leaves after Accept, and on a
+   phone wraps under it with the field filling the line. */
+.inline-form {
+  display: flex;
+  flex: 1 1 18rem;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.inline-input { flex: 1 1 12rem; min-width: 0; }
 
 .field-help {
   color: var(--muted);
@@ -254,8 +371,13 @@ fieldset.field {
   font-size: var(--fs-xs);
   font-weight: 700;
 }
+/* Wraps, so a row that runs out of room puts its next control on a new
+   line rather than squeezing it: on a phone the swap card's Accept, reason
+   box and Decline did not fit one line, and without a wrap the reason box
+   shrank against Accept and pushed Decline under itself. */
 .form-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-3);
   margin-top: var(--sp-5);
@@ -366,8 +488,21 @@ fieldset.field {
    header, where the day is actually named, not only in the body cells.
    .closed alone is inert here: .table-grid thead th (0,1,2) beats its
    background and .grid-day (screens.css, 0,1,0) beats its colour on
-   stylesheet order. (0,2,2) clears both, whatever the order. */
-.table-grid thead th.closed { background: var(--sunken); color: var(--muted); }
+   stylesheet order. (0,2,2) clears both, whatever the order. --ink-soft,
+   not --muted, because --muted is 3.1:1 on --closed. */
+.table-grid thead th.closed { background: var(--closed); color: var(--ink-soft); }
+/* The closure's reason under the date — "Bank holiday" — or just
+   "Closed". The words are what survive a printout, where the shade does
+   not. */
+.grid-closed {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+/* A day note is --warning, 3.7:1 on --closed; on a closed day it takes
+   the header's own colour. */
+.table-grid thead th.closed .daynote { color: var(--ink-soft); }
 /* The row highlight for the signed-in clinician has to be restated on the
    clinician cell — .table-grid .grid-clin (0,2,0) paints --surface over the
    .mine row background, and that cell is exactly where the pre-branch design
@@ -387,6 +522,9 @@ fieldset.field {
    (tests/test_css_cascade.py). */
 .table-grid .week-start { border-left: 2px solid var(--muted); }
 .table-grid thead th.is-today { background: var(--accent-soft); }
+/* Closed outranks today: a bank holiday that happens to be today is
+   still closed, and that is the thing to see. */
+.table-grid thead th.is-today.closed { background: var(--closed); }
 
 /* ------------------------------------------------------------- chips --- */
 
@@ -399,7 +537,7 @@ fieldset.field {
   color: var(--chip-fg, var(--muted));
   border-radius: var(--r-md);
   padding: 5px 2px;
-  font-size: var(--fs-xs);
+  font-size: var(--fs-chip);
   font-weight: 700;
   text-align: center;
   white-space: nowrap;
@@ -423,6 +561,14 @@ fieldset.field {
 }
 .chip.empty-slot {
   background: var(--slot);
+}
+/* A closed day draws no placeholder: the grey "working, nothing
+   allocated" chip on everyone who would usually be in made a bank holiday
+   look like a day of gaps. The chip takes the cell's own closed shade, so
+   the column reads as one closed block. A session that does stand on a
+   closed day still draws as itself. */
+.chip.is-closed {
+  background: transparent;
 }
 
 /* Drafts stay hatched so they read as provisional at a glance. --wash rather
@@ -507,8 +653,95 @@ fieldset.field {
   border-radius: var(--r-md);
   font-size: var(--fs-sm);
 }
+/* What happened, said in the same colours as everything else that reports a
+   state: the badge grounds. Without these every message — "Swap applied",
+   "Swap could not be applied", "Email isn't set up" — arrived in one
+   accent-soft card, so a failure was dressed as a success.
+
+   Two classes deep, not one: .flash-error alone would tie with .flash on
+   specificity and win only on being later in this file, which is the kind
+   of contest the rest of this sheet settles outright. The left rule is the
+   second channel — the ground alone is a hue difference, and these three
+   soft grounds are close in lightness by construction.
+
+   The nudges in base.html carry .flash with no level and keep the
+   accent-soft card: they are offers, not outcomes. info gets it too, for
+   the same reason — nothing has gone right or wrong. */
+.flash.flash-error {
+  background: var(--danger-soft);
+  border-left: 4px solid var(--danger);
+}
+.flash.flash-warning {
+  background: var(--warning-soft);
+  border-left: 4px solid var(--warning);
+}
+.flash.flash-success {
+  background: var(--ok-soft);
+  border-left: 4px solid var(--ok);
+}
+/* Inline only now: a word or a phrase inside a sentence or a table cell
+   ("2 weeks overdue", an unfilled reason on the fill page). Anything that
+   stands on its own line is an .alert below. */
 .warn {
   color: var(--danger);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+/* A statement that something is wrong, on its own line: a staffing gap in
+   a day header, a ceiling in a week header, a form asking to be saved
+   again, a swap that cannot be approved.
+
+   These used to be .warn — 11.5px of red text with no ground, the same
+   weight as a day note — so the most consequential line on the grid was
+   its visually lightest. Now they take the vocabulary the badges and the
+   flash messages already use for the same states: the soft ground and a
+   rule in the level's own colour. The rule is the channel that does not
+   depend on telling two pale grounds apart.
+
+   The level is two custom properties, not two rule sets, so the dense
+   variant below restyles every level at once. --tone is danger unless a
+   level says otherwise: a problem stated too loudly costs less than one
+   stated too quietly. */
+.alert {
+  --tone: var(--danger);
+  --tone-soft: var(--danger-soft);
+  display: block;
+  background: var(--tone-soft);
+  border-left: 4px solid var(--tone);
+  border-radius: var(--r-sm);
+  color: var(--ink);
+  font-size: var(--fs-sm);
+  padding: var(--sp-2) var(--sp-3);
+  margin: 0;
+}
+.alert-danger {
+  --tone: var(--danger);
+  --tone-soft: var(--danger-soft);
+}
+.alert-warning {
+  --tone: var(--warning);
+  --tone-soft: var(--warning-soft);
+}
+.alert + .alert { margin-top: var(--sp-1); }
+/* In a grid header or a report cell a line is a status, not a sentence:
+   short, many to a column, read at a glance. Smaller and tighter, and the
+   text takes the level's colour, as a badge's does. */
+.alert-compact {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--tone);
+  border-left-width: 3px;
+  padding: 2px var(--sp-2);
+}
+/* "+2 more": the lines the header had no room for, all of them in its
+   tooltip. Quiet — the header sorts danger first, so what is folded away
+   is the least serious. */
+.alert-more {
+  display: block;
+  margin-top: var(--sp-1);
+  color: var(--muted);
   font-size: var(--fs-xs);
   font-weight: 600;
 }
@@ -580,7 +813,7 @@ fieldset.field {
 
 .mine { background: var(--accent-soft); }
 
-.closed { background: var(--sunken); color: var(--muted); }
+.closed { background: var(--closed); color: var(--ink-soft); }
 
 /* The hatched texture itself lives on .chip.is-draft (the inner span) —
    .draft used to also paint a second repeating-linear-gradient here on the
@@ -614,6 +847,11 @@ fieldset.field {
    scopes already carry the visible header text, so the caption's table
    summary would be redundant clutter on screen but is useful context for
    assistive tech. */
+/* For paper only; print.css shows it. */
+.print-only { display: none; }
+/* For a phone only; the 640px block in screens.css shows it. */
+.phone-only { display: none; }
+
 .visually-hidden {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;

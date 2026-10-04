@@ -1,14 +1,22 @@
 """The Breathe client, against recorded responses. No network.
 
-tests/fixtures/breathe/ holds the test account's real responses, recorded
-once. A fake opener serves them, so these tests prove how the client reads
-Breathe without ever calling it.
+tests/fixtures/breathe/ holds the test account's responses, recorded once
+and then made synthetic: every field and its shape is Breathe's, but NI
+numbers, pay, dates of birth, contact details, bank details and photo links
+are placeholders, and the account owner is "Account Owner". This repository
+is public; test_the_fixtures_hold_no_personal_data keeps it that way. A fake
+opener serves them, so these tests prove how the client reads Breathe
+without ever calling it.
 """
 
+import http.server
 import io
 import json
 import logging
 import re
+import threading
+import urllib.error
+import urllib.request
 from pathlib import Path
 from urllib.error import HTTPError
 
@@ -235,3 +243,117 @@ def test_the_repository_never_contains_the_test_accounts_key():
         if re.search(r"prod-[A-Za-z0-9_\-]{20,}", text):
             offenders.append(str(path.relative_to(root)))
     assert not offenders, f"a Breathe API key is committed in: {offenders}"
+
+
+# --- the key goes nowhere else -------------------------------------------------
+
+class _Redirector(http.server.BaseHTTPRequestHandler):
+    """Answers every request with a 302 to a fixed URL on the other server,
+    and records the headers it was sent. The Location is fixed rather than
+    built from the request path: nothing of the request goes into a
+    response header, even in a test server."""
+    seen = []
+    target = ""
+
+    def do_GET(self):
+        type(self).seen.append(dict(self.headers))
+        self.send_response(302)
+        self.send_header("Location", type(self).target)
+        self.end_headers()
+
+    def log_message(self, *args):
+        pass
+
+
+def _serve(handler):
+    server = http.server.HTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server
+
+
+def test_a_redirect_is_not_followed_and_the_key_goes_nowhere():
+    """urllib's default redirect handler copies X-API-KEY onto the new
+    request, to whatever host the Location names. The real opener is
+    exercised here, against two loopback servers: the "API" answers 302 to
+    the other, which must never hear from the client."""
+    class Api(_Redirector):
+        seen = []
+
+    class Elsewhere(_Redirector):
+        seen = []
+
+    other = _serve(Elsewhere)
+    api = _serve(Api)
+    Api.target = f"http://127.0.0.1:{other.server_port}/v1/employees"
+    try:
+        from rota.services.breathe import client as mod
+        req = urllib.request.Request(f"http://127.0.0.1:{api.server_port}/v1/employees",
+                                     headers={"X-API-KEY": "SUPERSECRETKEY"})
+        with pytest.raises(urllib.error.HTTPError) as exc:
+            mod._OPENER.open(req, timeout=5)
+        assert exc.value.code == 302
+        assert Api.seen and Elsewhere.seen == []
+    finally:
+        api.shutdown()
+        other.shutdown()
+
+
+def test_a_redirect_becomes_a_breathe_error_naming_it():
+    def opener(req):
+        raise urllib.error.HTTPError(req.full_url, 302, "Found",
+                                     {"Location": "http://evil.example/"}, None)
+    with pytest.raises(BreatheError, match="redirected /employees") as exc:
+        BreatheClient("k", BASE, opener=opener).fetch_all("employees")
+    assert exc.value.status == 302
+
+
+def test_the_key_is_never_sent_over_plain_http():
+    seen = []
+    with pytest.raises(BreatheError, match="not https"):
+        BreatheClient("SUPERSECRETKEY", "http://api.breathehr.com/v1",
+                      opener=fake_opener({}, seen)).fetch_all("employees")
+    assert seen == []
+
+
+def test_the_deploy_check_flags_a_plain_http_url(settings):
+    from rota.checks import breathe_url_is_https
+    settings.BREATHE_API_KEY = "k"
+    settings.BREATHE_API_URL = "http://api.breathehr.com/v1"
+    (err,) = breathe_url_is_https(None)
+    assert err.id == "rota.E007"
+    settings.BREATHE_API_URL = "https://api.breathehr.com/v1"
+    assert breathe_url_is_https(None) == []
+    settings.BREATHE_API_KEY = ""
+    settings.BREATHE_API_URL = "http://x"
+    assert breathe_url_is_https(None) == []
+
+
+def test_the_fixtures_hold_no_personal_data():
+    """The captures came from a live account, and this repository is public.
+    A recapture — from the practice's real account, say — must be made
+    synthetic before it is committed, or this fails: NI numbers only in
+    HMRC's reserved QQ example form, no photo links (a Gravatar hash names
+    an email address; Breathe's S3 links carry signed credentials), and
+    email addresses only on example or Breathe-demo domains."""
+    allowed_mail = re.compile(r"@(example\.(org|invalid)|breathehrdevachnidltd\.com)$")
+    problems = []
+
+    def walk(o, where):
+        if isinstance(o, dict):
+            for k, v in o.items():
+                if k == "national_insurance_no" and v not in (None, "", "QQ123456C"):
+                    problems.append(f"{where}: {k}")
+                if k == "photo_url" and v:
+                    problems.append(f"{where}: {k}")
+                if "email" in k and isinstance(v, str) and v and not allowed_mail.search(v):
+                    problems.append(f"{where}: {k}={v!r}")
+                walk(v, where)
+        elif isinstance(o, list):
+            for x in o:
+                walk(x, where)
+
+    for path in sorted(FIX.glob("*.json")):
+        walk(json.loads(path.read_text()), path.name)
+        if re.search(r"X-Amz-(Credential|Security-Token)", path.read_text()):
+            problems.append(f"{path.name}: signed AWS link")
+    assert not problems, problems

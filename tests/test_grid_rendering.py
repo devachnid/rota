@@ -9,6 +9,7 @@ Cell precedence:
 """
 
 import re
+from pathlib import Path
 from datetime import date, timedelta
 
 import pytest
@@ -112,11 +113,51 @@ def test_a_non_working_session_reads_off(admin_client):
 
 @pytest.mark.django_db
 def test_a_closed_day_stays_blank_for_a_non_working_session(admin_client):
+    """No OFF on a bank holiday — it would read as everyone being off —
+    just the day's closed shade."""
     c = make_clinician("Closed", initials="CD")
     _pattern(c, 0, "AM", works=False)
     ClosedDay.objects.create(day=MON, reason="Bank holiday")
     chips = _chips(_cells(admin_client))
-    assert chips[(c.id, _iso(0), "AM")] == "is-off"
+    assert chips[(c.id, _iso(0), "AM")] == "is-closed"
+
+
+@pytest.mark.django_db
+def test_a_closed_day_draws_no_placeholder_for_someone_who_usually_works(admin_client):
+    """The grey "working, nothing allocated" chip on everyone who would
+    usually be in made a bank holiday look like a day of gaps. The practice
+    is always closed then, so there is nothing to allocate: the cell takes
+    the day's closed shade. The day beside it still asks to be filled."""
+    c = make_clinician("Usual", initials="US")
+    _full_pattern(c)
+    ClosedDay.objects.create(day=MON, reason="Bank holiday")
+    chips = _chips(_cells(admin_client))
+    assert chips[(c.id, _iso(0), "AM")] == chips[(c.id, _iso(0), "PM")] == "is-closed"
+    assert chips[(c.id, _iso(1), "AM")] == "empty-slot"
+
+
+@pytest.mark.django_db
+def test_a_session_on_a_closed_day_still_draws(admin_client):
+    """Never expected — the practice is closed — but if one is there it is
+    real data, and hiding it would hide the mistake."""
+    c = make_clinician("Booked", initials="BK")
+    _full_pattern(c)
+    ClosedDay.objects.create(day=MON, reason="Bank holiday")
+    make_entry(c, day=MON, part="AM", session_type=make_session_type("Routine", code="ROUT"))
+    chips = _chips(_cells(admin_client))
+    assert chips[(c.id, _iso(0), "AM")] == ""
+    assert chips[(c.id, _iso(0), "PM")] == "is-closed"
+
+
+@pytest.mark.django_db
+def test_the_header_says_why_the_day_is_closed(admin_client):
+    """The words survive a printout; the shade does not."""
+    PracticeSettings.load()
+    ClosedDay.objects.create(day=MON, reason="Bank holiday")
+    ClosedDay.objects.create(day=MON + timedelta(days=1), reason="")
+    html = admin_client.get(f"/rota/?week={MON}").content.decode()
+    assert '<div class="grid-closed">Bank holiday</div>' in html
+    assert '<div class="grid-closed">Closed</div>' in html
 
 
 @pytest.mark.django_db
@@ -222,8 +263,8 @@ def test_warnings_are_admin_only_but_day_notes_are_for_everyone(
 
     assert "CQC visit" in admin_html
     assert "CQC visit" in gp_html, "day notes are practice information"
-    assert 'class="warn"' in admin_html, "an understaffed day warns an admin"
-    assert 'class="warn"' not in gp_html, "warnings are staffing alerts, admin only"
+    assert "alert-compact" in admin_html, "an understaffed day warns an admin"
+    assert "alert-compact" not in gp_html, "warnings are staffing alerts, admin only"
 
 
 @pytest.mark.django_db
@@ -466,3 +507,13 @@ def test_a_whole_day_off_is_one_chip_across_both_columns(admin_client):
     assert f'/rota/cell/{c.id}/{_iso(1)}/AM/' not in html
     chips = _chips(html)
     assert chips[(c.id, _iso(1), "AM")] == chips[(c.id, _iso(1), "PM")] == "is-off is-not-working"
+
+
+def test_the_group_label_stays_on_screen_when_the_grid_scrolls():
+    """The grid scrolls to the current week on load, a week in; a label at
+    the far left of a row spanning eight weeks was never visible."""
+    from tests.test_css_cascade import rule
+    assert rule(".grid-group-label").declarations["position"] == "sticky"
+    assert "left" in rule(".grid-group-label").declarations
+    grid = (Path(__file__).resolve().parents[1] / "templates" / "rota" / "grid.html").read_text()
+    assert '<span class="grid-group-label">{{ section.group.name }}</span>' in grid

@@ -109,8 +109,10 @@ class Window:
                 start_date__lte=self.end, end_date__gte=self.start)
         self.resolver = availability.AvailabilityResolver(
             pattern_rows, self.active, absences, BreatheLeaveMapping.as_dict())
-        self.closed = set(ClosedDay.objects.filter(day__in=days)
-                          .values_list("day", flat=True))
+        # Day -> reason. Membership is what most of this asks; the header
+        # also prints the reason.
+        self.closed = dict(ClosedDay.objects.filter(day__in=days)
+                           .values_list("day", "reason"))
         self.notes = {n.day: n for n in DayNote.objects.filter(day__in=days)}
 
     # ---- header --------------------------------------------------------
@@ -148,10 +150,16 @@ class Window:
         for d in self.days:
             warnings = (day_warnings(d, include_drafts=True, resolver=self.resolver,
                                      bundle=bundle) if self.is_admin else [])
+            # Danger before warning, otherwise in the order they came: the
+            # header has room for two, and an uncovered session must not be
+            # the one folded into "+N more" behind a ceiling.
+            warnings = sorted(warnings, key=lambda w: w.level != "danger")
             out.append({
                 "day": d, "closed": d in self.closed, "note": self.notes.get(d),
+                "closed_reason": self.closed.get(d, ""),
                 "week_start": d in self.week_starts, "today": d == self.today,
                 "anchor": d == self.anchor_day,
+                "anchor_week": week_monday(d) == self.anchor,
                 "warnings": warnings,
                 "shown": warnings[:HEADER_WARNING_LINES],
                 "more": max(len(warnings) - HEADER_WARNING_LINES, 0),
@@ -177,7 +185,11 @@ class Window:
                 resolver=self.resolver, closed=d in self.closed,
                 partner=self.companion_partner.get((clinician.id, d, part)),
             ) for part in ("AM", "PM"))
-            flags = {"week_start": d in self.week_starts, "today": d == self.today}
+            # anchor_week: the week the page opened on, which is the one
+            # week a printed page has room for (static/css/print.css).
+            anchor_week = week_monday(d) == self.anchor
+            flags = {"week_start": d in self.week_starts, "today": d == self.today,
+                     "anchor_week": anchor_week}
             if one_block(am, pm) or one_empty_block(am, pm):
                 # One chip across both columns; its form edits the whole
                 # day (part "DAY") unless the admin picks a half.
@@ -186,7 +198,7 @@ class Window:
             else:
                 cells.append({**am, "merged": False, **flags})
                 cells.append({**pm, "merged": False, "week_start": False,
-                              "today": d == self.today})
+                              "today": d == self.today, "anchor_week": anchor_week})
         return {
             "clinician": clinician,
             "mine": clinician.user_id == self.user.id,
@@ -215,6 +227,6 @@ class Window:
             {"day": d, "day_str": d.isoformat(), "part": part,
              "reqs": req_map.get((d, part), []),
              "week_start": d in self.week_starts and part == "AM",
-             "today": d == self.today}
+             "today": d == self.today, "anchor_week": week_monday(d) == self.anchor}
             for d in self.days for part in ("AM", "PM")
         ]

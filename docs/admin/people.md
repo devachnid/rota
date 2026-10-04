@@ -167,16 +167,26 @@ nothing links to.
 
 ### Deactivating
 
-Untick **Active** rather than deleting. An inactive account cannot sign in by
-password or passkey, its links are refused, and its history stays.
+Untick **Active**. An inactive account cannot sign in by password or passkey,
+its links are refused, and its history stays. Only a superuser can delete a
+login outright. Deleting one would also take Django's record of any admin
+changes that person made.
 
 ### Passkeys
 
-A person adds passkeys to their own account from **Account** (their email in
-the app's header): their phone's Face ID or fingerprint, a laptop's Windows
+A person adds passkeys to their own account from **Account** (in the menu
+under their name, top right of the app's header): their phone's Face ID or fingerprint, a laptop's Windows
 Hello or Touch ID, or a password manager. That page lists each passkey with
 when it was added and last used, and lets them remove one. Their password
 still works, and is how they get back in if a device is lost.
+
+Adding a passkey asks for the password again unless they signed in within
+the last ten minutes. A passkey keeps working after a password change, so
+someone who finds a computer left signed in must not be able to add one of
+their own. The owner is emailed each time one is added. If a passkey appears
+that they didn't add, they reset their password from **Forgotten your
+password?** and tick **Also remove all my passkeys**. That form offers the box
+whenever the account has any passkeys.
 
 You cannot add one for them — only the device that holds the key can — but
 you can revoke one: open their login account, and under **Passkeys** each row
@@ -198,21 +208,30 @@ an existing one only by case. On the login
 page a passkey enrolled on that device is offered in the email field's
 autofill where the browser supports it, and **Sign in with a passkey** is
 the explicit button. In a browser that has never enrolled or used a passkey,
-every signed-in page carries a card offering to add one, until they do or
-press *Not now*, which puts it away for thirty days in that browser.
+the first pages after signing in carry a card offering to add one, until they
+do or press *Not now*, which puts it away for thirty days in that browser.
 
-Five wrong passwords within an hour — counted against the email *and*
-against the address they came from — lock that email and that address out of
-password sign-in for an hour. Any successful login from an address clears its
-counter, so one colleague's mistakes on the surgery's shared connection do
-not lock the building out. A passkey still signs in during a lockout: it
-proves possession of the device, which is the stronger claim; a forged
-assertion for a registered passkey counts like a wrong password.
+Five wrong passwords within an hour lock that email out of password
+sign-in for an hour, wherever they come from. An address is locked too, once
+five *different* emails have wrong passwords outstanding from it. That is the
+pattern of someone trying many accounts. The surgery's shared connection is
+safe: one colleague's fumbles count once there, and each person's own
+successful login clears their own count.
 
-Superusers can see the record under the **System** group: **Access
-failures** is the log of failed attempts, kept to the last thousand per email;
-**Access attempts** is the live counter, empty for an address as soon as
-someone there has logged in; **Access logs** records successful sign-ins.
+The hour runs from the lockout. Trying again while locked doesn't restart it,
+so nobody can keep a colleague out by retrying. The locked-out page
+offers the two ways in that still work. A passkey still signs in during a
+lockout, because it proves possession of the device, which is the stronger
+claim; a forged assertion for a registered passkey counts like a wrong
+password. And a password link by email still works: setting a new password
+signs them in.
+
+Superusers can see the record under the **System** group:
+- **Access failures** is the log of failed attempts, kept to the last
+  thousand per email.
+- **Access attempts** is the live counter. It is cleared for an email when
+  that person next signs in.
+- **Access logs** records successful sign-ins.
 
 ## Trainee profile
 

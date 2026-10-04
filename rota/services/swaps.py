@@ -13,6 +13,13 @@ PEOPLE — each GP works only their own session. The sessions change hands:
 Anything in between is refused with a sentence naming the facts that break
 both patterns. A full duty day (allocation_group) counts as a whole on
 either side.
+
+`published_only`: a GP proposing a swap sees the published rota, and the
+check they get back is made against that alone. The sentences name what is
+where ("Ben already has a session on Mon 12 Oct AM"), so a check that read
+drafts would tell a GP about an admin's unpublished plans. Approval reads
+everything, drafts included, since that is what applying it will change —
+a proposal a draft now blocks shows the admin the problem there.
 """
 
 from django.db import transaction
@@ -45,42 +52,47 @@ def _log(actor, day, part, name, action, detail=""):
                                 actor=actor, action=action, detail=detail)
 
 
-def _expand(clinician, day, part):
-    entry = RotaEntry.objects.filter(clinician=clinician, day=day,
-                                     part=part).first()
+def _rows(published_only):
+    rows = RotaEntry.objects.all()
+    return rows.filter(is_published=True) if published_only else rows
+
+
+def _expand(clinician, day, part, published_only=False):
+    entry = _rows(published_only).filter(clinician=clinician, day=day,
+                                         part=part).first()
     if entry and entry.allocation_group:
         return [(day, "AM"), (day, "PM")]
     return [(day, part)]
 
 
-def sides(req):
+def sides(req, published_only=False):
     """(proposer's slots, colleague's slots), each expanded to the whole day
     when the session put forward is half of a full duty day."""
-    return (_expand(req.proposer, req.proposer_day, req.proposer_part),
-            _expand(req.colleague, req.colleague_day, req.colleague_part))
+    return (_expand(req.proposer, req.proposer_day, req.proposer_part, published_only),
+            _expand(req.colleague, req.colleague_day, req.colleague_part, published_only))
 
 
-def involved_slots(req):
-    mine, theirs = sides(req)
+def involved_slots(req, published_only=False):
+    mine, theirs = sides(req, published_only)
     return mine + [s for s in theirs if s not in mine]
 
 
-def _entries(req):
+def _entries(req, published_only=False):
     """{(clinician_id, day, part): RotaEntry} for both GPs over every slot
     involved — one query, so the checks below cost nothing per slot."""
-    slots = set(involved_slots(req))
-    rows = RotaEntry.objects.filter(
+    slots = set(involved_slots(req, published_only))
+    rows = _rows(published_only).filter(
         clinician__in=[req.proposer, req.colleague],
         day__in={day for day, _ in slots})
     return {(e.clinician_id, e.day, e.part): e
             for e in rows if (e.day, e.part) in slots}
 
 
-def kind(req, have=None):
+def kind(req, have=None, published_only=False):
     """WORK, PEOPLE, or None when the rota fits neither pattern (or a GP no
     longer has the session they put forward)."""
-    mine, theirs = sides(req)
-    have = _entries(req) if have is None else have
+    mine, theirs = sides(req, published_only)
+    have = _entries(req, published_only) if have is None else have
     p, c = req.proposer_id, req.colleague_id
     if not (all((p, *s) in have for s in mine)
             and all((c, *s) in have for s in theirs)):
@@ -108,11 +120,11 @@ def _neither(req, have, mine, theirs):
             "neither works the other's and they cover for each other.")
 
 
-def validate(req):
+def validate(req, published_only=False):
     """Why the swap cannot be applied as the rota stands: a list of
     sentences, empty when it can."""
-    mine, theirs = sides(req)
-    have = _entries(req)
+    mine, theirs = sides(req, published_only)
+    have = _entries(req, published_only)
     p, c = req.proposer, req.colleague
     names = {p.id: p.name, c.id: c.name}
 
@@ -124,7 +136,7 @@ def validate(req):
     problems += [f"{c.name} has no session on {when(*s)}."
                  for s in theirs if (c.id, *s) not in have]
     if not problems:
-        k = kind(req, have)
+        k = kind(req, have, published_only)
         if k is None:
             problems.append(_neither(req, have, mine, theirs))
         else:
@@ -162,14 +174,15 @@ def validate(req):
     return problems
 
 
-def describe(req):
+def describe(req, published_only=False):
     """One sentence saying what applying the swap would do, or "" when the
     rota fits neither pattern."""
-    k = kind(req)
+    k = kind(req, published_only=published_only)
     p, c = req.proposer, req.colleague
-    mine, theirs = sides(req)
+    mine, theirs = sides(req, published_only)
     if k == WORK:
-        return f"{p.name} and {c.name} trade what they do on {_join(involved_slots(req))}."
+        return (f"{p.name} and {c.name} trade what they do on "
+                f"{_join(involved_slots(req, published_only))}.")
     if k == PEOPLE:
         return (f"{c.name} takes {p.name}'s {_join(mine)}; "
                 f"{p.name} takes {c.name}'s {_join(theirs)}.")

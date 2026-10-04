@@ -4,6 +4,7 @@ from django import forms
 from django.contrib import admin, messages
 from django.contrib.admin.utils import NestedObjects
 from django.db import router
+from django.db.models import Prefetch
 from django.shortcuts import redirect
 from django.urls import NoReverseMatch, path, reverse
 from django.utils import timezone
@@ -17,13 +18,15 @@ from unfold.contrib.filters.admin import RangeDateFilter
 from .models import (BreatheAbsence, BreatheLeaveMapping, BreatheSyncRun,
                      Clinician, ClinicianGroup, ClosedDay, CoverageRule,
                      DayNote, LocumRequirement,
-                     PatternSlot, PracticeSettings, RecurringCommitment, RotaEntry, RotaEntryLog,
+                     PatternSlot, PersonalRequirement, PracticeSettings,
+                     RecurringCommitment, RotaEntry, RotaEntryLog,
                      SessionType, Site, SwapRequest, TraineeProfile, TraineeStageRule)
 from . import mail as swap_mail
 from .services import swaps as swaps_svc
 from .services.breathe import client as breathe_client, sync as breathe_sync
 from .services.breathe.links import expects_link
-from .admin_forms import WEEKDAYS, CoverageRuleForm, PracticeSettingsForm
+from .admin_forms import (WEEKDAYS, CoverageRuleForm, PersonalRequirementForm,
+                          PracticeSettingsForm)
 from .admin_widgets import (BreatheEmployeeSelect, TintSwatchSelect,
                             breathe_employees, employee_label)
 
@@ -495,6 +498,40 @@ class RecurringCommitmentAdmin(ModelAdmin):
         return super().formfield_for_dbfield(db_field, request, **kwargs)
 
 
+@admin.register(PersonalRequirement)
+class PersonalRequirementAdmin(ModelAdmin):
+    form = PersonalRequirementForm
+    list_display = ("session_type", "every", "part", "weekdays",
+                    "active_from", "active_until", "people")
+    list_filter = ("session_type",)
+    filter_horizontal = ("clinicians",)
+    fieldsets = (
+        ("What", {
+            "fields": ("session_type", "clinicians", "interval_weeks", "part"),
+            "description": "Each named clinician does this session type once "
+                           "every N weeks, counted from their last one, on any "
+                           "allowed day they are free. An aim to fit in, not a "
+                           "fixture: for a fixed weekday use a recurring "
+                           "commitment; for a practice-wide count use a coverage "
+                           "rule.",
+        }),
+        ("When", {"fields": ("weekdays", "active_from", "active_until")}),
+    )
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("session_type") \
+            .prefetch_related(Prefetch(
+                "clinicians", queryset=Clinician.objects.filter(active=True)))
+
+    @admin.display(description="Every")
+    def every(self, obj):
+        return f"{obj.interval_weeks} weeks"
+
+    @admin.display(description="Clinicians")
+    def people(self, obj):
+        return len(obj.clinicians.all())
+
+
 @admin.register(ClosedDay)
 class ClosedDayAdmin(ModelAdmin):
     list_display = ("day", "reason")
@@ -562,14 +599,44 @@ class RotaEntryAdmin(ModelAdmin):
         ("Grouping", {"fields": ("allocation_group", "companion_group"), "classes": ("collapse",)}),
     )
 
+    # The grid and fill write the audit log through services/entries.py.
+    # An edit here goes straight to the model, so it writes the same rows
+    # itself — or the log would show a session appear, change or vanish
+    # with no one's name on it.
+    def _audit(self, request, obj, action, detail):
+        RotaEntryLog.objects.create(
+            day=obj.day, part=obj.part, clinician_name=obj.clinician.name,
+            actor=request.user, action=action, detail=f"in the admin: {detail}"[:200])
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        if change:
+            self._audit(request, obj, "changed", ", ".join(form.changed_data) or "saved")
+        else:
+            self._audit(request, obj, "created", obj.session_type.code)
+
+    def delete_model(self, request, obj):
+        self._audit(request, obj, "cleared", obj.session_type.code)
+        super().delete_model(request, obj)
+
+    def delete_queryset(self, request, queryset):
+        for obj in queryset.select_related("clinician", "session_type"):
+            self._audit(request, obj, "cleared", obj.session_type.code)
+        super().delete_queryset(request, queryset)
+
 
 @admin.register(RotaEntryLog)
 class RotaEntryLogAdmin(ModelAdmin):
-    list_display = ("at", "actor", "action", "day", "part", "clinician_name", "detail")
+    list_display = ("at", "who", "action", "day", "part", "clinician_name", "detail")
     list_filter = ("action",)
-    search_fields = ("clinician_name", "detail")
+    search_fields = ("clinician_name", "detail", "actor_name")
     date_hierarchy = "at"
     readonly_fields = [f.name for f in RotaEntryLog._meta.fields]
+
+    @admin.display(description="Who", ordering="actor_name")
+    def who(self, obj):
+        # The name as it was written, which survives the login's deletion.
+        return obj.actor_name or "—"
 
     def has_add_permission(self, request):
         return False

@@ -3,4 +3,38 @@ Description=Nightly GP rota SQLite backup
 
 [Service]
 Type=oneshot
-ExecStart=/root/rota/deploy/backup.sh
+# As the rota user, not root. The copies are the app's own data, so they
+# belong with it in /var/lib/rota, closed to everyone else; and a root
+# sqlite3 opening a WAL database can leave -wal/-shm files the app cannot
+# then open. The same user, directories and sandbox as the web service;
+# see gunicorn.service for why each is there.
+User=rota
+Group=rota
+StateDirectory=rota
+StateDirectoryMode=0700
+UMask=0077
+ExecStart=/srv/rota/deploy/backup.sh
+
+# Sandbox: identical in every rota unit (tests/test_deploy_units.py).
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
