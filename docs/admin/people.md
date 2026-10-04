@@ -122,6 +122,16 @@ The list shows each account's email, **Admin status**, **Active**, whether it
 is **Set up?** (has a password), and the linked clinician. Search by email;
 filter by Admin status or Active.
 
+**With the practice account on** (`PRACTICE_HR_URL`, see [Signing in with
+the practice account](sign-in.md)), everyone signs in through the HR system
+and much of what follows waits until it is turned off: there are no rota
+passwords, so invitations and reset links do nothing; passkeys are retired;
+and **Admin status** is set on the HR system — **Admin of rota**, under
+**Apps** on the person's login there — and is read-only here, updated at
+each sign-in. An account is made for a new person at their first sign-in,
+so there is no need to add one here first. Linking a clinician, **Active**
+and the rest of the account's page work as below.
+
 ### Adding someone
 
 **Add login account** asks for two things: their email, and whether they are
@@ -157,6 +167,9 @@ link**; each account gets whichever it needs.
 Tick **Admin status** on anyone who should run fills, publish weeks and
 approve requests; it is also what lets them into this admin. There is no
 separate staff flag to set — Django's `is_staff` follows Admin status.
+With the practice account on it is not ticked here: it reads *Set on the HR
+system: Login accounts › Apps › Admin of rota. It is updated at each
+sign-in.*, and the add form leaves it out.
 
 An admin cannot see a **superuser's** account in the list, open it, or grant
 superuser to anyone. Only a superuser sees the System fieldset (Active,
