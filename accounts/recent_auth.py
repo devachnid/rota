@@ -33,11 +33,11 @@ def is_recent(request):
 
 def password_allowed(user):
     """Whether this person signs in with a rota password at all. With the
-    practice account configured (PRACTICE_HR_URL) only the superuser does;
-    everyone else proves who they are on the HR system, so the rota never
-    checks their password — not at the login form, not here."""
+    practice account configured (PRACTICE_HR_URL) nobody does, the superuser
+    included: everyone proves who they are on the HR system, so the rota
+    never checks a password — not at the login form, not here."""
     from django.conf import settings
-    return not settings.PRACTICE_HR_URL or bool(user.is_superuser)
+    return not settings.PRACTICE_HR_URL
 
 
 def confirm_password(request, password):
