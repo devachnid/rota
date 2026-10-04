@@ -158,7 +158,8 @@ def test_the_pbs_secrets_stay_out_of_the_app_users_reach():
     credential, so the rota user (and the web process) never reads either."""
     d = _directives(DEPLOY / "rota-pbs.service")
     assert d.get("EnvironmentFile") == ["/etc/pbs-backup/rota.env"]
-    assert d.get("LoadCredential") == ["pbs.key:/etc/pbs-backup/rota.key"]
+    assert d.get("LoadCredential") == ["pbs.token:/etc/pbs-backup/rota.token",
+                                       "pbs.key:/etc/pbs-backup/rota.key"]
     assert d.get("ExecStart") == ["/srv/rota/deploy/pbs-push.sh"]
 
 
@@ -177,7 +178,8 @@ def test_the_pbs_push_script_sends_the_copies_encrypted_to_its_own_namespace():
     assert "$state/backups" in live, "the finished copies, not the live database"
     assert "db.sqlite3" not in live
     assert "--ns rota" in live and "--keyfile" in live
-    assert "PBS_PASSWORD" not in text, "the token belongs in the root-only env file"
+    assert "PBS_PASSWORD_FILE" in live, "the token goes by file, not by environment"
+    assert "PBS_PASSWORD=" not in text and "PBS_PASSWORD=" not in (DEPLOY / "rota-pbs.service").read_text()
 
 
 def test_the_pbs_dropin_runs_the_push_after_a_successful_backup():
