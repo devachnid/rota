@@ -120,6 +120,72 @@ Backups land in `/var/lib/rota/backups/`, kept 30 days, readable only by the
 are cleared nightly by `rota-clearsessions.timer`: the login page's passkey
 autofill mints a session per visit, so the table would otherwise only grow.
 
+### Off-site backup to a Proxmox Backup Server
+
+The nightly copy sits on the same machine as the database. `rota-pbs.service`
+pushes `/var/lib/rota/backups` to a Proxmox Backup Server (PBS) with
+`proxmox-backup-client`, straight after `rota-backup.service` succeeds. It
+sends the finished copies, never the live WAL database, and encrypts them
+before they leave, so the PBS holds no plaintext. It is optional: a host
+without it still backs up locally.
+
+1. **Install the client** (Debian 13; for 12 use `bookworm` and Proxmox's
+   `proxmox-release-bookworm.gpg`, and check the key against the checksum on
+   Proxmox's docs page):
+
+       wget https://enterprise.proxmox.com/debian/proxmox-archive-keyring-trixie.gpg -O /usr/share/keyrings/proxmox-archive-keyring.gpg
+       printf 'Types: deb\nURIs: http://download.proxmox.com/debian/pbs-client\nSuites: trixie\nComponents: main\nSigned-By: /usr/share/keyrings/proxmox-archive-keyring.gpg\n' > /etc/apt/sources.list.d/pbs-client.sources
+       apt update && apt install proxmox-backup-client
+
+2. **Reach the PBS over a private link**, never over the internet: WireGuard
+   on the PBS host, so it answers on an address like `10.88.0.1`, with its
+   firewall allowing port 8007 only from this host's tunnel address. If the
+   host has an outbound firewall, allow the tunnel's UDP port to the PBS's
+   public address (and, if the handshake stalls, the replies back in).
+
+3. **On the PBS**: one namespace, user and token for this app, allowed only
+   to *back up* into that namespace. `DatastoreBackup` cannot prune or delete,
+   so a compromised host cannot erase its own history. Grant the role to the
+   user and to the token (a token never has more than its user), then add a
+   prune job for the namespace in the web UI (Datastore, Prune & GC).
+
+       proxmox-backup-client namespace create rota --repository root@pam@localhost:<datastore>
+       proxmox-backup-manager user create vps-rota@pbs
+       proxmox-backup-manager user generate-token vps-rota@pbs backup
+       proxmox-backup-manager acl update /datastore/<datastore>/rota DatastoreBackup --auth-id vps-rota@pbs
+       proxmox-backup-manager acl update /datastore/<datastore>/rota DatastoreBackup --auth-id 'vps-rota@pbs!backup'
+
+   Keep the token secret it prints, and the certificate fingerprint from the
+   dashboard (Show Fingerprint). Choose the prune retention by how long the
+   practice may keep this data.
+
+4. **On this host**: the key and the secrets, root-only.
+
+       install -d -m 700 /etc/pbs-backup
+       proxmox-backup-client key create /etc/pbs-backup/rota.key --kdf none
+       proxmox-backup-client key paperkey /etc/pbs-backup/rota.key
+       ( umask 077; printf 'PBS_REPOSITORY=vps-rota@pbs!backup@10.88.0.1:8007:<datastore>\nPBS_PASSWORD=<token secret>\nPBS_FINGERPRINT=<fingerprint>\n' > /etc/pbs-backup/rota.env )
+
+   **Copy the key (or its paper print) somewhere off this host now.** Without
+   it every pushed backup is unreadable. Then install the units; the drop-in
+   makes the push follow each successful backup:
+
+       cp deploy/rota-pbs.service /etc/systemd/system/
+       install -D deploy/rota-backup-pbs.conf /etc/systemd/system/rota-backup.service.d/pbs.conf
+       systemctl daemon-reload
+
+5. **Test it, including a restore.** Run a backup, check the snapshot appears
+   under the `rota` namespace, then restore it on another machine with only
+   the key, and open the copy:
+
+       systemctl start rota-backup.service && journalctl -u rota-pbs -n 20 --no-pager
+       proxmox-backup-client snapshot list --ns rota
+       proxmox-backup-client restore host/rota/<timestamp> data.pxar ./restore-test --ns rota --keyfile rota.key
+       sqlite3 restore-test/db-<date>.sqlite3 'select count(*) from django_session'
+
+   A failed push shows in `journalctl -u rota-pbs` and `systemctl status
+   rota-pbs`; nothing else tells you, so look after the first night.
+
 `systemd-analyze security rota` scores the sandbox; it reads about 1.5 (OK),
 where the same app as root with no sandbox reads 9.6 (UNSAFE).
 
