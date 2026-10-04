@@ -48,7 +48,9 @@ is the reference for what the settings actually mean.
    an email and whether they are an admin, nothing else. Each person receives
    an invitation, chooses their own password from its link, and can then add a
    passkey. The superuser's from step 1 is the only password an admin ever
-   types. See [Login accounts](docs/admin/people.md#login-accounts).
+   types. See [Login accounts](docs/admin/people.md#login-accounts). With the
+   practice account on, accounts come from signing in through the HR system
+   instead — see [Signing in with the practice account](docs/admin/sign-in.md).
 
 The sequence the checklist walks, for reference: practice settings → sites →
 clinician groups → session types → coverage rules → clinicians → working
