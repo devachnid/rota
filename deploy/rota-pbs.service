@@ -1,0 +1,44 @@
+[Unit]
+Description=Push the rota's nightly SQLite copy to the Proxmox Backup Server
+After=network-online.target wg-quick@wg0.service
+
+[Service]
+Type=oneshot
+# As the rota user, like the backup it follows: the copies are readable by
+# nobody else. The PBS address, token and certificate fingerprint are in
+# /etc/pbs-backup/rota.env (root, mode 600); systemd reads it as root. The
+# encryption key is handed in as a credential, readable only by this unit,
+# so the web service running as the same user cannot reach either. See the
+# README's "Off-site backup" section.
+User=rota
+Group=rota
+StateDirectory=rota
+StateDirectoryMode=0700
+UMask=0077
+EnvironmentFile=/etc/pbs-backup/rota.env
+LoadCredential=pbs.key:/etc/pbs-backup/rota.key
+ExecStart=/srv/rota/deploy/pbs-push.sh
+
+# Sandbox: identical in every rota unit (tests/test_deploy_units.py).
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM

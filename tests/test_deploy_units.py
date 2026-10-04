@@ -61,10 +61,11 @@ def _directives(path):
     return out
 
 
-def test_there_are_four_services():
+def test_there_are_five_services():
     assert [p.name for p in SERVICES] == [
         "gunicorn.service", "rota-backup.service",
-        "rota-breathe.service", "rota-clearsessions.service"]
+        "rota-breathe.service", "rota-clearsessions.service",
+        "rota-pbs.service"]
 
 
 @pytest.mark.parametrize("unit", SERVICES, ids=lambda p: p.name)
@@ -104,7 +105,7 @@ def test_the_code_runs_from_srv(unit):
     d = _directives(unit)
     for cmd in d["ExecStart"]:
         assert cmd.startswith("/srv/rota/"), cmd
-    if unit.name != "rota-backup.service":
+    if unit.name not in ("rota-backup.service", "rota-pbs.service"):
         assert d.get("WorkingDirectory") == ["/srv/rota"]
         assert d.get("EnvironmentFile") == ["/etc/rota.env"]
 
@@ -148,6 +149,41 @@ def test_the_backup_script_runs_and_keeps_its_copies_private(tmp_path):
     (copy,) = (tmp_path / "backups").glob("db-*.sqlite3")
     assert copy.stat().st_mode & 0o077 == 0, oct(copy.stat().st_mode)
     assert (tmp_path / "backups").stat().st_mode & 0o077 == 0
+
+
+# --- off-site backup to the Proxmox Backup Server --------------------------------
+
+def test_the_pbs_secrets_stay_out_of_the_app_users_reach():
+    """The token comes from a root-read env file and the encryption key as a
+    credential, so the rota user (and the web process) never reads either."""
+    d = _directives(DEPLOY / "rota-pbs.service")
+    assert d.get("EnvironmentFile") == ["/etc/pbs-backup/rota.env"]
+    assert d.get("LoadCredential") == ["pbs.key:/etc/pbs-backup/rota.key"]
+    assert d.get("ExecStart") == ["/srv/rota/deploy/pbs-push.sh"]
+
+
+def test_the_pbs_push_script_is_executable_and_valid_shell():
+    script = DEPLOY / "pbs-push.sh"
+    assert os.access(script, os.X_OK)
+    try:
+        subprocess.run(["sh", "-n", str(script)], check=True, capture_output=True)
+    except FileNotFoundError:
+        pytest.skip("no sh")
+
+
+def test_the_pbs_push_script_sends_the_copies_encrypted_to_its_own_namespace():
+    text = (DEPLOY / "pbs-push.sh").read_text()
+    live = " ".join(ln for ln in text.splitlines() if not ln.lstrip().startswith("#"))
+    assert "$state/backups" in live, "the finished copies, not the live database"
+    assert "db.sqlite3" not in live
+    assert "--ns rota" in live and "--keyfile" in live
+    assert "PBS_PASSWORD" not in text, "the token belongs in the root-only env file"
+
+
+def test_the_pbs_dropin_runs_the_push_after_a_successful_backup():
+    live = [ln for ln in (DEPLOY / "rota-backup-pbs.conf").read_text().splitlines()
+            if ln.strip() and not ln.startswith("#")]
+    assert live == ["[Unit]", "OnSuccess=rota-pbs.service"]
 
 
 # --- deploy/manage -------------------------------------------------------------
