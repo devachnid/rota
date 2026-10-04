@@ -125,12 +125,12 @@ filter by Admin status or Active.
 **With the practice account on** (`PRACTICE_HR_URL`, see [Signing in with
 the practice account](sign-in.md)), everyone signs in through the HR system
 and much of what follows waits until it is turned off: there are no rota
-passwords, so invitations and reset links do nothing; passkeys are retired;
-and **Admin status** is set on the HR system — **Admin of rota**, under
-**Apps** on the person's login there — and is read-only here, updated at
-each sign-in. An account is made for a new person at their first sign-in,
-so there is no need to add one here first. Linking a clinician, **Active**
-and the rest of the account's page work as below.
+passwords, so adding an account sends no invitation and reset links do
+nothing; passkeys are retired; and **Admin status** is set on the HR system
+— **Admin of rota**, under **Apps** on the person's login there — and is
+read-only here, updated at each sign-in. An account is made for a new person
+at their first sign-in, so there is no need to add one here first. Linking a
+clinician, **Active** and the rest of the account's page work as below.
 
 ### Adding someone
 

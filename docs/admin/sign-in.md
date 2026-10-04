@@ -79,7 +79,10 @@ The HR system's `sub` (its own id for the person's login), `email`,
   ([Moving the rota's logins to the HR system](#moving-the-rotas-logins-to-the-hr-system)
   makes one). **Superuser status** itself stays a rota flag, set only here
   by a superuser, for the feedback emails and the sign-in records in the
-  admin's System group.
+  admin's System group. Like anyone's, the superuser's rota account is
+  bound by the *first* practice-account sign-in whose email matches it —
+  so the superuser should sign in through HR promptly after the switch,
+  before anyone else's HR login could be given that email.
 
 If someone's login on the HR system is replaced by a new one, they cannot
 sign in with the practice account until a superuser clears **Practice
@@ -148,13 +151,19 @@ all live there, so the rota never checks a password at all:
   password out of habit cannot lock the surgery's address (and the
   practice-account sign-in with it) out.
 - **Password links** — *Forgotten your password?*, and invitations or reset
-  links sent from **Login accounts** — work for nobody. The reset form
+  links sent from **Login accounts** — work for nobody, and **Change
+  password** is gone too: a password set here, from a borrowed session say,
+  would work again the day the practice account is turned off. The reset form
   sends nothing, and any link, even one sent before `PRACTICE_HR_URL` was
   set, opens the *link no longer valid* page instead of signing anyone in.
   Otherwise a leaver disabled on the HR system would keep a way in here.
-  Sending an invitation from the admin is therefore pointless while the
-  practice account is on: the account is made at the person's first
-  practice-account sign-in.
+  Adding a login account sends no invitation while the practice account is
+  on — the admin says *"This person signs in with the practice account; no
+  invitation is needed."* — and an account is made anyway at the person's
+  first practice-account sign-in.
+- **A lockout** left over from before shows *Too many attempts* with only
+  the **Sign in with the practice account** button: no passkey or
+  password-link routes, since neither exists.
 - **Passkeys are retired.** The rota's passkey sign-in and enrolment
   answer *not found*, and the **Account** page replaces its password button
   and Passkeys section with *"You sign in with the practice account.
@@ -176,6 +185,11 @@ password or passkeys were never cleared. Someone who has only ever signed in
 with the practice account has no rota password; a password link from
 **Login accounts** gives them one. Rota admin stays as the last sign-in
 left it, and **Admin status** can be ticked here again meanwhile.
+
+**While the line is out, the HR system is no longer the gatekeeper.** A
+leaver deactivated only on HR can sign in with a rota password or passkey
+they still have here. Untick **Active** on their rota login account too,
+for every leaver, until the HR system is back.
 
 Put the line back, and restart, once the HR system is up. Everyone is back
 to the practice account at their next sign-in, and rota admin follows the
