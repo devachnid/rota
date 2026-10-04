@@ -154,6 +154,14 @@ class ChangePasswordView(PasswordChangeView):
     template_name = "registration/password_change_form.html"
     success_url = reverse_lazy("account")
 
+    def dispatch(self, request, *args, **kwargs):
+        # With the practice account configured the password lives on the HR
+        # system. A rota password set now, from a borrowed session say,
+        # would work again the day PRACTICE_HR_URL is removed.
+        if settings.PRACTICE_HR_URL:
+            raise Http404
+        return super().dispatch(request, *args, **kwargs)
+
     def form_valid(self, form):
         messages.success(self.request, "Password changed.")
         response = super().form_valid(form)

@@ -207,6 +207,46 @@ def test_without_the_practice_account_the_offer_is_made(client, settings, db):
     assert 'id="passkey-nudge"' in client.get("/", follow=True).content.decode()
 
 
+def test_the_change_password_page_is_gone(gp_client, oidc_on):
+    """A borrowed session must not set a rota password that would work the
+    day the practice account is turned off."""
+    assert gp_client.get("/accounts/password_change/").status_code == 404
+    r = gp_client.post("/accounts/password_change/", {
+        "old_password": "pw", "new_password1": "a-new-Passw0rd", "new_password2": "a-new-Passw0rd"})
+    assert r.status_code == 404
+    assert User.objects.get(email="gp@example.com").check_password("pw")
+
+
+def test_without_the_practice_account_the_password_can_be_changed(gp_client, settings):
+    settings.PRACTICE_HR_URL = ""
+    assert gp_client.get("/accounts/password_change/").status_code == 200
+
+
+def _locked_out_page(rf, settings):
+    from django.contrib.auth.models import AnonymousUser
+    from django.contrib.sessions.backends.db import SessionStore
+
+    from accounts.lockout import lockout_response
+    request = rf.get("/accounts/login/")
+    request.user, request.session = AnonymousUser(), SessionStore()
+    return lockout_response(request)
+
+
+def test_the_locked_out_page_points_to_the_practice_account(rf, oidc_on, settings, db):
+    r = _locked_out_page(rf, settings)
+    body = r.content.decode()
+    assert r.status_code == 429
+    assert "Sign in with the practice account" in body and "/oidc/authenticate/" in body
+    assert "Sign in with a passkey" not in body and "/accounts/password_reset/" not in body
+
+
+def test_without_the_practice_account_the_locked_out_page_is_as_before(rf, settings, db):
+    settings.PRACTICE_HR_URL = ""
+    body = _locked_out_page(rf, settings).content.decode()
+    assert "Sign in with a passkey" in body and "/accounts/password_reset/" in body
+    assert "/oidc/authenticate/" not in body
+
+
 # --- password links work for nobody ---------------------------------------------------
 
 def _link(user):
@@ -426,16 +466,54 @@ def _root_client(client):
     return client
 
 
+def _save_change_page(c, u, **fields):
+    return c.post(f"/admin/accounts/user/{u.pk}/change/", {
+        "email": u.email, "is_active": "on", "oidc_sub": u.oidc_sub,
+        "passkeys-TOTAL_FORMS": "0", "passkeys-INITIAL_FORMS": "0",
+        "passkeys-MIN_NUM_FORMS": "0", "passkeys-MAX_NUM_FORMS": "1000", **fields})
+
+
 def test_rota_admin_is_read_only_in_the_admin(db, client, oidc_on):
     u = User.objects.create_user(email="tom@example.org", password="pw")
+    boss = User.objects.create_user(email="boss@example.org", password="pw", is_rota_admin=True)
     c = _root_client(client)
     body = c.get(f"/admin/accounts/user/{u.pk}/change/").content.decode()
     assert 'name="is_rota_admin"' not in body
     assert ADMIN_HELP in body
-    c.post(f"/admin/accounts/user/{u.pk}/change/", {"email": u.email, "is_active": "on",
-                                                     "is_rota_admin": "on"})
+    # A tick posted anyway is ignored, and leaving it out takes nothing away.
+    assert _save_change_page(c, u, is_rota_admin="on").status_code == 302
+    assert _save_change_page(c, boss).status_code == 302
     u.refresh_from_db()
-    assert not u.is_rota_admin
+    boss.refresh_from_db()
+    assert not u.is_rota_admin and boss.is_rota_admin
+
+
+def test_without_the_practice_account_the_tick_is_saved(db, client, settings):
+    settings.PRACTICE_HR_URL = ""
+    u = User.objects.create_user(email="tom@example.org", password="pw")
+    assert _save_change_page(_root_client(client), u, is_rota_admin="on").status_code == 302
+    u.refresh_from_db()
+    assert u.is_rota_admin
+
+
+def test_adding_a_login_sends_no_invitation(db, client, oidc_on, configured):
+    from django.core import mail
+    mail.outbox.clear()
+    r = _root_client(client).post("/admin/accounts/user/add/", {"email": "new@example.org"},
+                                  follow=True)
+    body = r.content.decode()
+    assert "This person signs in with the practice account; no invitation is needed." in body
+    assert mail.outbox == [] and "/accounts/reset/" not in body
+    u = User.objects.get(email="new@example.org")
+    assert not u.has_usable_password() and not u.is_rota_admin and u.password_link_sent_at is None
+
+
+def test_without_the_practice_account_adding_a_login_invites(db, client, settings, configured):
+    from django.core import mail
+    settings.PRACTICE_HR_URL = ""
+    mail.outbox.clear()
+    _root_client(client).post("/admin/accounts/user/add/", {"email": "new@example.org"})
+    assert [m.to for m in mail.outbox] == [["new@example.org"]]
 
 
 def test_the_add_form_drops_rota_admin(db, client, oidc_on):
