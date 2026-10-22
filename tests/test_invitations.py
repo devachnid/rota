@@ -1,22 +1,33 @@
 """An admin creates the account; the person sets the password from an
 emailed link. These pin the add form, the state the change page shows, the
-send buttons, the bulk action, and that a rota admin can no longer set
-anyone's password directly — only a superuser keeps that form."""
+send buttons, the link to copy, the bulk action, and that a rota admin can
+no longer set anyone's password directly — only a superuser keeps that
+form."""
 
+import logging
+import re
 import smtplib
 from datetime import timedelta
 
 import pytest
 from django.contrib import admin
+from django.contrib.admin.models import LogEntry
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.mail import EmailMessage
+from django.test import Client
 from django.utils import timezone
 
 pytestmark = pytest.mark.django_db
 User = get_user_model()
 ADD = "/admin/accounts/user/add/"
 LIST = "/admin/accounts/user/"
+COPY = "accounts_user_copy_invitation_link"
+# A link handed to an admin is the value of a read-only field beside a Copy
+# button, never an anchor: clicking it would open that person's
+# set-password page in the admin's own browser.
+LINK = re.compile(r'value="http://testserver(/accounts/reset/[^"]+)"')
+ANCHOR = 'href="http://testserver/accounts/reset/'
 
 
 def _change(user):
@@ -69,7 +80,7 @@ def test_without_a_relay_the_admin_gets_the_link_to_copy(admin_client, settings)
     html = admin_client.post(ADD, {"email": "new@example.com"}, follow=True).content.decode()
     assert mail.outbox == []
     assert "copy this link and send it to new@example.com yourself" in html
-    assert 'href="http://testserver/accounts/reset/' in html
+    assert LINK.search(html) and ANCHOR not in html
 
 
 def test_a_refusing_relay_shows_the_reason_and_the_link(admin_client, configured, monkeypatch):
@@ -78,7 +89,7 @@ def test_a_refusing_relay_shows_the_reason_and_the_link(admin_client, configured
     monkeypatch.setattr(EmailMessage, "send", refuse)
     html = admin_client.post(ADD, {"email": "new@example.com"}, follow=True).content.decode()
     assert "Sending to new@example.com failed" in html and "550" in html
-    assert 'href="http://testserver/accounts/reset/' in html
+    assert LINK.search(html) and ANCHOR not in html
     assert User.objects.filter(email="new@example.com").exists()   # the relay's refusal loses no account
 
 
@@ -170,6 +181,62 @@ def test_a_superuser_can_send_to_anyone(staff_client, configured, admin_user, st
     assert sorted(m.to[0] for m in mail.outbox) == ["admin@example.com", "staff@example.com"]
 
 
+# --- the link to copy ---------------------------------------------------------
+
+def test_an_unfinished_invitation_offers_the_link_to_copy(admin_client, gp_user):
+    invited = User.objects.create_user(email="invited@example.com")
+    html = admin_client.get(_change(invited)).content.decode()
+    assert f'name="{COPY}"' in html and "Copy invitation link" in html
+    assert 'name="accounts_user_send_invitation"' in html   # beside the send button, not instead
+    assert f'name="{COPY}"' not in admin_client.get(_change(gp_user)).content.decode()
+
+
+def test_copying_the_link_sends_nothing_and_shows_one_that_works(
+        admin_client, admin_user, configured, caplog):
+    """For someone whose invitations never arrive: the admin passes the
+    same link on another way. The account's history and the journal say it
+    was shown, and to whom; neither holds the link itself."""
+    caplog.set_level(logging.INFO, logger="accounts.admin")
+    invited = User.objects.create_user(email="invited@example.com")
+    resp = admin_client.post(_change(invited), _form(invited, **{COPY: "1"}), follow=True)
+    html = resp.content.decode()
+    assert mail.outbox == []
+    assert "Invitation link for invited@example.com" in html
+    assert ANCHOR not in html
+    assert "admin/copy-link.js" in html   # the page it lands on carries the Copy button's script
+    (path,) = LINK.findall(html)
+
+    invited.refresh_from_db()
+    assert invited.password_link_sent_at is not None   # State reads "Invited …, link expires …"
+    shown = LogEntry.objects.get(object_id=str(invited.pk),
+                                 change_message__startswith="Invitation link shown")
+    assert shown.user == admin_user
+    logged = [r.getMessage() for r in caplog.records if r.name == "accounts.admin"]
+    assert any("invited@example.com" in m and "admin@example.com" in m for m in logged)
+    assert not any("/accounts/reset/" in m for m in logged)
+
+    opened = Client().get(path)
+    assert opened.status_code == 302 and opened["Location"].endswith("/set-password/")
+
+
+def test_a_set_up_account_is_never_handed_a_link(admin_client, gp_user):
+    """A working link into an account someone already uses is not something
+    to give an admin quietly; a forgotten password goes by email, to them."""
+    resp = admin_client.post(_change(gp_user), _form(gp_user, **{COPY: "1"}), follow=True)
+    assert not LINK.search(resp.content.decode())
+    gp_user.refresh_from_db()
+    assert gp_user.password_link_sent_at is None
+
+
+def test_no_link_to_copy_while_the_practice_account_is_on(admin_client, settings):
+    """Password links open the invalid-link page then (accounts/views.py)."""
+    settings.PRACTICE_HR_URL = "https://hr.example"
+    invited = User.objects.create_user(email="invited@example.com")
+    assert f'name="{COPY}"' not in admin_client.get(_change(invited)).content.decode()
+    resp = admin_client.post(_change(invited), _form(invited, **{COPY: "1"}), follow=True)
+    assert not LINK.search(resp.content.decode())
+
+
 # --- the bulk action ---------------------------------------------------------
 
 def test_the_bulk_action_sends_to_everyone_the_requester_may_change(
@@ -194,7 +261,7 @@ def test_the_bulk_action_hands_over_links_when_it_cannot_send(admin_client, sett
                              follow=True)
     html = resp.content.decode()
     assert "0 sent, 1 to copy" in html
-    assert 'href="http://testserver/accounts/reset/' in html
+    assert LINK.search(html) and ANCHOR not in html
 
 
 # --- direct password setting is a superuser's tool now -----------------------

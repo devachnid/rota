@@ -1,3 +1,5 @@
+import logging
+
 from django import forms
 from django.conf import settings
 from django.contrib import admin, messages
@@ -10,9 +12,10 @@ from unfold.admin import ModelAdmin, TabularInline
 from unfold.decorators import action
 from unfold.forms import AdminPasswordChangeForm, UserChangeForm
 
-from .mail import link_expires, send_password_link
+from .mail import hand_over_link, link_expires, send_password_link
 from .models import Passkey, User
 
+logger = logging.getLogger(__name__)
 
 NO_INVITATION = "This person signs in with the practice account; no invitation is needed."
 ADMIN_FROM_HR = ("Set on the HR system: Login accounts › Apps › Admin of rota. It is "
@@ -28,6 +31,16 @@ class InviteForm(forms.ModelForm):
         fields = ("email", "is_rota_admin")
 
 
+def _copyable(link):
+    """A link shown to an admin to pass on: a read-only field and a Copy
+    button (static/admin/copy-link.js). Never an anchor — clicking one would
+    open that person's set-password page in the admin's own browser."""
+    return format_html(
+        '<span class="rota-copy-link"><input type="text" readonly value="{}" '
+        'aria-label="Link to copy" data-copy-link-source>'
+        '<button type="button" data-copy-link>Copy</button></span>', link)
+
+
 def _report(request, user, result, *, invite):
     """The three outcomes of a send, as the message the admin reads. A link
     is shown here, once, and nowhere else."""
@@ -36,12 +49,12 @@ def _report(request, user, result, *, invite):
         messages.success(request, f"{what} sent to {user.email}.")
     elif not result.reason:
         messages.warning(request, format_html(
-            "Email isn't set up — copy this link and send it to {} yourself: "
-            '<a href="{}">{}</a>', user.email, result.link, result.link))
+            "Email isn't set up — copy this link and send it to {} yourself: {}",
+            user.email, _copyable(result.link)))
     else:
         messages.error(request, format_html(
-            "Sending to {} failed ({}) — copy this link and send it yourself: "
-            '<a href="{}">{}</a>', user.email, result.reason, result.link, result.link))
+            "Sending to {} failed ({}) — copy this link and send it yourself: {}",
+            user.email, result.reason, _copyable(result.link)))
 
 
 class PasskeyInline(TabularInline):
@@ -72,8 +85,9 @@ class CustomUserAdmin(UserAdmin, ModelAdmin):
     checks for everyone else.
 
     Passwords: an admin never types one. Adding an account sends an
-    invitation; the change page offers one send button, chosen by state;
-    the direct set-password form stays for superusers only."""
+    invitation; the change page offers one send button, chosen by state,
+    and while the invitation is unfinished a link to copy beside it; the
+    direct set-password form stays for superusers only."""
 
     form = UserChangeForm
     add_form = InviteForm
@@ -88,9 +102,15 @@ class CustomUserAdmin(UserAdmin, ModelAdmin):
         (None, {"fields": ("email", "is_rota_admin")}),
     )
     actions = ("send_links",)
-    actions_submit_line = ("send_invitation", "send_reset_link")
+    actions_submit_line = ("send_invitation", "copy_invitation_link", "send_reset_link")
 
     inlines = (PasskeyInline,)
+
+    class Media:
+        # The Copy button beside a link to pass on (_copyable). Every page
+        # those messages land on — the changelist and the change page — is
+        # this admin's.
+        js = ("admin/copy-link.js",)
 
     def get_inline_instances(self, request, obj=None):
         # Nothing to list on the add page, and the inline's formset would
@@ -208,23 +228,47 @@ class CustomUserAdmin(UserAdmin, ModelAdmin):
             _report(request, obj, send_password_link(request, obj, invite=True), invite=True)
 
     def get_actions_submit_line(self, request, object_id):
-        """One button, chosen by state: an account with no usable password
-        can be invited again; one with a password can be sent a reset. The
-        add page has no buttons at all — save_model sends the invitation
-        itself, so a button name smuggled into an add POST must not send a
-        second one."""
+        """One send button, chosen by state: an account with no usable
+        password can be invited again, or its link copied; one with a
+        password can be sent a reset. The add page has no buttons at all —
+        save_model sends the invitation itself, so a button name smuggled
+        into an add POST must not send a second one. A button left out here
+        does nothing even if its name is posted: unfold runs only these."""
         if request.resolver_match and request.resolver_match.url_name.endswith("_add"):
             return []
         obj = self.get_object(request, object_id)
-        want = ("send_reset_link" if obj is not None and obj.has_usable_password()
-                else "send_invitation")
-        name = f"{self.opts.app_label}_{self.opts.model_name}_{want}"
+        if obj is not None and obj.has_usable_password():
+            want = {"send_reset_link"}
+        else:
+            want = {"send_invitation"}
+            # With the practice account on, a password link opens the
+            # invalid-link page (accounts/views.py).
+            if not settings.PRACTICE_HR_URL:
+                want.add("copy_invitation_link")
+        names = {f"{self.opts.app_label}_{self.opts.model_name}_{w}" for w in want}
         return [a for a in super().get_actions_submit_line(request, object_id)
-                if a.action_name == name]
+                if a.action_name in names]
 
     @action(description="Send invitation again")
     def send_invitation(self, request, obj):
         _report(request, obj, send_password_link(request, obj, invite=True), invite=True)
+
+    @action(description="Copy invitation link")
+    def copy_invitation_link(self, request, obj):
+        """For someone whose invitations never arrive: the same link, shown
+        to the admin to pass on another way. Only while the invitation is
+        unfinished (get_actions_submit_line) — a working link into an
+        account someone already uses is not something to hand an admin
+        quietly; a forgotten password goes by email, to its owner. The
+        account's history and the journal record who was shown it."""
+        link = hand_over_link(request, obj)
+        self.log_change(request, obj, "Invitation link shown, to pass on by hand.")
+        logger.info("invitation link for %s shown to %s", obj.email, request.user.email)
+        expires = link_expires(obj.password_link_sent_at)
+        messages.success(request, format_html(
+            "Invitation link for {} — pass it on yourself, by Teams or in person. "
+            "It works once, until {}. {}",
+            obj.email, f"{timezone.localtime(expires):%-d %B}", _copyable(link)))
 
     @action(description="Send password-reset link")
     def send_reset_link(self, request, obj):

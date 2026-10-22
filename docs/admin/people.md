@@ -145,20 +145,27 @@ If outgoing email is not set up (the dashboard's *Outgoing email* step says
 so), or the relay refuses, you are shown the link once instead, to copy into
 an email yourself. Nobody — not even you — ever sees anyone's password.
 
-### The State field and the send button
+### The State field and the send buttons
 
 Every account's page carries a **State** — *Not yet invited*; *Invited …,
 link expires …*; *Invitation expired — send another*; *Set up*; or *Set up —
-last link sent 4 Sep 14:02* — and one button in the save row, chosen by it:
+last link sent 4 Sep 14:02* — and buttons in the save row, chosen by it:
 
 - **Send invitation again** while they have no password yet — for a link
   that expired or never arrived.
+- **Copy invitation link**, beside it, for someone whose invitation emails
+  never arrive (a work mail filter can hold them where they cannot see
+  them). It sends nothing: the list opens with their link and a **Copy**
+  button, for you to pass on by Teams or in person. It is the same link
+  the email carries — it works once, for seven days — and the account's
+  **History** records that you were shown it. It is not offered once they
+  have a password, nor while the practice account is on.
 - **Send password-reset link** once they have one — for someone who has
   forgotten it. They can also do this themselves with *Forgotten your
   password?* on the login page, which works for an unfinished invitation too;
   the same account is not sent a second link within five minutes.
 
-Pressing either saves the page and sends. To invite a whole practice at
+Pressing a send button saves the page and sends. To invite a whole practice at
 once, tick the accounts on the list and choose **Send invitation or reset
 link**; each account gets whichever it needs.
 
