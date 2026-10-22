@@ -109,6 +109,16 @@ def send_password_link(request, user, *, invite, throttle=False):
     return None
 
 
+def hand_over_link(request, user):
+    """Mint a link for an admin to pass on by hand instead of by email —
+    for someone whose invitations are not arriving. It is the same link a
+    send would carry, and stamped like one, so the State field reads
+    "Invited …" with its expiry."""
+    link = password_link(request, user)
+    _stamp(user, timezone.now())
+    return link
+
+
 def _stamp(user, when):
     """A link was handed out — sent, or shown to an admin."""
     user.password_link_sent_at = when
