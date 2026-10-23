@@ -42,6 +42,9 @@ From the developer portal (`findmyshift.co.uk/developers`, API 1.4):
   `dateApproved` (null while pending), `dateDeleted` (set on a deleted
   record, which still comes back), `managerNotes`, pay and allowance fields,
   and `recurrence`/`recurrenceInterval`/`recursUntil`. **No clock times.**
+  FindMyShift's guide gives the convention for part of a day: book the whole
+  date and describe it "Morning off" or "Afternoon off" (and, if tracked,
+  set the allowance used to 0.5).
 
 ## Design
 
@@ -70,7 +73,10 @@ naming the weekdays inside that range the time off applies to. The sync
 splits the range into runs of applicable days (`sync.day_runs`), each a
 span of its own, so an unticked Wednesday is a working day. A record
 assigned to no one is skipped; a recurring record is read as its first
-occurrence and logged, since the rule's shape is unmeasured.
+occurrence and logged, since the rule's shape is unmeasured. A single-day
+record whose `description` says "morning"/"AM" or "afternoon"/"PM"
+(`sync.half_day`) is that half only; the description is read for that
+phrase and never stored.
 
 Should a record ever carry clock times (the pre-measurement guess, kept as
 a fallback), `spans.Span.from_times` turns the pair into the overlay's

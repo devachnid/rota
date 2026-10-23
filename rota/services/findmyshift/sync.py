@@ -14,7 +14,9 @@ dates, `days` as the weekdays inside that range the time off applies to
 or null, `staffId` (null for time off not assigned to anyone), `type` as
 the type's name and `timeOffTypeId` as its id, and `recurrence`,
 `recurrenceInterval`, `recursUntil` for a repeating record. There are no
-clock times: a day is off or it is not. The fields are still read by name
+clock times: a day is off or it is not — except by FindMyShift's own
+convention for part of a day, which is a whole date described "Morning
+off" or "Afternoon off" (half_day below). The fields are still read by name
 with alternatives (FIELDS), so a record that has none of the names for a
 field it must have fails the run with a message naming the record and the
 keys it did carry — values are never reported — which is also what
@@ -57,6 +59,14 @@ FIELDS = {
                "reasonName", "category"),
     "days": ("days", "weekdays"),
     "recurrence": ("recurrence",),
+    # The record's own description — FindMyShift's convention for part of a
+    # day ("Morning off", "Afternoon off"). Read for that phrase only, never
+    # stored: it defaults to the type's name and can hold anything.
+    "description": ("description",),
+}
+HALF_DAY_WORDS = {
+    "AM": re.compile(r"\b(morning|a\.?m\.?)\b", re.I),
+    "PM": re.compile(r"\b(afternoon|p\.?m\.?)\b", re.I),
 }
 TYPE_NAME_KEYS = ("description", "name", "title")
 TRUE_WORDS = ("yes", "true", "1", "approved", "y")
@@ -141,6 +151,17 @@ def as_bool(value, *, default):
     if word in FALSE_WORDS:
         return False
     return True
+
+
+def half_day(description):
+    """Which half a record's description says is off — "AM" for a morning,
+    "PM" for an afternoon — or None for a whole day. FindMyShift records
+    time off as whole days; its guide's convention for part of a day is to
+    book the whole date and describe it "Morning off" or "Afternoon off".
+    A description naming both halves is a whole day."""
+    text = str(description or "")
+    hits = [half for half, rx in HALF_DAY_WORDS.items() if rx.search(text)]
+    return hits[0] if len(hits) == 1 else None
 
 
 def fms_weekday(day):
@@ -229,6 +250,17 @@ def normalise(row, types=None):
     days = {int(d) for d in days} if isinstance(days, (list, tuple)) and days else ALL_DAYS
     reason = reason_name(pick(row, "reason"), types or {})
     whole = Span.from_times(parse_when(start), parse_when(end))
+    half = half_day(pick(row, "description"))
+    if half and whole.start_date == whole.end_date:
+        # A morning off ends at midday; an afternoon off starts there.
+        whole = Span(whole.start_date, whole.end_date,
+                     half == "PM", "PM" if half == "PM" else "",
+                     half == "AM", "AM" if half == "AM" else "")
+    elif half:
+        log.warning("findmyshift record %s is described as a %s off but spans "
+                    "%s to %s; read as whole days", source_id,
+                    "morning" if half == "AM" else "afternoon",
+                    whole.start_date, whole.end_date)
     runs = ([(whole.start_date, whole.end_date)] if days == ALL_DAYS
             else day_runs(whole.start_date, whole.end_date, days))
     out = []
@@ -425,7 +457,8 @@ def inspect(client):
                f"deleted: {sum(1 for r in rows if is_deleted(r))}; "
                f"for no one: {sum(1 for r in rows if for_no_one(r))}; "
                f"recurring: {sum(1 for r in rows if pick(r, 'recurrence') not in (None, '', 0, False))}; "
-               f"with a weekday mask: {sum(1 for r in rows if isinstance(pick(r, 'days'), list) and set(pick(r, 'days')) != ALL_DAYS)}")
+               f"with a weekday mask: {sum(1 for r in rows if isinstance(pick(r, 'days'), list) and set(pick(r, 'days')) != ALL_DAYS)}; "
+               f"half days by description: {sum(1 for r in rows if half_day(pick(r, 'description')))}")
     return "\n".join(out)
 
 
