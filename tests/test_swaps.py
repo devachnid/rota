@@ -402,7 +402,7 @@ def test_a_people_swap_is_refused_when_the_receiver_is_on_leave(cover):
     a, b, req = cover
     make_absence(b, FRI)  # Beth would be taking Alice's Friday
     assert swaps_svc.validate(req) == [
-        "Beth Brown is on leave on Fri 24 Jul PM (from Breathe) and cannot take that session."]
+        "Beth Brown is on leave on Fri 24 Jul PM (from FindMyShift) and cannot take that session."]
 
 
 def test_a_paired_session_never_changes_hands(cover):
@@ -419,7 +419,7 @@ def test_a_session_that_has_gone_is_named_first_and_leave_still_after_it(cover):
     make_absence(b, FRI)  # Beth would take Alice's Friday, and is off
     assert swaps_svc.validate(req) == [
         "Alice Adams has no session on Fri 24 Jul PM.",
-        "Beth Brown is on leave on Fri 24 Jul PM (from Breathe) and cannot take that session."]
+        "Beth Brown is on leave on Fri 24 Jul PM (from FindMyShift) and cannot take that session."]
 
 
 def test_a_swap_that_fits_neither_pattern_is_refused_when_proposed(client, pair):

@@ -9,7 +9,7 @@ import pytest
 from django.utils import timezone
 
 from rota.admin_dashboard import health, setup_steps
-from rota.models import (BreatheSyncRun, CoverageRule,
+from rota.models import (TimeOffSyncRun, CoverageRule,
                          PracticeSettings, SessionType, Site)
 from tests.factories import (make_clinician, make_group, make_pattern,
                              make_session_type)
@@ -50,8 +50,8 @@ def test_session_types_step_needs_a_clinical_and_an_absence_type():
     # Migration 0022_breathe seeds three ABSENCE-category types (AL/SICK/OTH)
     # and maps them, so a fresh test DB is not actually blank on this axis.
     # Clear both, PROTECT-guarded mapping first, for a genuine blank slate.
-    from rota.models import BreatheLeaveMapping
-    BreatheLeaveMapping.objects.all().delete()
+    from rota.models import TimeOffMapping
+    TimeOffMapping.objects.all().delete()
     SessionType.objects.filter(category=SessionType.Category.ABSENCE).delete()
     make_session_type("Routine")
     assert not _step("Session types")["done"]
@@ -68,22 +68,22 @@ def test_clinicians_and_patterns_steps():
     assert _step("Working patterns")["done"]
 
 
-def test_breathe_step_needs_key_sync_and_links(settings):
-    make_clinician("Ann Able", breathe_employee_id=1)
-    assert not _step("Breathe")["done"]
-    assert _step("Breathe")["detail"] == "BREATHE_API_KEY is not set"
-    assert _step("Breathe")["url"].endswith("/breathesyncrun/status/")
-    settings.BREATHE_API_KEY = "set"
-    assert not _step("Breathe")["done"]
-    assert _step("Breathe")["detail"] == "no successful sync yet"
-    assert _step("Breathe")["url"].endswith("/breathesyncrun/status/")
-    BreatheSyncRun.objects.create(started=timezone.now(), finished=timezone.now(), ok=True)
-    assert _step("Breathe")["done"]
-    assert _step("Breathe")["detail"] == "key set, synced, everyone linked"
+def test_findmyshift_step_needs_key_sync_and_links(settings):
+    make_clinician("Ann Able", findmyshift_staff_id="1")
+    assert not _step("FindMyShift")["done"]
+    assert _step("FindMyShift")["detail"] == "FINDMYSHIFT_API_KEY is not set"
+    assert _step("FindMyShift")["url"].endswith("/timeoffsyncrun/status/")
+    settings.FINDMYSHIFT_API_KEY = "set"
+    assert not _step("FindMyShift")["done"]
+    assert _step("FindMyShift")["detail"] == "no successful sync yet"
+    assert _step("FindMyShift")["url"].endswith("/timeoffsyncrun/status/")
+    TimeOffSyncRun.objects.create(started=timezone.now(), finished=timezone.now(), ok=True)
+    assert _step("FindMyShift")["done"]
+    assert _step("FindMyShift")["detail"] == "key set, synced, everyone linked"
     make_clinician("Bob Unlinked")
-    assert not _step("Breathe")["done"]
-    assert _step("Breathe")["detail"] == "1 not linked"
-    assert "breathe=unlinked" in _step("Breathe")["url"]
+    assert not _step("FindMyShift")["done"]
+    assert _step("FindMyShift")["detail"] == "1 not linked"
+    assert "findmyshift=unlinked" in _step("FindMyShift")["url"]
 
 
 def test_the_headline_counts_and_names_the_next_step(settings):
@@ -116,11 +116,11 @@ def test_health_lines_count_and_link(admin_client):
     assert "missing=1" in lines["Clinicians with no working pattern"]["url"]
     # An unlinked locum-group clinician does not count, and the link this
     # count offers must filter the same clinicians it counted.
-    assert lines["Clinicians not linked to Breathe"]["count"] == 1
-    unlinked_url = lines["Clinicians not linked to Breathe"]["url"]
+    assert lines["Clinicians not linked to FindMyShift"]["count"] == 1
+    unlinked_url = lines["Clinicians not linked to FindMyShift"]["url"]
     assert "group__is_locum_group__exact=0" in unlinked_url
     assert admin_client.get(unlinked_url).status_code == 200
-    assert lines["Breathe sync"]["detail"] == "not configured"
+    assert lines["FindMyShift sync"]["detail"] == "not configured"
     locum = lines["Locum needs not yet advertised (next fortnight)"]
     assert locum["count"] == 2
     assert "status__in=POSSIBLE,APPROVED" in locum["url"]
@@ -129,17 +129,17 @@ def test_health_lines_count_and_link(admin_client):
     assert lines["Clinicians overdue a personal requirement"]["count"] == 0
 
 
-def test_the_breathe_health_line_uses_local_time_not_utc(settings):
+def test_the_findmyshift_health_line_uses_local_time_not_utc(settings):
     """settings.TIME_ZONE is Europe/London — 1 July is BST (UTC+1), so an
     aware UTC 14:20 is a local 15:20. The dashboard must show the local
     hour, matching the |date filter the status page uses, not the raw
     UTC one."""
-    settings.BREATHE_API_KEY = "set"
+    settings.FINDMYSHIFT_API_KEY = "set"
     started = dt.datetime(2026, 7, 1, 14, 20, tzinfo=dt.timezone.utc)
     finished = dt.datetime(2026, 7, 1, 14, 25, tzinfo=dt.timezone.utc)
-    BreatheSyncRun.objects.create(started=started, finished=finished, ok=True)
+    TimeOffSyncRun.objects.create(started=started, finished=finished, ok=True)
     lines = {h["label"]: h for h in health()}
-    detail = lines["Breathe sync"]["detail"]
+    detail = lines["FindMyShift sync"]["detail"]
     assert "15:20" in detail
     assert "14:20" not in detail
 
@@ -159,11 +159,11 @@ def test_the_dashboard_collapses_when_setup_is_complete(admin_client, settings):
     make_group("Locum", is_locum_group=True, display_order=99)
     make_session_type("Annual Leave", code="AL2", category="ABSENCE")
     CoverageRule.objects.create(session_type=make_session_type("Duty"))
-    c = make_clinician("Ann Able", breathe_employee_id=1)
+    c = make_clinician("Ann Able", findmyshift_staff_id="1")
     make_pattern(c)
-    settings.BREATHE_API_KEY = "set"
+    settings.FINDMYSHIFT_API_KEY = "set"
     settings.EMAIL_HOST = "smtp.example"
-    BreatheSyncRun.objects.create(started=timezone.now(), finished=timezone.now(), ok=True)
+    TimeOffSyncRun.objects.create(started=timezone.now(), finished=timezone.now(), ok=True)
 
     html = admin_client.get("/admin/").content.decode()
     assert "Setup complete." in html

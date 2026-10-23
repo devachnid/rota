@@ -33,8 +33,8 @@ features branch on it.
   trainee doing SDL is not clinical cover.
 - **Absence** is excluded from the [group minimum
   warning](people.md#min-per-session), so someone on leave correctly does not
-  count as present. Absence types are what Breathe leave renders as — see [the
-  mapping](breathe.md#breathe-leave-mapping).
+  count as present. Absence types are what FindMyShift time off renders as — see
+  [the reason mapping](findmyshift.md#reason-mapping).
 
 Getting this wrong is quiet. A study-leave type marked Clinical will make a day
 look staffed when nobody is there.

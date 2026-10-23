@@ -31,7 +31,7 @@ def _pins(pinned):
 
 
 def _leave_name(row):
-    """What someone's leave is, for "Drew Tanner (Holiday)": what Breathe
+    """What someone's leave is, for "Drew Tanner (Holiday)": what FindMyShift
     calls it, or an absence entry's type. Not the first chip on the row —
     someone on leave may still be rostered on something (a clash), and
     "Drew Tanner (Duty)" under On leave says the opposite of the truth."""

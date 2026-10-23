@@ -25,7 +25,7 @@ def _rule(selector):
     return body[:body.index("}")]
 
 
-@pytest.mark.parametrize("code", ["coverage", "staffing", "group", "breathe"])
+@pytest.mark.parametrize("code", ["coverage", "staffing", "group", "timeoff"])
 def test_an_uncovered_session_or_an_absent_person_is_danger(code):
     assert Warning(code, "AM", "…").level == "danger"
 
@@ -68,11 +68,11 @@ def test_a_ceiling_in_the_week_header_is_amber(admin_client):
     assert 'class="alert alert-compact alert-warning">Too many Urgent this week' in html
 
 
-def test_the_breathe_banner_is_a_warning_not_a_gap(admin_client):
+def test_the_findmyshift_banner_is_a_warning_not_a_gap(admin_client):
     PracticeSettings.load()
     make_clinician("Alice Adams")
     html = admin_client.get(f"/rota/?week={MON}").content.decode()
-    assert '<div class="alert alert-warning">1 clinician not linked to Breathe' in html
+    assert '<div class="alert alert-warning">1 clinician not linked to FindMyShift' in html
 
 
 def test_the_cell_forms_prompt_to_save_again_is_announced_as_a_warning(admin_client):

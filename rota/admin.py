@@ -15,7 +15,7 @@ from unfold.admin import ModelAdmin, StackedInline, TabularInline
 from unfold.decorators import action
 from unfold.contrib.filters.admin import RangeDateFilter
 
-from .models import (BreatheAbsence, BreatheLeaveMapping, BreatheSyncRun,
+from .models import (TimeOff, TimeOffMapping, TimeOffSyncRun,
                      Clinician, ClinicianGroup, ClosedDay, CoverageRule,
                      DayNote, LocumRequirement,
                      PatternSlot, PersonalRequirement, PracticeSettings,
@@ -23,12 +23,12 @@ from .models import (BreatheAbsence, BreatheLeaveMapping, BreatheSyncRun,
                      SessionType, Site, SwapRequest, TraineeProfile, TraineeStageRule)
 from . import mail as swap_mail
 from .services import swaps as swaps_svc
-from .services.breathe import client as breathe_client, sync as breathe_sync
-from .services.breathe.links import expects_link
+from .services.findmyshift import client as fms_client, sync as findmyshift_sync
+from .services.findmyshift.links import expects_link
 from .admin_forms import (WEEKDAYS, CoverageRuleForm, PersonalRequirementForm,
                           PracticeSettingsForm)
-from .admin_widgets import (BreatheEmployeeSelect, TintSwatchSelect,
-                            breathe_employees, employee_label)
+from .admin_widgets import (StaffSelect, TintSwatchSelect,
+                            findmyshift_staff, staff_label)
 
 WEEKDAY_LABELS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday",
                   "Saturday", "Sunday"]
@@ -105,9 +105,9 @@ class RecurringCommitmentInline(TabularInline):
         return super().formfield_for_dbfield(db_field, request, **kwargs)
 
 
-class BreatheLinkedFilter(admin.SimpleListFilter):
-    title = "Breathe"
-    parameter_name = "breathe"
+class FindMyShiftLinkedFilter(admin.SimpleListFilter):
+    title = "FindMyShift"
+    parameter_name = "findmyshift"
 
     def lookups(self, request, model_admin):
         # Labels avoid the bare word "Linked": a clinician can genuinely be
@@ -118,18 +118,18 @@ class BreatheLinkedFilter(admin.SimpleListFilter):
 
     def queryset(self, request, qs):
         if self.value() == "linked":
-            return qs.exclude(breathe_employee_id=None)
+            return qs.exclude(findmyshift_staff_id=None)
         if self.value() == "unlinked":
-            return qs.filter(breathe_employee_id=None)
+            return qs.filter(findmyshift_staff_id=None)
         return qs
 
 
 @admin.register(Clinician)
 class ClinicianAdmin(ModelAdmin):
     list_display = ("name", "initials", "group", "display_order", "active",
-                    "is_trainer", "pattern_column", "breathe_link")
+                    "is_trainer", "pattern_column", "findmyshift_link")
     list_editable = ("display_order",)
-    list_filter = ("group", "active", "is_trainer", BreatheLinkedFilter)
+    list_filter = ("group", "active", "is_trainer", FindMyShiftLinkedFilter)
     search_fields = ("name", "initials", "user__email")
     inlines = [TraineeProfileInline, RecurringCommitmentInline]
     actions = ["deactivate_clinicians"]
@@ -147,12 +147,12 @@ class ClinicianAdmin(ModelAdmin):
                            "deleting. Dates bound when they can be scheduled.",
         }),
         ("Roles", {"fields": ("is_trainer",)}),
-        ("Leave from Breathe", {
-            "fields": ("breathe_employee_id",),
-            "description": "Leave is read from Breathe for linked clinicians only. "
-                           "An unlinked clinician is treated as always available. "
-                           "Locums are not on Breathe (it holds employees, not "
-                           "contractors) — leave this blank for them.",
+        ("Time off from FindMyShift", {
+            "fields": ("findmyshift_staff_id",),
+            "description": "Time off is read from FindMyShift for linked clinicians "
+                           "only. An unlinked clinician is treated as always "
+                           "available. Locums book their own sessions and have no "
+                           "time off to read — leave this blank for them.",
         }),
     )
 
@@ -162,7 +162,7 @@ class ClinicianAdmin(ModelAdmin):
         # hop into a field on the related ClinicianGroup — Django's own
         # lookup_allowed only matches a relation path it finds verbatim in
         # list_filter. The dashboard's "not linked" links narrow by
-        # group__is_locum_group as well as breathe/active, so that lookup
+        # group__is_locum_group as well as findmyshift/active, so that lookup
         # needs allowing explicitly rather than adding a whole extra
         # sidebar filter box just to license it.
         if lookup == "group__is_locum_group__exact":
@@ -191,15 +191,15 @@ class ClinicianAdmin(ModelAdmin):
                            text, url, obj.pk)
 
     def formfield_for_dbfield(self, db_field, request, **kwargs):
-        if db_field.name == "breathe_employee_id":
-            employees = breathe_employees()
-            if employees is None:
+        if db_field.name == "findmyshift_staff_id":
+            staff = findmyshift_staff()
+            if staff is None:
                 field = super().formfield_for_dbfield(db_field, request, **kwargs)
-                field.help_text = ("Could not reach Breathe, so this is the raw employee id. "
-                                   "The dropdown returns when Breathe is reachable.")
+                field.help_text = ("Could not reach FindMyShift, so this is the raw staff id. "
+                                   "The dropdown returns when FindMyShift is reachable.")
                 return field
-            kwargs["widget"] = BreatheEmployeeSelect(employees)
-            kwargs["help_text"] = "The Breathe employee whose leave this clinician's is."
+            kwargs["widget"] = StaffSelect(staff)
+            kwargs["help_text"] = "The FindMyShift staff member whose time off this clinician's is."
         return super().formfield_for_dbfield(db_field, request, **kwargs)
 
     def get_form(self, request, obj=None, **kwargs):
@@ -212,17 +212,18 @@ class ClinicianAdmin(ModelAdmin):
         # ModelForm(instance=obj), and BaseModelForm.__init__ seeds
         # self.initial from model_to_dict(instance) *before* anything looks
         # at the field's own .initial — so self.initial already holds
-        # breathe_employee_id: None, and dict.get(key, default) returns that
+        # findmyshift_staff_id: None, and dict.get(key, default) returns that
         # stored None rather than falling through to field.initial. The
         # suggestion has to land in self.initial on the bound form instance
         # instead, which is why this subclasses rather than touching
         # base_fields.
-        if obj is not None and obj.breathe_employee_id is None and obj.user_id:
-            employees = breathe_employees() or []
+        if obj is not None and obj.findmyshift_staff_id is None and obj.user_id:
+            staff = findmyshift_staff() or []
             email = (obj.user.email or "").lower()
-            match = next((e for e in employees if (e.get("email") or "").lower() == email), None)
-            if match and "breathe_employee_id" in form.base_fields:
-                suggested_id = match["id"]
+            match = next((s for s in staff
+                          if (s.get("emailAddress") or "").lower() == email), None)
+            if match and "findmyshift_staff_id" in form.base_fields:
+                suggested_id = str(match["id"])
 
                 class SuggestingForm(form):
                     def __init__(self, *args, **kw):
@@ -232,22 +233,22 @@ class ClinicianAdmin(ModelAdmin):
                         # saved, but leaving this unconditional would still
                         # be harmless; the guard just documents the intent.
                         if not self.is_bound:
-                            self.initial["breathe_employee_id"] = suggested_id
+                            self.initial["findmyshift_staff_id"] = suggested_id
 
                 return SuggestingForm
         return form
 
-    @admin.display(description="Breathe")
-    def breathe_link(self, obj):
-        if obj.breathe_employee_id is None:
-            # A locum has no Breathe record to link to (contractors are not
-            # employees), so "not linked" would read as something to fix.
+    @admin.display(description="FindMyShift")
+    def findmyshift_link(self, obj):
+        if obj.findmyshift_staff_id is None:
+            # A locum has no time off to read (they book their own sessions),
+            # so "not linked" would read as something to fix.
             return format_html(
                 '<span style="color: var(--color-base-500)">{}</span>',
-                "not linked" if expects_link(obj) else "locum — not on Breathe")
-        employees = breathe_employees() or []
-        e = next((x for x in employees if x["id"] == obj.breathe_employee_id), None)
-        return employee_label(e) if e else f"#{obj.breathe_employee_id}"
+                "not linked" if expects_link(obj) else "locum — not on FindMyShift")
+        staff = findmyshift_staff() or []
+        s = next((x for x in staff if str(x.get("id")) == obj.findmyshift_staff_id), None)
+        return staff_label(s) if s else f"#{obj.findmyshift_staff_id}"
 
     @admin.action(description="Deactivate selected clinicians")
     def deactivate_clinicians(self, request, queryset):
@@ -750,13 +751,13 @@ class SwapRequestAdmin(ModelAdmin):
         messages.success(request, "Swap declined.")
 
 
-@admin.register(BreatheAbsence)
-class BreatheAbsenceAdmin(ModelAdmin):
-    list_display = ("clinician", "kind", "reason", "start_date", "end_date",
-                    "half_start_am_pm", "half_end_am_pm")
-    list_filter = ("kind", ("start_date", RangeDateFilter))
+@admin.register(TimeOff)
+class TimeOffAdmin(ModelAdmin):
+    list_display = ("clinician", "reason", "start_date", "end_date",
+                    "half_start_am_pm", "half_end_am_pm", "source_ids")
+    list_filter = ("reason", ("start_date", RangeDateFilter))
     search_fields = ("clinician__name", "reason")
-    readonly_fields = [f.name for f in BreatheAbsence._meta.fields]
+    readonly_fields = [f.name for f in TimeOff._meta.fields]
 
     def has_add_permission(self, request):
         return False
@@ -765,27 +766,26 @@ class BreatheAbsenceAdmin(ModelAdmin):
         return False
 
 
-@admin.register(BreatheLeaveMapping)
-class BreatheLeaveMappingAdmin(ModelAdmin):
-    list_display = ("kind", "reason", "session_type")
-    list_filter = ("kind",)
+@admin.register(TimeOffMapping)
+class TimeOffMappingAdmin(ModelAdmin):
+    list_display = ("reason", "session_type")
 
     def has_delete_permission(self, request, obj=None):
-        # A row with reason == "" is a kind's default. Deleting it is one
-        # click from every absence of that kind rendering an empty cell —
-        # the resolver falls through (kind, reason) -> (kind, "") and, with
-        # neither present, renders nothing (see BreatheSyncRunAdmin's
-        # "unmapped absences" count below). Reason-specific rows stay
-        # deletable; they only narrow a kind's default, they are not it.
+        # The row with reason == "" is the default. Deleting it is one click
+        # from every absence with no row of its own rendering an empty cell
+        # — the resolver falls through reason -> "" and, with neither
+        # present, renders nothing (the sync status page lists reasons
+        # relying on the default). Reason-specific rows stay deletable; they
+        # only narrow the default, they are not it.
         if obj is not None and obj.reason == "":
             return False
         return super().has_delete_permission(request, obj)
 
 
-@admin.register(BreatheSyncRun)
-class BreatheSyncRunAdmin(ModelAdmin):
+@admin.register(TimeOffSyncRun)
+class TimeOffSyncRunAdmin(ModelAdmin):
     list_display = ("started", "ok", "n_deduped", "n_unlinked", "error")
-    readonly_fields = [f.name for f in BreatheSyncRun._meta.fields]
+    readonly_fields = [f.name for f in TimeOffSyncRun._meta.fields]
 
     def has_add_permission(self, request):
         return False
@@ -794,33 +794,34 @@ class BreatheSyncRunAdmin(ModelAdmin):
         return False
 
     def get_urls(self):
-        from .admin_pages import BreatheStatusView
+        from .admin_pages import TimeOffStatusView
         return [
             path("status/",
-                 self.admin_site.admin_view(BreatheStatusView.as_view(model_admin=self)),
-                 name="rota_breathesyncrun_status"),
+                 self.admin_site.admin_view(TimeOffStatusView.as_view(model_admin=self)),
+                 name="rota_timeoffsyncrun_status"),
             path("refresh/", self.admin_site.admin_view(self.refresh),
-                 name="rota_breathesyncrun_refresh"),
+                 name="rota_timeoffsyncrun_refresh"),
         ] + super().get_urls()
 
     def refresh(self, request):
         if request.method != "POST":
-            return redirect("admin:rota_breathesyncrun_status")
-        recent = BreatheSyncRun.objects.filter(
+            return redirect("admin:rota_timeoffsyncrun_status")
+        recent = TimeOffSyncRun.objects.filter(
             started__gte=timezone.now() - timedelta(seconds=60)).exists()
         if recent:
             messages.warning(request, "A sync ran less than a minute ago; not running another.")
-            return redirect("admin:rota_breathesyncrun_status")
-        client = breathe_client.from_settings()
+            return redirect("admin:rota_timeoffsyncrun_status")
+        client = fms_client.from_settings()
         if client is None:
-            messages.error(request, "Breathe is not configured (BREATHE_API_KEY unset).")
-            return redirect("admin:rota_breathesyncrun_status")
-        run = breathe_sync.run(client)
+            messages.error(request, "FindMyShift is not configured (FINDMYSHIFT_API_KEY unset).")
+            return redirect("admin:rota_timeoffsyncrun_status")
+        run = findmyshift_sync.run(client)
         if run.ok:
-            messages.success(request, f"Synced: {run.n_deduped} absences, {run.n_unlinked} for unlinked employees.")
+            messages.success(request, f"Synced: {run.n_deduped} absences, "
+                                      f"{run.n_unlinked} for unlinked staff.")
         else:
             messages.error(request, f"Sync failed: {run.error}")
-        return redirect("admin:rota_breathesyncrun_status")
+        return redirect("admin:rota_timeoffsyncrun_status")
 
 
 from . import admin_system  # noqa: E402,F401 — re-registers the System tables on unfold

@@ -9,13 +9,14 @@ Every colour comes from `rota.palette`; nothing here hardcodes one.
 """
 
 from django import forms
+from django.conf import settings
 from django.core.cache import cache
 from django.forms.widgets import RadioSelect
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
 
 from rota import palette
-from rota.services.breathe.client import BreatheError, from_settings
+from rota.services.findmyshift.client import FindMyShiftError, from_settings
 
 
 class TintSwatchSelect(RadioSelect):
@@ -50,43 +51,44 @@ class TintSwatchSelect(RadioSelect):
             preview, rows)
 
 
-_EMPLOYEES_KEY = "breathe:employees"
-_EMPLOYEES_TTL = 300
+_STAFF_KEY = "findmyshift:staff"
+_STAFF_TTL = 300
 
 
-def breathe_employees():
-    """The projected employee list, or None when Breathe is off or down.
+def findmyshift_staff():
+    """The projected staff list, or None when FindMyShift is off or down.
     Cached so opening ten clinician forms costs one request."""
-    cached = cache.get(_EMPLOYEES_KEY)
+    cached = cache.get(_STAFF_KEY)
     if cached is not None:
         return cached
     client = from_settings()
     if client is None:
         return None
     try:
-        employees = client.employees()
-    except BreatheError:
+        staff = client.staff(settings.FINDMYSHIFT_TEAM_ID or None)
+    except FindMyShiftError:
         return None
-    cache.set(_EMPLOYEES_KEY, employees, _EMPLOYEES_TTL)
-    return employees
+    staff = [s for s in staff if s.get("id") is not None]
+    cache.set(_STAFF_KEY, staff, _STAFF_TTL)
+    return staff
 
 
-def employee_label(e):
-    name = f"{e.get('first_name') or ''} {e.get('last_name') or ''}".strip()
-    bits = [name, e.get("email") or "", e.get("employee_ref") or ""]
-    label = " · ".join(b for b in bits if b)
-    if (e.get("status") or "").lower().startswith("ex"):
-        label += " (ex-employee)"
+def staff_label(s):
+    name = f"{s.get('firstName') or ''} {s.get('lastName') or ''}".strip()
+    bits = [name, s.get("emailAddress") or "", s.get("payrollId") or ""]
+    label = " · ".join(b for b in bits if b) or f"#{s.get('id')}"
+    if s.get("dateFinished"):
+        label += " (left)"
     return label
 
 
-class BreatheEmployeeSelect(forms.Select):
-    """A dropdown of Breathe employees; built per form so the cache decides
-    how often Breathe is actually asked."""
+class StaffSelect(forms.Select):
+    """A dropdown of FindMyShift staff; built per form so the cache decides
+    how often FindMyShift is actually asked."""
 
-    def __init__(self, employees, attrs=None):
+    def __init__(self, staff, attrs=None):
         choices = [("", "— not linked —")] + [
-            (e["id"], employee_label(e))
-            for e in sorted(employees, key=lambda e: (e.get("last_name") or "", e.get("first_name") or ""))
+            (str(s["id"]), staff_label(s))
+            for s in sorted(staff, key=lambda s: (s.get("lastName") or "", s.get("firstName") or ""))
         ]
         super().__init__(attrs, choices)

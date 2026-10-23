@@ -1,4 +1,4 @@
-"""A swap must not hand a session to someone Breathe says is off."""
+"""A swap must not hand a session to someone FindMyShift says is off."""
 
 from datetime import date
 

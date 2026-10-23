@@ -22,7 +22,7 @@ def _change(client, obj):
 def test_the_clinician_page_has_the_four_fieldsets_and_two_inlines(admin_client):
     c = make_clinician("Ann Able")
     html = _change(admin_client, c)
-    for title in ("Who", "Availability", "Roles", "Leave from Breathe"):
+    for title in ("Who", "Availability", "Roles", "Time off from FindMyShift"):
         assert title in html, title
     assert "Trainee profile" in html and "Recurring commitment" in html
 

@@ -103,15 +103,15 @@ not only on the named trainers.
 The trainer dropdown on a trainee profile only offers clinicians with this
 ticked.
 
-### Breathe employee
+### FindMyShift staff member
 
-Which BreatheHR employee this clinician is. A dropdown of your Breathe
-employees; pick one and save. **Unlinked clinicians have no leave read for
-them and are treated as available** — the sync status page and the week grid
-both warn admins about them. Leave it blank for a locum: Breathe holds
-employees, not contractors, so locums are left out of that warning and the
-list shows "locum — not on Breathe" for them. See [Leave from
-Breathe](breathe.md).
+Which FindMyShift staff member this clinician is. A dropdown of your staff;
+pick one and save. **Unlinked clinicians have no time off read for them and
+are treated as available** — the sync status page and the week grid both
+warn admins about them. Leave it blank for a locum: a locum books their own
+sessions and has no time off to read, so locums are left out of that warning
+and the list shows "locum — not on FindMyShift" for them. See [Time off from
+FindMyShift](findmyshift.md).
 
 ## Login accounts
 

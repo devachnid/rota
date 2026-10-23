@@ -3,7 +3,7 @@ from datetime import date, timedelta
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 
-from rota.models import (BreatheAbsence, BreatheLeaveMapping, Clinician,
+from rota.models import (TimeOff, TimeOffMapping, Clinician,
                          CoverageRule, LocumRequirement, PatternSlot,
                          PracticeSettings, RotaEntry, SessionType,
                          TraineeProfile, TraineeStageRule)
@@ -66,7 +66,7 @@ def report_staffing(request):
             continue
         warnings = day_warnings(d, include_drafts=include_drafts)
         if not request.user.is_rota_admin:
-            warnings = [w for w in warnings if w.code != "breathe"]
+            warnings = [w for w in warnings if w.code != "timeoff"]
         if warnings:
             days.append({"day": d, "warnings": warnings})
     return render(request, "rota/report_staffing.html",
@@ -205,7 +205,7 @@ def report_trainees(request):
 def _locum_absence_label(cell):
     """What the covered clinician was off for, in the report's words.
 
-    Breathe first (the label never goes through the mapping), then an
+    FindMyShift first (the label never goes through the mapping), then an
     absence-category entry standing on the cell (a hand-placed AL, or
     history from before the overlay), then nothing we know about.
     """
@@ -231,9 +231,9 @@ def _locum_rows(bookings, start, end, include_drafts):
     resolver = AvailabilityResolver(
         PatternSlot.objects.filter(clinician_id__in=covered),
         covered.values(),
-        BreatheAbsence.objects.filter(clinician_id__in=covered,
+        TimeOff.objects.filter(clinician_id__in=covered,
                                       start_date__lte=end, end_date__gte=start),
-        BreatheLeaveMapping.as_dict(),
+        TimeOffMapping.as_dict(),
     )
     rows = []
     for b in bookings:

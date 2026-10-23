@@ -93,14 +93,14 @@ def test_a_malformed_date_falls_back_to_the_default(admin_client, world):
     assert "Larry Locum" in resp.content.decode()
 
 
-def test_absence_comes_from_breathe_first(admin_client, world):
-    make_absence(world["ann"], MON, kind="other", reason="Jury service")
+def test_absence_comes_from_findmyshift_first(admin_client, world):
+    make_absence(world["ann"], MON, reason="Jury service")
     world["book"](covering=world["ann"])
 
     html = admin_client.get(
         f"/reports/locums/?start={MON}&end={MON}").content.decode()
 
-    assert "Other leave: Jury service" in html
+    assert "Jury service" in html
 
 
 def test_absence_falls_back_to_an_absence_entry(admin_client, world):
@@ -153,7 +153,7 @@ def test_no_absence_recorded_and_no_covering(admin_client, world):
 
 def test_each_filter_narrows_and_they_combine(admin_client, world):
     lena = make_clinician("Lena Locum2", group=world["locum_group"])
-    make_absence(world["ann"], MON, kind="holiday")
+    make_absence(world["ann"], MON, reason="Holiday")
     al = make_session_type("Annual Leave", code="AL",
                            category=SessionType.Category.ABSENCE)
     make_entry(world["bob"], day=MON, part="AM", session_type=al,
@@ -223,7 +223,7 @@ def test_the_report_does_not_query_per_booking(admin_client, world):
             locum = make_clinician(f"Locum {tag}{i}", group=world["locum_group"],
                                    initials=f"L{tag}{i}")
             covered = make_clinician(f"Covered {tag}{i}", initials=f"C{tag}{i}")
-            make_absence(covered, MON, kind="holiday")
+            make_absence(covered, MON, reason="Holiday")
             world["book"](day=MON, part="AM", locum=locum, covering=covered)
 
     def queries():

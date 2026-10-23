@@ -121,7 +121,7 @@ DATABASES = {
             # WAL lets readers and the single writer proceed together.
             "init_command": "PRAGMA journal_mode=WAL;",
             # SQLite's default DEFERRED transaction only takes the write lock at
-            # the first write, and if another connection (the Breathe sync, the
+            # the first write, and if another connection (the FindMyShift sync, the
             # other gunicorn worker) got there first it fails at once with
             # "database is locked" rather than waiting out the busy timeout.
             # IMMEDIATE takes the lock at BEGIN, so writers queue instead.
@@ -224,14 +224,20 @@ TRUSTED_PROXY_IPS = frozenset(
     ).split(",") if h.strip()
 )
 
-# BreatheHR, which owns leave. Read-only. The key comes from /etc/rota.env
-# like SECRET_KEY and never from a file in this repository; with no key the
-# integration is off and every consumer degrades quietly.
+# FindMyShift, which owns time off. Read-only. The key comes from
+# /etc/rota.env like SECRET_KEY and never from a file in this repository;
+# with no key the integration is off and every consumer degrades quietly.
 # Stripped: a key pasted with a trailing newline or CR (a CRLF-edited
-# /etc/rota.env) makes http.client refuse the header — with the key itself
-# in the error text.
-BREATHE_API_KEY = os.environ.get("BREATHE_API_KEY", "").strip()
-BREATHE_API_URL = os.environ.get("BREATHE_API_URL", "https://api.breathehr.com/v1")
+# /etc/rota.env) would otherwise go into the request body as pasted.
+FINDMYSHIFT_API_KEY = os.environ.get("FINDMYSHIFT_API_KEY", "").strip()
+FINDMYSHIFT_API_URL = os.environ.get("FINDMYSHIFT_API_URL",
+                                     "https://www.findmyshift.co.uk/api/1.4")
+# The team to read time off for. Blank reads every team the key can see,
+# which for a practice with one team is the same thing.
+FINDMYSHIFT_TEAM_ID = os.environ.get("FINDMYSHIFT_TEAM_ID", "").strip()
+# Where the morning ends, for turning a time-off record's clock times into
+# the rota's AM/PM parts (rota/services/findmyshift/spans.py). HH:MM.
+FINDMYSHIFT_MIDDAY = os.environ.get("FINDMYSHIFT_MIDDAY", "13:00").strip() or "13:00"
 
 # Outgoing mail: invitations and password-reset links, and nothing else.
 # Standard Django keys, every one from /etc/rota.env. EMAIL_HOST being set

@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 
 from rota.services import grid as grid_svc
-from rota.services.breathe.links import (unlinked_changelist_url,
+from rota.services.findmyshift.links import (unlinked_changelist_url,
                                          unlinked_clinicians)
 
 

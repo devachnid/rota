@@ -1,7 +1,7 @@
 """The precedence every rota cell obeys, tested once rather than per screen.
 
     entry exists           -> the entry
-    on leave and showable  -> the Breathe absence
+    on leave and showable  -> the FindMyShift time off
     works_on               -> off=False, nothing allocated
     otherwise              -> off=True
 
@@ -13,7 +13,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from rota.models import BreatheLeaveMapping, PatternSlot
+from rota.models import TimeOffMapping, PatternSlot
 from rota.services import availability
 from rota.services.cells import cell_state
 from tests.factories import make_absence, make_clinician, make_entry, make_session_type
@@ -26,7 +26,7 @@ TUE = date(2026, 9, 8)
 def _resolver(clinicians, absences=()):
     rows = list(PatternSlot.objects.filter(clinician__in=clinicians))
     return availability.AvailabilityResolver(
-        rows, list(clinicians), list(absences), BreatheLeaveMapping.as_dict())
+        rows, list(clinicians), list(absences), TimeOffMapping.as_dict())
 
 
 def _works(c, weekday=1):
@@ -103,7 +103,7 @@ def test_the_partner_is_carried_through():
 
 # ------------------------------------------------ leave under an entry ---
 #
-# A published week, then leave approved in Breathe: the entry still stands
+# A published week, then leave approved in FindMyShift: the entry still stands
 # (an entry beats leave for what the cell SHOWS, by design) but the cell
 # must know it is standing on leave, or nothing can mark it. `on_leave`
 # used to be forced False whenever an entry existed. It is not any more.
@@ -111,26 +111,24 @@ def test_the_partner_is_carried_through():
 from rota.services.cells import leave_label
 
 
-def test_leave_label_per_kind():
-    assert leave_label("holiday", "") == "Holiday"
-    assert leave_label("holiday", "Annual") == "Holiday"
-    assert leave_label("sickness", "") == "Sick"
-    assert leave_label("other", "Jury service") == "Other leave: Jury service"
-    assert leave_label("other", "") == "Other leave"
-    assert leave_label("study", "") == "Study"
+def test_leave_label_is_the_reason_or_time_off():
+    assert leave_label("Holiday") == "Holiday"
+    assert leave_label("Sick") == "Sick"
+    assert leave_label("Jury service") == "Jury service"
+    assert leave_label("") == "Time off"
 
 
 def test_covering_is_public_and_names_the_absence():
     c = make_clinician()
     _works(c)
-    absences = [make_absence(c, TUE, kind="other", reason="Jury service")]
+    absences = [make_absence(c, TUE, reason="Jury service")]
     r = _resolver([c], absences)
-    assert r.covering(c.id, TUE, "AM") == ("other", "Jury service")
+    assert r.covering(c.id, TUE, "AM") == "Jury service"
     assert r.covering(c.id, TUE + timedelta(days=1), "AM") is None
     assert not hasattr(r, "_covering"), "the private name was renamed, not duplicated"
 
 
-def test_an_entry_over_breathe_leave_is_a_clash():
+def test_an_entry_over_findmyshift_leave_is_a_clash():
     c = make_clinician()
     _works(c)
     e = make_entry(c, day=TUE, part="AM")
@@ -144,8 +142,8 @@ def test_an_entry_over_breathe_leave_is_a_clash():
     assert cell["absence"] is None, "the chip shown is still the entry's"
 
 
-def test_an_absence_entry_over_breathe_leave_agrees_and_is_not_a_clash():
-    """An admin marking someone AL by hand when Breathe also says off is
+def test_an_absence_entry_over_findmyshift_leave_agrees_and_is_not_a_clash():
+    """An admin marking someone AL by hand when FindMyShift also says off is
     agreement, not a rostered session on a day off."""
     c = make_clinician()
     _works(c)
@@ -182,14 +180,14 @@ def test_leave_with_no_entry_labels_but_is_not_a_clash():
     assert cell["absence"] is not None
 
 
-def test_an_unmapped_kind_still_labels():
+def test_an_unmapped_reason_still_labels():
     """The label never goes through the mapping. Deleting a mapping row
     empties the chip; it must not empty the tooltip or the warning."""
-    BreatheLeaveMapping.objects.filter(kind="sickness").delete()
+    TimeOffMapping.objects.filter(reason__in=["Sick", ""]).delete()
     c = make_clinician()
     _works(c)
     cell = cell_state(c.id, TUE, "AM", entry=None,
-                      resolver=_resolver([c], [make_absence(c, TUE, kind="sickness")]),
+                      resolver=_resolver([c], [make_absence(c, TUE, reason="Sick")]),
                       closed=False)
     assert cell["absence"] is None
     assert cell["on_leave"] is True

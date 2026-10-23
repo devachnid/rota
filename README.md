@@ -4,7 +4,7 @@ Session-based GP practice rota. The design specs live in
 `docs/superpowers/specs/`, one per piece of work in the order it was built: v1;
 autofill v2 (trainees, commitments, demand-driven clinics, PMC branch cover);
 the frontend's first phase; the post-deployment fixes; the frontend's second
-phase (mobile); leave from Breathe; the admin overhaul; the grid and locum
+phase (mobile); leave read from the HR system, since replaced by time off from FindMyShift; the admin overhaul; the grid and locum
 enhancements; and account access — invitations, self-service passwords,
 passkeys; the grid and fill round 2 — the eight-week grid, ticking mode, the suggested fill week, clinician order and the OFF chip; and personal requirements — one session per named clinician every N weeks, on no fixed day. The implementation plans are in `docs/superpowers/plans/`.
 
@@ -54,7 +54,7 @@ is the reference for what the settings actually mean.
 
 The sequence the checklist walks, for reference: practice settings → sites →
 clinician groups → session types → coverage rules → clinicians → working
-patterns → Breathe → outgoing email. Trainees, recurring commitments and locum bookings are
+patterns → FindMyShift → outgoing email. Trainees, recurring commitments and locum bookings are
 day-to-day work, not setup — see [docs/admin/](docs/admin/README.md).
 
 ## Deploy (LXC + Cloudflare tunnel)
@@ -98,7 +98,7 @@ Then:
     deploy/manage collectstatic --noinput
     deploy/manage migrate
     cp deploy/gunicorn.service /etc/systemd/system/rota.service
-    cp deploy/rota-backup.* deploy/rota-clearsessions.* deploy/rota-breathe.* /etc/systemd/system/
+    cp deploy/rota-backup.* deploy/rota-clearsessions.* deploy/rota-findmyshift.* /etc/systemd/system/
     systemctl daemon-reload && systemctl enable --now rota rota-backup.timer rota-clearsessions.timer
 
 **Run every `manage.py` command through `deploy/manage`**, as root:
@@ -111,8 +111,8 @@ then cannot open them. Sourcing the settings into a shell (`. /etc/rota.env`)
 also fails on a secret key holding `(` or `$`, which Django's generated keys
 do.
 
-`rota-breathe.timer` is enabled later, once every clinician is linked — step 5
-of [Leave from Breathe](docs/admin/breathe.md#setting-it-up-in-this-order).
+`rota-findmyshift.timer` is enabled later, once every clinician is linked — the
+last step of [Time off from FindMyShift](docs/admin/findmyshift.md#setting-it-up-in-this-order).
 
 Point the Cloudflare tunnel ingress at `http://127.0.0.1:8321`.
 Backups land in `/var/lib/rota/backups/`, kept 30 days, readable only by the
@@ -226,8 +226,8 @@ database beside the code. Moving one takes a few minutes with the site down.
 
 2. **Stop everything**, so nothing holds the database open:
 
-       systemctl stop rota rota-breathe.timer rota-backup.timer rota-clearsessions.timer
-       systemctl stop rota-breathe.service rota-backup.service rota-clearsessions.service
+       systemctl stop rota rota-findmyshift.timer rota-backup.timer rota-clearsessions.timer
+       systemctl stop rota-findmyshift.service rota-backup.service rota-clearsessions.service
 
 3. **Create the user and the data directory, then move the data.** The
    `-wal`/`-shm` files are normally gone after a clean stop. The glob moves
@@ -259,19 +259,19 @@ database beside the code. Moving one takes a few minutes with the site down.
    stale one.
 
        cp deploy/gunicorn.service /etc/systemd/system/rota.service
-       cp deploy/rota-backup.service deploy/rota-clearsessions.service deploy/rota-breathe.service /etc/systemd/system/
+       cp deploy/rota-backup.service deploy/rota-clearsessions.service deploy/rota-findmyshift.service /etc/systemd/system/
        systemctl daemon-reload
        deploy/manage collectstatic --noinput
        deploy/manage migrate
        deploy/manage check --deploy
        systemctl start rota
-       systemctl start rota-breathe.timer rota-backup.timer rota-clearsessions.timer
+       systemctl start rota-findmyshift.timer rota-backup.timer rota-clearsessions.timer
 
 7. **Check it:**
 
        sleep 2; ps -o user= -C gunicorn | sort -u     # rota, not root
        systemctl start rota-backup.service && ls -l /var/lib/rota/backups | tail -1
-       systemctl start rota-breathe.service && journalctl -u rota-breathe -n 5 --no-pager
+       systemctl start rota-findmyshift.service && journalctl -u rota-findmyshift -n 5 --no-pager
        systemd-analyze security rota | tail -1
 
    Then sign in on the site and change something small.
@@ -441,8 +441,8 @@ Step 1 is `createsuperuser`, above. The rest, in the order the dashboard walks t
 6. In Practice settings: minimum clinical GPs per session, default fill
    session type (Routine), open weekdays.
 7. Add closed days (bank holidays) as they come.
-8. Link each clinician to their Breathe employee — see
-   docs/admin/breathe.md.
+8. Link each clinician to their FindMyShift staff member — see
+   docs/admin/findmyshift.md.
 9. Set up outgoing email so invitations and password resets are sent — see
    Deploy › Outgoing email. Until then the admin copies each link by hand.
 

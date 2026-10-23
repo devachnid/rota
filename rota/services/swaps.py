@@ -25,7 +25,7 @@ a proposal a draft now blocks shows the admin the problem there.
 from django.db import transaction
 from django.utils import timezone
 
-from rota.models import (BreatheAbsence, BreatheLeaveMapping, PatternSlot,
+from rota.models import (TimeOff, TimeOffMapping, PatternSlot,
                          RotaEntry, RotaEntryLog, SwapRequest)
 from rota.services import availability
 
@@ -153,7 +153,7 @@ def validate(req, published_only=False):
                         f"{names[e.clinician_id]}'s {when(e.day, e.part)} is a paired "
                         "session (mentoring) and cannot be swapped.")
 
-    # Neither GP may be on Breathe leave for a session they would take on:
+    # Neither GP may be on FindMyShift leave for a session they would take on:
     # the proposer takes on the colleague's side and vice versa. Checked
     # whatever came before, since it does not depend on the kind.
     people = [p, c]
@@ -161,16 +161,16 @@ def validate(req, published_only=False):
     resolver = availability.AvailabilityResolver(
         PatternSlot.objects.filter(clinician__in=people),
         people,
-        BreatheAbsence.objects.filter(clinician__in=people,
+        TimeOff.objects.filter(clinician__in=people,
                                       start_date__lte=max(days), end_date__gte=min(days)),
-        BreatheLeaveMapping.as_dict(),
+        TimeOffMapping.as_dict(),
     )
     for clinician, slots in ((p, theirs), (c, mine)):
         for day, part in slots:
             if resolver.on_leave(clinician.id, day, part):
                 problems.append(
                     f"{clinician.name} is on leave on {when(day, part)} (from "
-                    "Breathe) and cannot take that session.")
+                    "FindMyShift) and cannot take that session.")
     return problems
 
 

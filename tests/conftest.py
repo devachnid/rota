@@ -6,11 +6,11 @@ User = get_user_model()
 
 
 @pytest.fixture(autouse=True)
-def _breathe_off(settings):
-    """The suite never talks to Breathe. Tests that need a configured client
+def _findmyshift_off(settings):
+    """The suite never talks to FindMyShift. Tests that need a configured client
     set the key themselves, always with an injected opener or a patched
     from_settings."""
-    settings.BREATHE_API_KEY = ""
+    settings.FINDMYSHIFT_API_KEY = ""
 
 
 @pytest.fixture

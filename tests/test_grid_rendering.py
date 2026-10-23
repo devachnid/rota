@@ -2,7 +2,7 @@
 
 Cell precedence:
     entry exists                -> the entry
-    absence from Breathe        -> a chip with the Breathe code
+    absence from FindMyShift        -> a chip with the FindMyShift code
     works_on                    -> grey: working, nothing allocated
     usual non-working half-day  -> OFF, muted on the sunken ground
     otherwise                   -> blank: closed, or not employed that day
@@ -47,20 +47,20 @@ _CELL_RE = re.compile(
 
 def _chips(html):
     """{(clinician_id, ISO day, part): the chip's modifier classes, or
-    "absence" for a Breathe absence chip.
+    "absence" for a FindMyShift time off chip.
 
     Counting classes across the whole page cannot tell `empty-slot` on the
     worked cell from `is-off` on it: swap the two template branches and every
     total is identical. This reads which class landed on which cell.
 
     An absence chip carries no modifier class of its own — the template
-    tells it apart from a real entry with a title ending "— from Breathe" —
+    tells it apart from a real entry with a title ending "— from FindMyShift" —
     so a cell with an empty class and that title is labelled "absence" here.
     """
     out = {}
     for m in _CELL_RE.finditer(html):
         classes = m["classes"].strip()
-        if not classes and "from Breathe" in m["rest"]:
+        if not classes and "from FindMyShift" in m["rest"]:
             classes = "absence"
         # A whole day drawn as one chip opens on part DAY; it stands for
         # both halves here, so per-cell assertions read the same either way.
@@ -162,13 +162,13 @@ def test_the_header_says_why_the_day_is_closed(admin_client):
 
 @pytest.mark.django_db
 def test_approved_leave_ghosts_on_a_session_the_clinician_works(admin_client):
-    """The Breathe overlay should have written an entry here and did not —
+    """The FindMyShift overlay should have written an entry here and did not —
     the chip is the signal that something went wrong."""
     c = make_clinician("Ghosted", initials="GH")
     _pattern(c, 0, "AM")
     make_absence(c, MON)
     html = _cells(admin_client)
-    assert 'title="Holiday — from Breathe"' in html
+    assert 'title="Holiday — from FindMyShift"' in html
     assert "AL" in html
 
 
@@ -182,7 +182,7 @@ def test_a_part_timer_gets_no_ghost_on_their_non_working_days(admin_client):
     _pattern(c, 0, "PM", works=False)
     make_absence(c, MON, MON + timedelta(days=4))
     html = _cells(admin_client)
-    n = html.count("from Breathe")
+    n = html.count("from FindMyShift")
     assert n == 1, f"expected one absence chip (Monday AM), got {n}"
 
 
@@ -210,7 +210,7 @@ def test_a_clinician_with_no_pattern_at_all_gets_ghosts(admin_client):
     c = make_clinician("Nopattern", initials="NP")
     make_absence(c, MON)
     html = _cells(admin_client)
-    assert 'title="Holiday — from Breathe"' in html
+    assert 'title="Holiday — from FindMyShift"' in html
 
 
 @pytest.mark.django_db
@@ -223,11 +223,11 @@ def test_a_real_entry_beats_a_ghost(admin_client):
     html = _cells(admin_client)
     chips = _chips(html)
     assert chips[(c.id, _iso(0), "AM")] == "", (
-        "the AL entry renders as a plain published chip — not the Breathe "
+        "the AL entry renders as a plain published chip — not the FindMyShift "
         "absence chip, and not ringed as a clash: an absence entry over "
-        "Breathe leave is agreement"
+        "FindMyShift leave is agreement"
     )
-    assert "On Breathe leave" not in html
+    assert "On FindMyShift leave" not in html
 
 
 @pytest.mark.django_db
@@ -236,12 +236,12 @@ def test_an_unmapped_absence_renders_no_chip_but_does_not_500(admin_client):
     missing, so cell_state has nothing to render — but on_leave() (which the
     fill engine depends on) does not go through the mapping, and resolving a
     chip that isn't there must not raise."""
-    from rota.models import BreatheLeaveMapping
+    from rota.models import TimeOffMapping
 
     c = make_clinician("Unmapped", initials="UM")
     _pattern(c, 0, "AM")
-    make_absence(c, MON, kind="sickness")
-    BreatheLeaveMapping.objects.filter(kind="sickness", reason="").delete()
+    make_absence(c, MON, reason="Sick")
+    TimeOffMapping.objects.filter(reason__in=["Sick", ""]).delete()
 
     resp = admin_client.get(f"/rota/?week={MON.isoformat()}")
     assert resp.status_code == 200
@@ -308,7 +308,7 @@ def test_a_clinician_with_no_pattern_gets_no_ghosts_outside_their_window(
                        start_date=MON + timedelta(days=30))
     make_absence(c, MON, MON + timedelta(days=4))
     html = _cells(admin_client)
-    n = html.count("from Breathe")
+    n = html.count("from FindMyShift")
     assert n == 0, f"showed {n} absence chips before the clinician's start date"
     assert set(_chips(html).values()) == {"is-off"}, (
         "with no pattern rows and no entries, every session reads blank — "
@@ -389,7 +389,7 @@ def test_the_grid_query_count_does_not_grow_with_clinicians_or_leave(
     query-count test rather than by inspection." What existed measured the
     resolver in isolation — resolving each absence's session type by
     querying per row instead of through the pre-fetched
-    BreatheLeaveMapping.as_dict() would add a query per absence and every
+    TimeOffMapping.as_dict() would add a query per absence and every
     test would still pass."""
     from django.db import connection
     from django.test.utils import CaptureQueriesContext
@@ -411,7 +411,7 @@ def test_the_grid_query_count_does_not_grow_with_clinicians_or_leave(
     add(2, "a")
     queries()               # warm up: session and template lookups
     baseline = queries()
-    assert "from Breathe" in admin_client.get(
+    assert "from FindMyShift" in admin_client.get(
         f"/rota/?week={MON.isoformat()}").content.decode(), (
         "the absence chips must actually be rendering for this to measure them"
     )
@@ -437,7 +437,7 @@ def _rostered_on_leave(name, initials, **absence_kw):
 
 
 @pytest.mark.django_db
-def test_a_rostered_session_over_breathe_leave_is_ringed_for_everyone(
+def test_a_rostered_session_over_findmyshift_leave_is_ringed_for_everyone(
         admin_client, gp_client):
     """Tom's decision: the marker and the kind of leave are for every user
     who can see the cell. The header line stays admin-only."""
@@ -446,7 +446,7 @@ def test_a_rostered_session_over_breathe_leave_is_ringed_for_everyone(
         html = _cells(client)
         assert "is-clash" in _chips(html)[(c.id, _iso(0), "AM")] if client is admin_client \
             else 'class="chip is-clash"' in html
-        assert "On Breathe leave: Holiday" in html
+        assert "On FindMyShift leave: Holiday" in html
 
 
 @pytest.mark.django_db
@@ -455,22 +455,22 @@ def test_a_draft_clash_is_invisible_to_a_gp(admin_client, gp_client):
     assert "is-clash" in _chips(_cells(admin_client))[(c.id, _iso(0), "AM")]
     gp_html = _cells(gp_client)
     assert "is-clash" not in gp_html
-    assert "On Breathe leave" not in gp_html
+    assert "On FindMyShift leave" not in gp_html
 
 
 @pytest.mark.django_db
-def test_the_absence_tooltip_names_the_kind_and_reason(admin_client):
+def test_the_absence_tooltip_names_the_reason(admin_client):
     for name, initials, kw in (
             ("Holly Day", "HD", {}),
-            ("Sid Sick", "SS", {"kind": "sickness"}),
-            ("Jo Jury", "JJ", {"kind": "other", "reason": "Jury service"})):
+            ("Sid Sick", "SS", {"reason": "Sick"}),
+            ("Jo Jury", "JJ", {"reason": "Jury service"})):
         c = make_clinician(name, initials=initials)
         _pattern(c, 0, "AM")
         make_absence(c, MON, **kw)
     html = _cells(admin_client)
-    assert 'title="Holiday — from Breathe"' in html
-    assert 'title="Sick — from Breathe"' in html
-    assert 'title="Other leave: Jury service — from Breathe"' in html
+    assert 'title="Holiday — from FindMyShift"' in html
+    assert 'title="Sick — from FindMyShift"' in html
+    assert 'title="Jury service — from FindMyShift"' in html
 
 
 # --------------------------------------------------------------- notes ---

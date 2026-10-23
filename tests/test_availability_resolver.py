@@ -2,7 +2,7 @@
 
 Before this, the question was answered in the grid and in the fill engine
 separately, and knew only about the working pattern. Clinician date windows
-and Breathe absences both belong in it. Composing them in one place is what
+and FindMyShift time offs both belong in it. Composing them in one place is what
 stops `active` and the dates disagreeing.
 """
 
@@ -10,7 +10,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from rota.models import BreatheAbsence, BreatheLeaveMapping, PatternSlot
+from rota.models import TimeOff, TimeOffMapping, PatternSlot
 from rota.services import availability
 from rota.services.availability import AvailabilityResolver
 from tests.factories import make_absence, make_clinician, make_pattern
@@ -27,7 +27,7 @@ def _pattern(clinician, weekday, part, works=True, effective_from=LONG_AGO):
 
 def _resolver(clinicians, rows=(), absences=()):
     return AvailabilityResolver(
-        list(rows), list(clinicians), list(absences), BreatheLeaveMapping.as_dict())
+        list(rows), list(clinicians), list(absences), TimeOffMapping.as_dict())
 
 
 @pytest.mark.django_db
@@ -163,17 +163,17 @@ def test_a_one_shot_iterable_of_pattern_rows_still_populates_has_pattern():
     assert r.works_on(c.id, MON, "AM") is True
 
 
-# --------------------------------------------------------- Breathe overlay ---
+# --------------------------------------------------------- FindMyShift overlay ---
 
 def _mapping():
-    return BreatheLeaveMapping.as_dict()
+    return TimeOffMapping.as_dict()
 
 
 @pytest.mark.django_db
 def test_a_full_day_absence_covers_both_parts():
     c = make_clinician(); rows = make_pattern(c)
     make_absence(c, MON)
-    r = availability.AvailabilityResolver(rows, [c], [BreatheAbsence.objects.get()], _mapping())
+    r = availability.AvailabilityResolver(rows, [c], [TimeOff.objects.get()], _mapping())
     assert r.on_leave(c.id, MON, "AM") and r.on_leave(c.id, MON, "PM")
     assert r.available(c.id, MON, "AM") is False
 
@@ -182,7 +182,7 @@ def test_a_full_day_absence_covers_both_parts():
 def test_a_half_start_afternoon_leaves_the_morning_available():
     c = make_clinician(); rows = make_pattern(c)
     make_absence(c, MON, MON + timedelta(days=2), half_start=True, half_start_am_pm="PM")
-    r = availability.AvailabilityResolver(rows, [c], list(BreatheAbsence.objects.all()), _mapping())
+    r = availability.AvailabilityResolver(rows, [c], list(TimeOff.objects.all()), _mapping())
     assert r.on_leave(c.id, MON, "AM") is False
     assert r.on_leave(c.id, MON, "PM") is True
     assert r.on_leave(c.id, MON + timedelta(days=1), "AM") is True
@@ -191,16 +191,16 @@ def test_a_half_start_afternoon_leaves_the_morning_available():
 @pytest.mark.django_db
 def test_leave_type_resolves_through_the_mapping():
     c = make_clinician(); rows = make_pattern(c)
-    make_absence(c, MON, kind="sickness")
-    r = availability.AvailabilityResolver(rows, [c], list(BreatheAbsence.objects.all()), _mapping())
+    make_absence(c, MON, reason="Sick")
+    r = availability.AvailabilityResolver(rows, [c], list(TimeOff.objects.all()), _mapping())
     assert r.leave_type(c.id, MON, "AM").code == "SICK"
 
 
 @pytest.mark.django_db
-def test_an_unmapped_reason_falls_back_to_the_kind_default():
+def test_an_unmapped_reason_falls_back_to_the_default():
     c = make_clinician(); rows = make_pattern(c)
-    make_absence(c, MON, kind="other", reason="Jury service")
-    r = availability.AvailabilityResolver(rows, [c], list(BreatheAbsence.objects.all()), _mapping())
+    make_absence(c, MON, reason="Jury service")
+    r = availability.AvailabilityResolver(rows, [c], list(TimeOff.objects.all()), _mapping())
     assert r.leave_type(c.id, MON, "AM").code == "OTH"
 
 
@@ -208,22 +208,22 @@ def test_an_unmapped_reason_falls_back_to_the_kind_default():
 def test_leave_does_not_change_works_on():
     c = make_clinician(); rows = make_pattern(c)
     make_absence(c, MON)
-    r = availability.AvailabilityResolver(rows, [c], list(BreatheAbsence.objects.all()), _mapping())
+    r = availability.AvailabilityResolver(rows, [c], list(TimeOff.objects.all()), _mapping())
     assert r.works_on(c.id, MON, "AM") is True
 
 
 @pytest.mark.django_db
-def test_an_unmapped_kind_still_blocks_scheduling():
+def test_an_unmapped_reason_still_blocks_scheduling():
     """Availability must never fail open. A sickness absence whose mapping
     row has been deleted (an admin misconfiguration, or a kind added to
-    Breathe with nothing set up for it yet) must still take the clinician
+    FindMyShift with nothing set up for it yet) must still take the clinician
     off the rota — a chip having nothing to render is a separate question
     from whether the fill engine may schedule over it."""
-    from rota.models import BreatheLeaveMapping as Mapping
+    from rota.models import TimeOffMapping as Mapping
 
     c = make_clinician(); rows = make_pattern(c)
-    make_absence(c, MON, kind="sickness")
-    Mapping.objects.filter(kind="sickness", reason="").delete()
-    r = availability.AvailabilityResolver(rows, [c], list(BreatheAbsence.objects.all()), _mapping())
+    make_absence(c, MON, reason="Sick")
+    Mapping.objects.filter(reason__in=["Sick", ""]).delete()
+    r = availability.AvailabilityResolver(rows, [c], list(TimeOff.objects.all()), _mapping())
     assert r.available(c.id, MON, "AM") is False
     assert r.leave_type(c.id, MON, "AM") is None
