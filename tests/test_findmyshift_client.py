@@ -125,7 +125,9 @@ def test_staff_are_projected_to_the_allowed_fields_only():
     assert len(staff) == 7
     for s in staff:
         assert set(s) == set(STAFF_FIELDS)
-    assert "dateOfBirth" not in STAFF_FIELDS and "mobileNumber" not in STAFF_FIELDS
+    for secret in ("dateOfBirth", "mobileNumber", "salaries", "hourlyRates", "profilePicture"):
+        assert secret not in STAFF_FIELDS
+    assert staff[0]["id"] == "S1", "id is filled from FindMyShift's staffId"
     assert staff[0]["firstName"] == "Tom" and staff[0]["emailAddress"] == "tom@example.org"
 
 
@@ -329,6 +331,8 @@ def test_the_fixtures_hold_no_personal_data():
                     problems.append(f"{where}: {k}")
                 if "mail" in k.lower() and isinstance(v, str) and v and not allowed_mail.search(v):
                     problems.append(f"{where}: {k}={v!r}")
+                if k == "profilePicture" and v and "example.invalid" not in v:
+                    problems.append(f"{where}: {k}")
                 walk(v, where)
         elif isinstance(o, list):
             for x in o:

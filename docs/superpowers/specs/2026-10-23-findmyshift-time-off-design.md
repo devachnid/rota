@@ -26,6 +26,17 @@ From the developer portal (`findmyshift.co.uk/developers`, API 1.4):
   format, not whether a list comes bare or wrapped. An unauthenticated call
   answers with a plain-text `401: No authentication parameters found…`, so
   errors are text, not JSON.
+- **Measured on a test account (2026-10-23):** lists come as bare JSON
+  arrays; a team is `{teamId, title, timeZone, timeOffTypes: [{timeOffTypeId,
+  description, deleted, …}], …}`; a staff record is `{staffId, firstName,
+  lastName, displayName, emailAddress, dateStarted, dateFinished, active,
+  payrollId, …}` plus pay rates, salaries, date of birth and phone numbers,
+  which the client drops at parse; date/times are ISO 8601 in UTC
+  (`2026-10-23T14:20:21.297Z`), dates are `yyyy-MM-dd`; a bad parameter is a
+  plain-text `400: Parameter not found or not valid: teamId`; API access is a
+  feature of the account's plan (`401: Your subscriptions do not include API
+  access`). The time-off record itself is still unmeasured: the account held
+  none.
 
 ## Design
 

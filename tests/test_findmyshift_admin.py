@@ -14,7 +14,7 @@ from tests.factories import make_clinician, make_group
 pytestmark = pytest.mark.django_db
 
 FIX = Path(__file__).resolve().parent / "fixtures" / "findmyshift"
-STAFF = [{k: s.get(k) for k in STAFF_FIELDS}
+STAFF = [{**{k: s.get(k) for k in STAFF_FIELDS}, "id": s["staffId"]}
          for s in json.loads((FIX / "staff.json").read_text())]
 
 

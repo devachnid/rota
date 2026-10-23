@@ -44,8 +44,11 @@ FIELDS = {
     "end": ("to", "end", "endDate", "dateTo", "toDate", "end_date"),
     "approved": ("approved", "isApproved", "status"),
     "deleted": ("deleted", "cancelled", "isDeleted"),
-    "reason": ("reason", "reasonName", "type", "typeName", "timeOffType", "category"),
+    # A record names its type by id (the team lists the types) or by name.
+    "reason": ("timeOffTypeId", "timeOffType", "type", "typeName", "reason",
+               "reasonName", "category"),
 }
+TYPE_NAME_KEYS = ("description", "name", "title")
 TRUE_WORDS = ("yes", "true", "1", "approved", "y")
 _DOTNET_DATE = re.compile(r"/Date\((-?\d+)(?:[+-]\d{4})?\)/")
 
@@ -118,13 +121,14 @@ def _local(dt):
     return dt.astimezone(ZoneInfo(settings.TIME_ZONE)).replace(tzinfo=None)
 
 
-def normalise(row):
+def normalise(row, types=None):
     """A Norm, or None for a record that is not approved leave.
 
-    A record with no approval field at all is taken as approved: an
-    account whose records never say so is one where approval is not in
-    use, and silently showing nobody as off would be the worse error. The
-    inspect command shows which it is.
+    `types` maps the team's time-off type ids to their names; a record
+    naming its type by id gets the name. A record with no approval field
+    at all is taken as approved: an account whose records never say so is
+    one where approval is not in use, and silently showing nobody as off
+    would be the worse error. The inspect command shows which it is.
     """
     if not isinstance(row, dict):
         raise Unreadable(f"a time-off record is a {type(row).__name__}, not an object")
@@ -141,29 +145,53 @@ def normalise(row):
             f"time-off record {source_id!r} has no {'/'.join(missing)} field "
             f"(keys present: {sorted(row)}; looked for {[FIELDS[f] for f in missing]})")
     span = Span.from_times(parse_when(start), parse_when(end))
-    reason = pick(row, "reason")
-    if isinstance(reason, dict):
-        reason = reason.get("name") or reason.get("title") or ""
     return Norm(staff_id=str(staff_id), span=span,
-                reason=str(reason or "").strip()[:100], source_id=str(source_id))
+                reason=reason_name(pick(row, "reason"), types or {}),
+                source_id=str(source_id))
 
 
-def team_ids(client):
-    """The teams to read: the configured one, else every team the key sees."""
-    if settings.FINDMYSHIFT_TEAM_ID:
-        return [settings.FINDMYSHIFT_TEAM_ID]
-    ids = []
+def reason_name(value, types):
+    """The reason as a name: a type object's description, a type id looked
+    up in the team's types, or the text itself."""
+    if isinstance(value, dict):
+        value = next((value[k] for k in TYPE_NAME_KEYS if value.get(k)), "")
+    text = str(value or "").strip()
+    return (types.get(text) or text)[:100]
+
+
+def team_types(team):
+    """{timeOffTypeId: description} from a team record, as a real account
+    lists them — deleted types included, since an old record may still
+    name one."""
+    out = {}
+    for t in team.get("timeOffTypes") or []:
+        if isinstance(t, dict) and t.get("timeOffTypeId") is not None:
+            out[str(t["timeOffTypeId"])] = str(
+                next((t[k] for k in TYPE_NAME_KEYS if t.get(k)), t["timeOffTypeId"]))
+    return out
+
+
+def teams(client):
+    """The teams to read, as (id, {type id: name}): the configured one,
+    else every team the key sees. The listing is always fetched, because
+    it is where the time-off types live."""
+    out = []
     for team in client.teams():
-        tid = pick(team, "id") if isinstance(team, dict) else None
-        if tid is None and isinstance(team, dict):
-            tid = team.get("teamId")
-        if tid is not None:
-            ids.append(str(tid))
-    if not ids:
-        raise FindMyShiftError("FindMyShift lists no team for this key; set "
-                               "FINDMYSHIFT_TEAM_ID if the account has one",
-                               method="teams/list")
-    return ids
+        if not isinstance(team, dict):
+            continue
+        tid = team.get("teamId", team.get("id"))
+        if tid is None:
+            continue
+        if settings.FINDMYSHIFT_TEAM_ID and str(tid) != settings.FINDMYSHIFT_TEAM_ID:
+            continue
+        out.append((str(tid), team_types(team)))
+    if not out:
+        raise FindMyShiftError(
+            "FindMyShift lists no team for this key"
+            + (f" matching FINDMYSHIFT_TEAM_ID={settings.FINDMYSHIFT_TEAM_ID}"
+               if settings.FINDMYSHIFT_TEAM_ID else "; set FINDMYSHIFT_TEAM_ID if the account has one"),
+            method="teams/list")
+    return out
 
 
 def window(today=None):
@@ -205,30 +233,30 @@ def _redacted(text):
 
 
 def fetch(client, today=None):
-    """Every time-off record across the teams, with the team count."""
+    """Every time-off record across the teams, each with its team's types."""
     since, until = window(today)
-    teams = team_ids(client)
+    found = teams(client)
     records = []
-    for team in teams:
-        records.extend(client.time_off(team, since, until))
-    return teams, records
+    for tid, types in found:
+        records.extend((row, types) for row in client.time_off(tid, since, until))
+    return found, records
 
 
 def _run(client, result, *, dry_run):
     try:
-        teams, records = fetch(client)
+        found, records = fetch(client)
     except FindMyShiftError as e:
         result.error = f"fetching {e.method} failed: {e}"
         result.finished = timezone.now()
         if not dry_run:
             result.save()
         return result
-    result.n_teams = len(teams)
+    result.n_teams = len(found)
     result.n_records = len(records)
 
     merged, approved = {}, 0
-    for row in records:
-        norm = normalise(row)
+    for row, types in records:
+        norm = normalise(row, types)
         if norm is None:
             continue
         approved += 1
@@ -272,31 +300,32 @@ def _run(client, result, *, dry_run):
 
 def inspect(client):
     """What a real account's records look like: the keys each sort of
-    record carries, how each field this sync needs resolved, and the
-    reasons in use — names only, never a value from a record. For the
-    first run against the practice's account, and for the day FindMyShift
-    changes something."""
+    record carries, how each field this sync needs resolved, the time-off
+    types the account defines and the reasons in use — names only, never a
+    value from a record. For the first run against the practice's account,
+    and for the day FindMyShift changes something."""
     out = []
-    teams = team_ids(client)
-    out.append(f"teams: {len(teams)}")
-    staff = client.staff(None if not settings.FINDMYSHIFT_TEAM_ID else teams[0])
+    found = teams(client)
+    out.append(f"teams: {len(found)}")
+    for tid, types in found:
+        out.append(f"  team {tid}: time-off types {sorted(types.values())}")
+    staff = client.staff(settings.FINDMYSHIFT_TEAM_ID or None)
     out.append(f"staff: {len(staff)} records; "
                f"with an id: {sum(1 for s in staff if s.get('id') is not None)}, "
                f"with an email: {sum(1 for s in staff if s.get('emailAddress'))}")
     since, until = window()
     records = []
-    for team in teams:
-        records.extend(client.time_off(team, since, until))
+    for tid, types in found:
+        records.extend((row, types) for row in client.time_off(tid, since, until))
     out.append(f"time off: {len(records)} records between {since} and {until}")
-    keys = sorted({k for r in records if isinstance(r, dict) for k in r})
-    out.append(f"time-off keys: {keys}")
+    rows = [r for r, _ in records if isinstance(r, dict)]
+    out.append(f"time-off keys: {sorted({k for r in rows for k in r})}")
     for field, names in FIELDS.items():
-        found = next((n for n in names
-                      if any(_under(r, n) for r in records if isinstance(r, dict))), None)
-        out.append(f"  {field}: {'read from ' + repr(found) if found else 'NOT FOUND'}")
-    reasons = sorted({str(pick(r, "reason") or "") for r in records if isinstance(r, dict)})
+        used = next((n for n in names if any(_under(r, n) for r in rows)), None)
+        out.append(f"  {field}: {'read from ' + repr(used) if used else 'NOT FOUND'}")
+    reasons = sorted({reason_name(pick(r, "reason"), t) for r, t in records if isinstance(r, dict)})
     out.append(f"reasons seen: {reasons}")
-    approved = sum(1 for r in records if isinstance(r, dict) and normalise(r) is not None)
+    approved = sum(1 for r, t in records if isinstance(r, dict) and normalise(r, t) is not None)
     out.append(f"approved (or unmarked) and not deleted: {approved}")
     return "\n".join(out)
 

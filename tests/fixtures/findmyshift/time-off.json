@@ -1,16 +1,154 @@
 [
-  {"id": "TO1",  "teamId": "T1", "staffId": "S1",  "from": "2026-09-14T00:00:00", "to": "2026-09-22T23:59:59", "approved": true,  "deleted": false, "reason": "Maternity",    "comments": "never read into the rota"},
-  {"id": "TO2",  "teamId": "T1", "staffId": "S1",  "from": "2026-09-28T00:00:00", "to": "2026-09-30T23:59:59", "approved": true,  "deleted": false, "reason": "Holiday",      "comments": ""},
-  {"id": "TO3",  "teamId": "T1", "staffId": "S2",  "from": "2026-11-02T00:00:00", "to": "2026-11-06T23:59:59", "approved": true,  "deleted": false, "reason": "Holiday",      "comments": ""},
-  {"id": "TO4",  "teamId": "T1", "staffId": "S2",  "from": "2026-10-05T13:00:00", "to": "2026-10-05T17:00:00", "approved": true,  "deleted": false, "reason": "Holiday",      "comments": "afternoon off"},
-  {"id": "TO5",  "teamId": "T1", "staffId": "S2",  "from": "2026-10-12T00:00:00", "to": "2026-10-14T12:00:00", "approved": true,  "deleted": false, "reason": "Holiday",      "comments": "back after lunch on the Wednesday"},
-  {"id": "TO6",  "teamId": "T1", "staffId": "S3",  "from": "2026-09-21T00:00:00", "to": "2026-09-21T23:59:59", "approved": true,  "deleted": false, "reason": "Sick",         "comments": "the comment is where someone writes what they had; it is never stored"},
-  {"id": "TO7",  "teamId": "T1", "staffId": "S4",  "from": "2026-12-21T00:00:00", "to": "2026-12-24T23:59:59", "approved": false, "deleted": false, "reason": "Holiday",      "comments": ""},
-  {"id": "TO8",  "teamId": "T1", "staffId": "S4",  "from": "2027-01-04T00:00:00", "to": "2027-01-08T23:59:59", "approved": "no",  "deleted": false, "reason": "Holiday",      "comments": ""},
-  {"id": "TO9",  "teamId": "T1", "staffId": "S5",  "from": "2026-10-19T00:00:00", "to": "2026-10-23T23:59:59", "approved": true,  "deleted": true,  "reason": "Holiday",      "comments": ""},
-  {"id": "TO10", "teamId": "T1", "staffId": "S5",  "from": "2026-10-26T00:00:00", "to": "2026-10-30T23:59:59", "approved": true,  "deleted": false, "reason": "Unpaid leave", "comments": ""},
-  {"id": "TO11", "teamId": "T1", "staffId": "S6",  "from": "2026-11-16",          "to": "2026-11-20",          "approved": true,  "deleted": false},
-  {"id": "TO12", "teamId": "T1", "staffId": "S1",  "from": "2026-09-28T00:00:00", "to": "2026-09-30T23:59:59", "approved": true,  "deleted": false, "reason": "Holiday",      "comments": "entered twice"},
-  {"id": "TO13", "teamId": "T1", "staffId": "S99", "from": "2026-10-01T00:00:00", "to": "2026-10-02T23:59:59", "approved": true,  "deleted": false, "reason": "Holiday",      "comments": "someone the rota has no clinician for"},
-  {"id": "TO14", "teamId": "T1", "staffId": "S3",  "from": "2026-12-01T00:00:00", "to": "2026-12-03T00:00:00", "approved": true,  "deleted": false, "reason": "Sick",         "comments": "exclusive midnight end: two days, not three"}
+ {
+  "id": "TO1",
+  "teamId": "T1",
+  "staffId": "S1",
+  "from": "2026-09-14T00:00:00",
+  "to": "2026-09-22T23:59:59",
+  "approved": true,
+  "deleted": false,
+  "reason": "Maternity",
+  "comments": "never read into the rota"
+ },
+ {
+  "id": "TO2",
+  "teamId": "T1",
+  "staffId": "S1",
+  "from": "2026-09-28T00:00:00",
+  "to": "2026-09-30T23:59:59",
+  "approved": true,
+  "deleted": false,
+  "reason": "Holiday",
+  "comments": ""
+ },
+ {
+  "id": "TO3",
+  "teamId": "T1",
+  "staffId": "S2",
+  "from": "2026-11-02T00:00:00",
+  "to": "2026-11-06T23:59:59",
+  "approved": true,
+  "deleted": false,
+  "reason": "Holiday",
+  "comments": ""
+ },
+ {
+  "id": "TO4",
+  "teamId": "T1",
+  "staffId": "S2",
+  "from": "2026-10-05T13:00:00",
+  "to": "2026-10-05T17:00:00",
+  "approved": true,
+  "deleted": false,
+  "reason": "Holiday",
+  "comments": "afternoon off"
+ },
+ {
+  "id": "TO5",
+  "teamId": "T1",
+  "staffId": "S2",
+  "from": "2026-10-12T00:00:00",
+  "to": "2026-10-14T12:00:00",
+  "approved": true,
+  "deleted": false,
+  "reason": "Holiday",
+  "comments": "back after lunch on the Wednesday"
+ },
+ {
+  "id": "TO6",
+  "teamId": "T1",
+  "staffId": "S3",
+  "from": "2026-09-21T00:00:00",
+  "to": "2026-09-21T23:59:59",
+  "approved": true,
+  "deleted": false,
+  "comments": "the comment is where someone writes what they had; it is never stored",
+  "timeOffTypeId": "e457"
+ },
+ {
+  "id": "TO7",
+  "teamId": "T1",
+  "staffId": "S4",
+  "from": "2026-12-21T00:00:00",
+  "to": "2026-12-24T23:59:59",
+  "approved": false,
+  "deleted": false,
+  "reason": "Holiday",
+  "comments": ""
+ },
+ {
+  "id": "TO8",
+  "teamId": "T1",
+  "staffId": "S4",
+  "from": "2027-01-04T00:00:00",
+  "to": "2027-01-08T23:59:59",
+  "approved": "no",
+  "deleted": false,
+  "reason": "Holiday",
+  "comments": ""
+ },
+ {
+  "id": "TO9",
+  "teamId": "T1",
+  "staffId": "S5",
+  "from": "2026-10-19T00:00:00",
+  "to": "2026-10-23T23:59:59",
+  "approved": true,
+  "deleted": true,
+  "reason": "Holiday",
+  "comments": ""
+ },
+ {
+  "id": "TO10",
+  "teamId": "T1",
+  "staffId": "S5",
+  "from": "2026-10-26T00:00:00",
+  "to": "2026-10-30T23:59:59",
+  "approved": true,
+  "deleted": false,
+  "reason": "Unpaid leave",
+  "comments": ""
+ },
+ {
+  "id": "TO11",
+  "teamId": "T1",
+  "staffId": "S6",
+  "from": "2026-11-16",
+  "to": "2026-11-20",
+  "approved": true,
+  "deleted": false
+ },
+ {
+  "id": "TO12",
+  "teamId": "T1",
+  "staffId": "S1",
+  "from": "2026-09-28T00:00:00",
+  "to": "2026-09-30T23:59:59",
+  "approved": true,
+  "deleted": false,
+  "reason": "Holiday",
+  "comments": "entered twice"
+ },
+ {
+  "id": "TO13",
+  "teamId": "T1",
+  "staffId": "S99",
+  "from": "2026-10-01T00:00:00",
+  "to": "2026-10-02T23:59:59",
+  "approved": true,
+  "deleted": false,
+  "reason": "Holiday",
+  "comments": "someone the rota has no clinician for"
+ },
+ {
+  "id": "TO14",
+  "teamId": "T1",
+  "staffId": "S3",
+  "from": "2026-12-01T00:00:00",
+  "to": "2026-12-03T00:00:00",
+  "approved": true,
+  "deleted": false,
+  "reason": "Sick leave",
+  "comments": "exclusive midnight end: two days, not three"
+ }
 ]
