@@ -37,8 +37,9 @@ the grid shows who is off and assisted fill never assigns them.
    what the account sends — the teams and the time-off types each defines,
    the number of staff and time-off records, the field each thing the sync
    needs was read from, and the reasons in use — and never a value from a
-   record. FindMyShift documents its methods but not
-   the shape of a response, so this is how to confirm the sync reads yours.
+   record. FindMyShift documents its methods but not the shape of a response;
+   the sync was built against one measured account, and this is how to
+   confirm it reads yours.
    A line reading `NOT FOUND` against `staff`, `start` or `end` means the
    account names a field differently; the sync will refuse to run until that
    name is added to `FIELDS` in `rota/services/findmyshift/sync.py`.
@@ -86,13 +87,18 @@ marks deleted is dropped. (An account whose records carry no approval field
 at all is read as one where approval is not in use, and everything counts;
 the inspect output says which.)
 
-**Half days.** FindMyShift records a start and an end date/time; the rota's
-unit is the morning or the afternoon. A record that starts at or after
-`FINDMYSHIFT_MIDDAY` leaves the first morning working; one that ends at or
-before it leaves the last afternoon working. Anything else on a boundary day
-takes the whole day off — a record from 09:00 to 17:00 is not half a day the
-rota can express, and off is the safer reading. An all-day record is read the
-same whether FindMyShift ends it at 23:59 or at midnight the next day.
+**Whole days.** A FindMyShift time-off record is a first and a last day off
+and, inside that range, which weekdays it applies to. There are no clock
+times: a day is off or it is not, both halves. A weekday left unticked on a
+record (Wednesday, on a Monday-to-Friday booking) is a working day in the
+middle of it, and the rota reads it so. Time off assigned to no staff member
+— FindMyShift allows it — is nobody's and is skipped. A *recurring* record is
+read as its first occurrence only, and the sync log says so; if the practice
+uses repeating time off, say, so its repeat rule can be read too.
+
+`FINDMYSHIFT_MIDDAY` only matters if the API ever sends a record with clock
+times: a start at or after it would leave the first morning working, an end
+at or before it the last afternoon. A measured account sends none.
 
 **A week already published keeps its sessions.** Nothing in the rota
 overwrites a session when time off is approved in FindMyShift afterwards.
