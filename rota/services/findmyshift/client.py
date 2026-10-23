@@ -12,9 +12,9 @@ what this is built on:
   - `teams/list`, `staff/list` (all teams when no teamId) and
     `time-off/list` (teamId, optional staffId, from, to). No pagination is
     documented and none is handled: a practice is one list.
-  - Staff records carry date of birth, phone numbers and pay references.
-    They are projected to STAFF_FIELDS the moment the response is parsed
-    and nothing else is ever held — not in a cache, not in a log.
+  - Staff records carry date of birth, phone numbers, pay rates and
+    salaries. They are projected to STAFF_FIELDS the moment the response
+    is parsed and nothing else is ever held — not in a cache, not in a log.
 
 What the portal does not document is the shape of a response: field names,
 the date format, whether a list comes bare or wrapped. The client asks for
@@ -35,8 +35,13 @@ from django.conf import settings
 
 log = logging.getLogger("rota.findmyshift")
 
-STAFF_FIELDS = ("id", "firstName", "lastName", "emailAddress", "dateFinished",
-                "payrollId", "teamId")
+# Measured against a real account (2026-10-23): a staff record's id is
+# `staffId`, a team's is `teamId`, and a team carries the account's
+# time-off types as `timeOffTypes` (each with `timeOffTypeId` and
+# `description`). Names in STAFF_FIELDS are FindMyShift's own; `id` is
+# filled from `staffId` so callers have one name for it.
+STAFF_FIELDS = ("id", "staffId", "firstName", "lastName", "displayName", "emailAddress",
+                "dateStarted", "dateFinished", "active", "payrollId", "teamId")
 # The keys a list may come wrapped under. A bare JSON array needs none.
 LIST_KEYS = ("results", "data", "items", "timeOff", "staff", "teams")
 ERROR_BODY_CHARS = 160
@@ -164,9 +169,14 @@ class FindMyShiftClient:
     def staff(self, team_id=None):
         """Staff, projected. This is the only place the raw record exists in
         memory, and it does not leave this function."""
-        return [{k: s.get(k) for k in STAFF_FIELDS}
-                for s in self.rows("staff/list", teamId=team_id or None)
-                if isinstance(s, dict)]
+        out = []
+        for s in self.rows("staff/list", teamId=team_id or None):
+            if not isinstance(s, dict):
+                continue
+            row = {k: s.get(k) for k in STAFF_FIELDS}
+            row["id"] = s.get("staffId", s.get("id"))
+            out.append(row)
+        return out
 
 
 def from_settings():

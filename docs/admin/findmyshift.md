@@ -34,9 +34,10 @@ the grid shows who is off and assisted fill never assigns them.
 3. **Migrate.** `deploy/manage migrate`, as root, from `/srv/rota` (see the
    README's Deploy section for why not plain `manage.py`).
 4. **Inspect the account.** `deploy/manage findmyshift_sync --inspect` prints
-   what the account sends — the number of teams, staff and time-off records,
-   the field each thing the sync needs was read from, and the reasons in use —
-   and never a value from a record. FindMyShift documents its methods but not
+   what the account sends — the teams and the time-off types each defines,
+   the number of staff and time-off records, the field each thing the sync
+   needs was read from, and the reasons in use — and never a value from a
+   record. FindMyShift documents its methods but not
    the shape of a response, so this is how to confirm the sync reads yours.
    A line reading `NOT FOUND` against `staff`, `start` or `end` means the
    account names a field differently; the sync will refuse to run until that
@@ -47,7 +48,9 @@ the grid shows who is off and assisted fill never assigns them.
    staff member's email address, that person is pre-selected; you still have
    to save.
 6. **Map the reasons.** `/admin/rota/timeoffmapping/` — see [Reason
-   mapping](#reason-mapping). The inspect output lists the reasons in use.
+   mapping](#reason-mapping). A reason is a FindMyShift *time-off type*'s
+   description (Holiday, Sick leave, …); the inspect output lists the ones
+   the team defines.
 7. **Run the first sync.** `/admin/rota/timeoffsyncrun/status/` → **Refresh
    now**, or `deploy/manage findmyshift_sync`. Add `--dry-run` to fetch and
    count without writing.

@@ -1,3 +1,46 @@
 [
-  {"id": "T1", "name": "Example Medical Group", "timeZone": "GMT Standard Time"}
+ {
+  "teamId": "T1",
+  "title": "Example Medical Group",
+  "companyName": null,
+  "timeZone": "(UTC+00:00) Dublin, Edinburgh, Lisbon, London",
+  "timeOffEnabled": true,
+  "staffCanRequestTimeOff": true,
+  "timeOffManagerSelfApproval": false,
+  "timeOffTypes": [
+   {
+    "timeOffTypeId": "3i57",
+    "description": "Holiday",
+    "allowanceUnit": "day",
+    "deleted": false
+   },
+   {
+    "timeOffTypeId": "e457",
+    "description": "Sick leave",
+    "allowanceUnit": "day",
+    "deleted": false
+   },
+   {
+    "timeOffTypeId": "5a57",
+    "description": "Training",
+    "allowanceUnit": "day",
+    "deleted": false
+   },
+   {
+    "timeOffTypeId": "x657",
+    "description": "Maternity",
+    "deleted": false
+   },
+   {
+    "timeOffTypeId": "y447",
+    "description": "Unpaid leave",
+    "deleted": false
+   },
+   {
+    "timeOffTypeId": "9j57",
+    "description": "Personal",
+    "deleted": true
+   }
+  ]
+ }
 ]

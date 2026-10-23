@@ -42,7 +42,8 @@ class FakeClient:
         return self._serve("teams")
 
     def staff(self, team_id=None):
-        return self._serve("staff")
+        # As the real client projects it: `id` filled from staffId.
+        return [dict(s, id=s["staffId"]) for s in self._serve("staff")]
 
     def time_off(self, team_id, since, until):
         self.calls.append(("time-off", team_id, since, until))
@@ -81,6 +82,16 @@ def test_pending_records_are_not_leave():
     sync.run(FakeClient())
     assert not TimeOff.objects.filter(clinician=by_id["S4"]).exists(), \
         "approved: false and approved: 'no' are both pending"
+
+
+def test_a_type_id_resolves_to_the_teams_type_name():
+    """A real team lists its time-off types (timeOffTypeId -> description);
+    a record naming one by id is stored under the name, which is what the
+    mapping is keyed on."""
+    by_id = _link_everyone()
+    sync.run(FakeClient())
+    row = TimeOff.objects.get(clinician=by_id["S3"], start_date=date(2026, 9, 21))
+    assert row.reason == "Sick leave"
 
 
 def test_deleted_records_are_dropped():
@@ -155,17 +166,23 @@ def test_a_failed_team_listing_is_reported_by_method():
     assert run.ok is False and "teams" in run.error
 
 
-def test_a_configured_team_skips_the_team_listing(settings):
+def test_a_configured_team_narrows_the_listing(settings):
+    settings.FINDMYSHIFT_TEAM_ID = "T2"
+    client = FakeClient(teams=[{"teamId": "T1"}, {"teamId": "T2"}])
+    run = sync.run(client)
+    assert run.n_teams == 1
+    assert [c[1] for c in client.calls if isinstance(c, tuple)] == ["T2"]
+
+
+def test_a_configured_team_the_key_cannot_see_is_an_error(settings):
     settings.FINDMYSHIFT_TEAM_ID = "T9"
-    client = FakeClient()
-    sync.run(client)
-    assert "teams" not in client.calls
-    assert any(c[0] == "time-off" and c[1] == "T9" for c in client.calls if isinstance(c, tuple))
+    run = sync.run(FakeClient())
+    assert run.ok is False and "T9" in run.error
 
 
 def test_every_team_is_read_when_none_is_configured(settings):
     settings.FINDMYSHIFT_TEAM_ID = ""
-    client = FakeClient(teams=[{"id": "T1"}, {"id": "T2"}])
+    client = FakeClient(teams=[{"teamId": "T1"}, {"teamId": "T2"}])
     run = sync.run(client)
     assert run.n_teams == 2
     assert [c[1] for c in client.calls if isinstance(c, tuple)] == ["T1", "T2"]
@@ -256,9 +273,10 @@ def test_dry_run_writes_nothing_but_reports_counts():
 def test_inspect_names_fields_and_reasons_but_no_values(capsys):
     text = sync.inspect(FakeClient())
     assert "time off: 14 records" in text
-    assert "staff: 7 records" in text
+    assert "staff: 7 records; with an id: 7" in text
+    assert "time-off types ['Holiday', 'Maternity', 'Personal', 'Sick leave', 'Training', 'Unpaid leave']" in text
     assert "start: read from 'from'" in text and "approved: read from 'approved'" in text
-    assert "'Holiday'" in text and "'Unpaid leave'" in text
+    assert "reasons seen: ['', 'Holiday', 'Maternity', 'Sick leave', 'Unpaid leave']" in text
     assert "S99" not in text and "Tom" not in text and "example.org" not in text
 
 

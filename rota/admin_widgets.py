@@ -74,10 +74,11 @@ def findmyshift_staff():
 
 
 def staff_label(s):
-    name = f"{s.get('firstName') or ''} {s.get('lastName') or ''}".strip()
+    name = (f"{s.get('firstName') or ''} {s.get('lastName') or ''}".strip()
+            or s.get("displayName") or "")
     bits = [name, s.get("emailAddress") or "", s.get("payrollId") or ""]
     label = " · ".join(b for b in bits if b) or f"#{s.get('id')}"
-    if s.get("dateFinished"):
+    if s.get("dateFinished") or s.get("active") is False:
         label += " (left)"
     return label
 
