@@ -7,11 +7,18 @@ content key, and replace the overlay wholesale. A record deleted or
 unapproved in FindMyShift is simply absent next time; nothing has to be
 reconciled.
 
-FindMyShift does not publish the shape of a time-off record, so the fields
-are read by name with alternatives (FIELDS). A record that has none of the
-names for a field it must have fails the run with a message naming the
-record and the keys it did carry — values are never reported — which is
-also what `findmyshift_sync --inspect` prints for a whole account.
+FindMyShift does not publish the shape of a time-off record. Measured on a
+test account (2026-10-23) it is day-based: `firstDayOff`/`lastDayOff` as
+dates, `days` as the weekdays inside that range the time off applies to
+(0 = Sunday … 6 = Saturday), `dateApproved` and `dateDeleted` as timestamps
+or null, `staffId` (null for time off not assigned to anyone), `type` as
+the type's name and `timeOffTypeId` as its id, and `recurrence`,
+`recurrenceInterval`, `recursUntil` for a repeating record. There are no
+clock times: a day is off or it is not. The fields are still read by name
+with alternatives (FIELDS), so a record that has none of the names for a
+field it must have fails the run with a message naming the record and the
+keys it did carry — values are never reported — which is also what
+`findmyshift_sync --inspect` prints for a whole account.
 """
 
 import logging
@@ -38,18 +45,24 @@ HORIZON_DAYS = 730
 # The names a field may come under, tried in order. A dotted name reads a
 # nested object. The free-text comment on a record is deliberately not here.
 FIELDS = {
-    "id": ("id", "timeOffId", "ID"),
+    "id": ("timeOffId", "id", "ID"),
     "staff": ("staffId", "staffID", "staff.id", "staffMemberId"),
-    "start": ("from", "start", "startDate", "dateFrom", "fromDate", "start_date"),
-    "end": ("to", "end", "endDate", "dateTo", "toDate", "end_date"),
-    "approved": ("approved", "isApproved", "status"),
-    "deleted": ("deleted", "cancelled", "isDeleted"),
-    # A record names its type by id (the team lists the types) or by name.
-    "reason": ("timeOffTypeId", "timeOffType", "type", "typeName", "reason",
+    "start": ("firstDayOff", "from", "start", "startDate", "dateFrom", "fromDate"),
+    "end": ("lastDayOff", "to", "end", "endDate", "dateTo", "toDate"),
+    # A timestamp when approved, null while pending — or a plain yes/no.
+    "approved": ("dateApproved", "approved", "isApproved", "status"),
+    "deleted": ("dateDeleted", "deleted", "cancelled", "isDeleted"),
+    # A record names its type by id (the team lists the types) and by name.
+    "reason": ("timeOffTypeId", "type", "timeOffType", "typeName", "reason",
                "reasonName", "category"),
+    "days": ("days", "weekdays"),
+    "recurrence": ("recurrence",),
 }
 TYPE_NAME_KEYS = ("description", "name", "title")
 TRUE_WORDS = ("yes", "true", "1", "approved", "y")
+FALSE_WORDS = ("no", "false", "0", "", "pending", "declined", "requested", "n", "none", "null")
+# FindMyShift's weekday numbering (JavaScript's): Sunday is 0.
+ALL_DAYS = frozenset(range(7))
 _DOTNET_DATE = re.compile(r"/Date\((-?\d+)(?:[+-]\d{4})?\)/")
 
 
@@ -73,23 +86,86 @@ class Unreadable(Exception):
 
 def pick(row, field):
     """The first present, non-null value under any of FIELDS[field]."""
+    return pick_present(row, field)[1]
+
+
+def pick_present(row, field):
+    """(found, value) for the first key of FIELDS[field] the record carries
+    — null included, because for `dateApproved` and `dateDeleted` a null
+    is the answer (pending; not deleted), not an absence."""
     for name in FIELDS[field]:
-        value = row
+        value, found = row, True
         for part in name.split("."):
-            value = value.get(part) if isinstance(value, dict) else None
-        if value is not None:
-            return value
-    return None
+            if isinstance(value, dict) and part in value:
+                value = value[part]
+            else:
+                found = False
+                break
+        if found:
+            return True, value
+    return False, None
+
+
+def is_deleted(row):
+    found, value = pick_present(row, "deleted")
+    return found and as_bool(value, default=False)
+
+
+def is_approved(row):
+    """Approved unless the record says otherwise. A record with no approval
+    field at all is taken as approved (an account where approval is not in
+    use); one with the field null is pending."""
+    found, value = pick_present(row, "approved")
+    return as_bool(value, default=False) if found else True
+
+
+def for_no_one(row):
+    """A record that has a staff field and nobody in it."""
+    found, value = pick_present(row, "staff")
+    return found and value is None
 
 
 def as_bool(value, *, default):
+    """A flag from whatever form it takes: a bool, a number, a yes/no word,
+    or — as a real account sends `dateApproved` and `dateDeleted` — a
+    timestamp, whose presence is the yes."""
     if value is None:
         return default
     if isinstance(value, bool):
         return value
     if isinstance(value, (int, float)):
         return bool(value)
-    return str(value).strip().lower() in TRUE_WORDS
+    word = str(value).strip().lower()
+    if word in TRUE_WORDS:
+        return True
+    if word in FALSE_WORDS:
+        return False
+    return True
+
+
+def fms_weekday(day):
+    """A date's weekday as FindMyShift numbers it: Sunday 0 … Saturday 6."""
+    return (day.weekday() + 1) % 7
+
+
+def day_runs(start, end, days):
+    """The runs of consecutive dates in start..end whose weekday is in
+    `days`, as (first, last) pairs. A record's `days` is the weekdays the
+    time off applies to; a Monday-to-Friday range with Wednesday unticked
+    is two runs, not one."""
+    runs, first, prev = [], None, None
+    day = start
+    while day <= end:
+        if fms_weekday(day) in days:
+            if first is None:
+                first = day
+            prev = day
+        elif first is not None:
+            runs.append((first, prev)); first = None
+        day += timedelta(days=1)
+    if first is not None:
+        runs.append((first, prev))
+    return runs
 
 
 def parse_when(value):
@@ -122,21 +198,23 @@ def _local(dt):
 
 
 def normalise(row, types=None):
-    """A Norm, or None for a record that is not approved leave.
+    """The Norms a record comes to — one per run of applicable days, or none
+    for a record that is not approved leave for a person.
 
     `types` maps the team's time-off type ids to their names; a record
     naming its type by id gets the name. A record with no approval field
     at all is taken as approved: an account whose records never say so is
     one where approval is not in use, and silently showing nobody as off
-    would be the worse error. The inspect command shows which it is.
+    would be the worse error. The inspect command shows which it is. A
+    record with no staff member (FindMyShift allows one) is nobody's time
+    off and is skipped. A recurring record is stored as its first
+    occurrence only and logged: the repeat rule's shape is unmeasured.
     """
     if not isinstance(row, dict):
         raise Unreadable(f"a time-off record is a {type(row).__name__}, not an object")
     source_id = pick(row, "id")
-    if as_bool(pick(row, "deleted"), default=False):
-        return None
-    if not as_bool(pick(row, "approved"), default=True):
-        return None
+    if is_deleted(row) or not is_approved(row) or for_no_one(row):
+        return []
     staff_id = pick(row, "staff")
     start, end = pick(row, "start"), pick(row, "end")
     missing = [f for f, v in (("staff", staff_id), ("start", start), ("end", end)) if v is None]
@@ -144,10 +222,25 @@ def normalise(row, types=None):
         raise Unreadable(
             f"time-off record {source_id!r} has no {'/'.join(missing)} field "
             f"(keys present: {sorted(row)}; looked for {[FIELDS[f] for f in missing]})")
-    span = Span.from_times(parse_when(start), parse_when(end))
-    return Norm(staff_id=str(staff_id), span=span,
-                reason=reason_name(pick(row, "reason"), types or {}),
-                source_id=str(source_id))
+    if pick(row, "recurrence") not in (None, "", 0, False):
+        log.warning("findmyshift record %s recurs; only its first occurrence is read",
+                    source_id)
+    days = pick(row, "days")
+    days = {int(d) for d in days} if isinstance(days, (list, tuple)) and days else ALL_DAYS
+    reason = reason_name(pick(row, "reason"), types or {})
+    whole = Span.from_times(parse_when(start), parse_when(end))
+    runs = ([(whole.start_date, whole.end_date)] if days == ALL_DAYS
+            else day_runs(whole.start_date, whole.end_date, days))
+    out = []
+    for first, last in runs:
+        span = Span(first, last,
+                    whole.half_start if first == whole.start_date else False,
+                    whole.half_start_am_pm if first == whole.start_date else "",
+                    whole.half_end if last == whole.end_date else False,
+                    whole.half_end_am_pm if last == whole.end_date else "")
+        out.append(Norm(staff_id=str(staff_id), span=span, reason=reason,
+                        source_id=str(source_id)))
+    return out
 
 
 def reason_name(value, types):
@@ -256,18 +349,19 @@ def _run(client, result, *, dry_run):
 
     merged, approved = {}, 0
     for row, types in records:
-        norm = normalise(row, types)
-        if norm is None:
+        norms = normalise(row, types)
+        if not norms:
             continue
         approved += 1
-        held = merged.get(norm.key)
-        if held is None:
-            merged[norm.key] = norm
-        else:
-            # The first record seen for a span keeps its reason; a later
-            # twin contributes only its id.
-            merged[norm.key] = Norm(held.staff_id, held.span, held.reason or norm.reason,
-                                    f"{held.source_id},{norm.source_id}")
+        for norm in norms:
+            held = merged.get(norm.key)
+            if held is None:
+                merged[norm.key] = norm
+            else:
+                # The first record seen for a span keeps its reason; a later
+                # twin contributes only its id.
+                merged[norm.key] = Norm(held.staff_id, held.span, held.reason or norm.reason,
+                                        f"{held.source_id},{norm.source_id}")
     result.n_approved = approved
     result.n_deduped = len(merged)
 
@@ -325,8 +419,13 @@ def inspect(client):
         out.append(f"  {field}: {'read from ' + repr(used) if used else 'NOT FOUND'}")
     reasons = sorted({reason_name(pick(r, "reason"), t) for r, t in records if isinstance(r, dict)})
     out.append(f"reasons seen: {reasons}")
-    approved = sum(1 for r, t in records if isinstance(r, dict) and normalise(r, t) is not None)
-    out.append(f"approved (or unmarked) and not deleted: {approved}")
+    out.append(f"approved (or unmarked), not deleted, for a person: "
+               f"{sum(1 for r, t in records if isinstance(r, dict) and normalise(r, t))}")
+    out.append(f"pending: {sum(1 for r in rows if not is_approved(r))}; "
+               f"deleted: {sum(1 for r in rows if is_deleted(r))}; "
+               f"for no one: {sum(1 for r in rows if for_no_one(r))}; "
+               f"recurring: {sum(1 for r in rows if pick(r, 'recurrence') not in (None, '', 0, False))}; "
+               f"with a weekday mask: {sum(1 for r in rows if isinstance(pick(r, 'days'), list) and set(pick(r, 'days')) != ALL_DAYS)}")
     return "\n".join(out)
 
 

@@ -35,8 +35,13 @@ From the developer portal (`findmyshift.co.uk/developers`, API 1.4):
   (`2026-10-23T14:20:21.297Z`), dates are `yyyy-MM-dd`; a bad parameter is a
   plain-text `400: Parameter not found or not valid: teamId`; API access is a
   feature of the account's plan (`401: Your subscriptions do not include API
-  access`). The time-off record itself is still unmeasured: the account held
-  none.
+  access`). A time-off record, measured the same day once the account held
+  some, is day-based: `timeOffId`, `staffId` (null when assigned to no one),
+  `timeOffTypeId` and `type` (the type's name), `firstDayOff`/`lastDayOff`
+  as dates, `days` (the weekdays it applies to, Sunday 0), `dateRequested`,
+  `dateApproved` (null while pending), `dateDeleted` (set on a deleted
+  record, which still comes back), `managerNotes`, pay and allowance fields,
+  and `recurrence`/`recurrenceInterval`/`recursUntil`. **No clock times.**
 
 ## Design
 
@@ -58,10 +63,17 @@ the admin guide, before the first real sync. The fixtures in
 `tests/fixtures/findmyshift/` are synthetic and are the shape the sync
 *reads*; if a real account differs, the fix is a name in `FIELDS`.
 
-### Times become parts
+### Days, weekday masks, and (if ever sent) times
 
-FindMyShift records a start and an end date/time; the rota's unit is the
-half-day part. `spans.Span.from_times` turns the pair into the overlay's
+A measured record is whole days: `firstDayOff` to `lastDayOff`, with `days`
+naming the weekdays inside that range the time off applies to. The sync
+splits the range into runs of applicable days (`sync.day_runs`), each a
+span of its own, so an unticked Wednesday is a working day. A record
+assigned to no one is skipped; a recurring record is read as its first
+occurrence and logged, since the rule's shape is unmeasured.
+
+Should a record ever carry clock times (the pre-measurement guess, kept as
+a fallback), `spans.Span.from_times` turns the pair into the overlay's
 existing shape (date range plus half-day flags), so the resolver's
 `parts_off` is untouched:
 
