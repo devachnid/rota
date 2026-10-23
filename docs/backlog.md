@@ -215,7 +215,24 @@ autofill v2 review processes had accumulated:
   master ruleset requires it strictly, alongside CodeQL, a pull request and
   linear history. The only merge method is rebase.
 
-- **Leave moved to BreatheHR** (2026-09-02). Requesting, approving and
+- **Leave now read from FindMyShift, not Breathe** (2026-10-23, PR #57).
+  The Breathe integration is deleted outright — models, client, sync,
+  timer, admin pages, docs — and replaced by the same shape of thing
+  against FindMyShift's API: a read-only overlay (`TimeOff`) rebuilt every
+  fifteen minutes from `time-off/list`, a reason → absence-type mapping
+  (`TimeOffMapping`, keyed on FindMyShift's reason text rather than
+  Breathe's three kinds), a `findmyshift_staff_id` link per clinician, and
+  the same resolver, chips, clash ring and swap check on top. New in kind:
+  FindMyShift records clock times, not half-day flags, so
+  `services/findmyshift/spans.py` turns a start and end into AM/PM parts
+  around `FINDMYSHIFT_MIDDAY`; and FindMyShift does not publish its
+  response shape, so the sync reads fields by name with alternatives and
+  `findmyshift_sync --inspect` prints what a real account sends (names,
+  never values) before the first run. The free-text comment on a record is
+  never read. Migration `0034_findmyshift` drops the Breathe tables; every
+  clinician has to be linked again.
+
+- **Leave moved to BreatheHR** (2026-09-02; superseded above). Requesting, approving and
   tracking entitlement locally is gone — `LeaveRequest` and its "counts
   toward entitlement"/leave-year machinery are deleted, and leave is now
   read from Breathe every fifteen minutes into a read-only overlay
@@ -315,10 +332,13 @@ it came from.
 
 Deliberate choices, recorded so they stop being re-reported by each review pass.
 
-- **Breathe's free-text "other leave" reason is shown to everyone** who can
-  see the session, as "Other leave: <reason>" — not just to rota admins.
-  Raised by the 2026-09-27 security review, since HR may type something
-  personal there. Kept: the practice wants the reason visible. Tom, 2026-09-27.
+- **The leave reason is shown to everyone** who can see the session — not
+  just to rota admins. Raised by the 2026-09-27 security review against
+  Breathe's "other leave" reason, since HR may type something personal
+  there. Kept: the practice wants the reason visible. Tom, 2026-09-27.
+  Carried to FindMyShift (2026-10-23): the *reason* there is the category
+  the practice set up (Holiday, Sick, …) and is shown; the free-text
+  *comment* on a record is never read into the rota at all.
 - **systemd units run as the `rota` user, sandboxed** — reversed 2026-09-27.
   The earlier ruling was that root is "correct for this single-purpose LXC",
   but the container is not single-purpose in the way that mattered.

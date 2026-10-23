@@ -43,8 +43,10 @@ UMask=0077
 #   DB_PATH=/var/lib/rota/db.sqlite3
 #   ALLOWED_HOSTS=rota.example.org
 #   CSRF_TRUSTED_ORIGINS=https://rota.example.org
-#   BREATHE_API_KEY=…            # from Breathe: Configure > API Settings
-#   BREATHE_API_URL=https://api.breathehr.com/v1
+#   FINDMYSHIFT_API_KEY=…        # from FindMyShift: your account's API key (developers page)
+#   FINDMYSHIFT_API_URL=https://www.findmyshift.co.uk/api/1.4
+#   FINDMYSHIFT_TEAM_ID=         # blank: every team the key can see
+#   FINDMYSHIFT_MIDDAY=13:00     # where AM ends, for half-day time off
 #
 # DEBUG defaults to 0 in config/settings.py, so omitting it is safe — but set
 # it explicitly so the file states the intent.

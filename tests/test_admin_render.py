@@ -23,7 +23,7 @@ LEAKED = ["{#", "#}", "{%", "TODO:", "FIXME:", "XXX:", "vestigial"]
 @pytest.fixture
 def rows(admin_user):
     """One row per rota/accounts model."""
-    from rota.models import (BreatheLeaveMapping, BreatheSyncRun,
+    from rota.models import (TimeOffMapping, TimeOffSyncRun,
                              ClosedDay, CoverageRule, DayNote, LocumRequirement,
                              PatternSlot, PracticeSettings, RotaEntryLog, SwapRequest,
                              TraineeStageRule)
@@ -53,9 +53,9 @@ def rows(admin_user):
         "swaprequest": SwapRequest.objects.create(
             proposer=c, proposer_day=date.today(), proposer_part="AM",
             colleague=d, colleague_day=date.today(), colleague_part="PM"),
-        "breatheabsence": make_absence(c, date.today()),
-        "breatheleavemapping": BreatheLeaveMapping.objects.first(),
-        "breathesyncrun": BreatheSyncRun.objects.create(
+        "timeoff": make_absence(c, date.today()),
+        "timeoffmapping": TimeOffMapping.objects.first(),
+        "timeoffsyncrun": TimeOffSyncRun.objects.create(
             started=timezone.now(), finished=timezone.now(), ok=True),
         "user": admin_user,
         "feedback": Feedback.objects.create(kind="BUG", message="Blank grid", reporter=admin_user),
@@ -93,7 +93,7 @@ def test_every_changelist_and_form_renders_for_a_rota_admin(admin_client, rows, 
 
 
 @pytest.mark.parametrize("url", ["/admin/", "/admin/rota/patternslot/bulk/",
-                                 "/admin/rota/breathesyncrun/status/"])
+                                 "/admin/rota/timeoffsyncrun/status/"])
 def test_the_dashboard_and_custom_pages_render(admin_client, rows, url):
     resp = admin_client.get(url)
     assert resp.status_code == 200

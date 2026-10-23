@@ -1,4 +1,4 @@
-"""Local leave management is gone. Breathe owns it."""
+"""Local leave management is gone. FindMyShift owns it."""
 
 import re
 from pathlib import Path

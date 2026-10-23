@@ -365,11 +365,11 @@ def test_today_is_working_even_when_the_surgery_is_closed(gp_client, gp_user):
     assert "Surgery closed" not in html
 
 
-# ------------------------------------------------------ Breathe overlay ---
+# ------------------------------------------------------ FindMyShift overlay ---
 
-def test_a_gps_own_breathe_leave_shows_on_their_schedule(gp_client, gp_user):
+def test_a_gps_own_findmyshift_leave_shows_on_their_schedule(gp_client, gp_user):
     """The old agenda bypassed cell_state and so could never show leave. With
-    Breathe as the source that would hide a GP's own leave from them."""
+    FindMyShift as the source that would hide a GP's own leave from them."""
     from tests.factories import make_absence
     c = make_clinician(user=gp_user)
     make_pattern(c)
@@ -378,11 +378,11 @@ def test_a_gps_own_breathe_leave_shows_on_their_schedule(gp_client, gp_user):
     tuesday = monday + timedelta(days=1)
     make_absence(c, tuesday)
     html = gp_client.get("/me/").content.decode()
-    assert 'title="Holiday — from Breathe"' in html
+    assert 'title="Holiday — from FindMyShift"' in html
     assert "AL" in html
 
 
-def test_a_week_of_breathe_leave_reads_on_leave_all_week(gp_client, gp_user):
+def test_a_week_of_findmyshift_leave_reads_on_leave_all_week(gp_client, gp_user):
     from tests.factories import make_absence
     c = make_clinician(user=gp_user)
     make_pattern(c)

@@ -1,7 +1,7 @@
 """The low-risk items from the 2026-09-27 security review: an HTTPS redirect
 of the app's own, no published development key, a request log that keeps
 password links out of it, security events that reach the journal, and a
-Breathe key that cannot leak through an error message."""
+FindMyShift key that cannot leak through an error message."""
 
 import logging
 import os
@@ -20,7 +20,7 @@ def _settings_value(expr, env):
     """A setting as a production process sees it: a fresh interpreter that is
     not running pytest, so config/settings.py's _TESTING is false."""
     base = {k: v for k, v in os.environ.items()
-            if k not in ("DEBUG", "SECRET_KEY", "DB_PATH", "BREATHE_API_KEY")}
+            if k not in ("DEBUG", "SECRET_KEY", "DB_PATH", "FINDMYSHIFT_API_KEY")}
     base.update({"DJANGO_SETTINGS_MODULE": "config.settings", **env})
     return subprocess.run(
         [sys.executable, "-c", f"from config import settings as s; print(repr({expr}))"],
@@ -36,12 +36,12 @@ def test_production_redirects_http_to_https_itself():
                            {"DEBUG": "0", "SECRET_KEY": "x" * 50}) == "True"
 
 
-def test_the_breathe_key_is_stripped():
+def test_the_findmyshift_key_is_stripped():
     """A key pasted with a line ending would make http.client refuse the
     header, quoting the key in its error."""
-    assert _settings_value("s.BREATHE_API_KEY",
+    assert _settings_value("s.FINDMYSHIFT_API_KEY",
                            {"DEBUG": "0", "SECRET_KEY": "x" * 50,
-                            "BREATHE_API_KEY": "k-123\r\n"}) == "'k-123'"
+                            "FINDMYSHIFT_API_KEY": "k-123\r\n"}) == "'k-123'"
 
 
 def test_the_dev_key_is_private_to_the_checkout(tmp_path, monkeypatch):
@@ -91,32 +91,37 @@ def test_a_csrf_failure_reaches_the_security_log(caplog):
     assert any(r.name == "django.security.csrf" for r in caplog.records)
 
 
-# --- the Breathe key in errors ------------------------------------------------------------
+# --- the FindMyShift key in errors ------------------------------------------------------------
 
-def test_a_header_error_never_repeats_the_key():
-    from rota.services.breathe.client import BreatheClient, BreatheError
+def test_an_error_body_never_repeats_the_key():
+    """FindMyShift's error bodies are plain text that may echo a parameter
+    back. The client quotes the start of the body, so it strikes the key
+    out of it first."""
+    import io
+    from urllib.error import HTTPError
+    from rota.services.findmyshift.client import FindMyShiftClient, FindMyShiftError
 
     def opener(req):
-        # what http.client raises for a header value with a line break in it
-        raise ValueError(f"Invalid header value {req.get_header('X-api-key')!r}")
+        raise HTTPError(req.full_url, 400, "x", {},
+                        io.BytesIO(b"400: apiKey SUPERSECRETKEY is not valid"))
 
-    with pytest.raises(BreatheError) as exc:
-        BreatheClient("SUPERSECRETKEY\n", "https://api.breathehr.com/v1",
-                      opener=opener).fetch_all("employees")
+    with pytest.raises(FindMyShiftError) as exc:
+        FindMyShiftClient("SUPERSECRETKEY", "https://www.findmyshift.co.uk/api/1.4",
+                          opener=opener).teams()
     assert "SUPERSECRETKEY" not in str(exc.value)
-    assert "line break" in str(exc.value)
+    assert "not valid" in str(exc.value)
 
 
 @pytest.mark.django_db
 def test_a_failed_sync_strikes_the_key_from_the_stored_error(settings):
-    from rota.services.breathe import sync
+    from rota.services.findmyshift import sync
 
-    settings.BREATHE_API_KEY = "SUPERSECRETKEY"
+    settings.FINDMYSHIFT_API_KEY = "SUPERSECRETKEY"
 
     class Leaky:
-        def fetch_all(self, resource):
+        def teams(self):
             raise RuntimeError("something quoted SUPERSECRETKEY back")
 
     result = sync.run(Leaky())
     assert not result.ok
-    assert "SUPERSECRETKEY" not in result.error and "[BREATHE_API_KEY]" in result.error
+    assert "SUPERSECRETKEY" not in result.error and "[FINDMYSHIFT_API_KEY]" in result.error

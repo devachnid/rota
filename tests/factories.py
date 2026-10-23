@@ -53,12 +53,14 @@ def make_entry(clinician, day=MON, part="AM", session_type=None, **kw):
     )
 
 
-def make_absence(clinician, start, end=None, kind="holiday", reason="", **half):
-    """A Breathe absence row, as the sync would write it."""
-    from rota.models import BreatheAbsence
-    return BreatheAbsence.objects.create(
+def make_absence(clinician, start, end=None, reason="Holiday", **half):
+    """A FindMyShift time-off row, as the sync would write it. `half` takes
+    the span's half-day fields directly (half_start=True,
+    half_start_am_pm="PM"), which is what a 13:00 start comes to."""
+    from rota.models import TimeOff
+    return TimeOff.objects.create(
         clinician=clinician, start_date=start, end_date=end or start,
-        kind=kind, reason=reason, source_ids="test",
+        reason=reason, source_ids="test",
         half_start=half.get("half_start", False),
         half_start_am_pm=half.get("half_start_am_pm") or "",
         half_end=half.get("half_end", False),

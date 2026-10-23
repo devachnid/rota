@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 from django.db.models import Q
 
-from rota.models import (BreatheAbsence, BreatheLeaveMapping, ClinicianGroup,
+from rota.models import (TimeOff, TimeOffMapping, ClinicianGroup,
                          ClosedDay, CoverageRule, LocumRequirement, PatternSlot,
                          PracticeSettings, RotaEntry, SessionType)
 from rota.services import calendar
@@ -86,19 +86,19 @@ def _locum_suffix(day, part, session_type, bundle=None):
     return f" — locum {req.get_status_display().lower()}" if req else ""
 
 
-def _breathe_conflicts(day, entries, resolver=None):
-    """Rostered sessions standing on a clinician Breathe says is off.
+def _timeoff_conflicts(day, entries, resolver=None):
+    """Rostered sessions standing on a clinician FindMyShift says is off.
 
     Leave used to be approved in the rota, and approving it overwrote the
-    entries. Breathe owns leave now and nothing overwrites anything, so the
-    ordinary sequence — publish the week, then leave is approved in Breathe
+    entries. FindMyShift owns leave now and nothing overwrites anything, so the
+    ordinary sequence — publish the week, then leave is approved in FindMyShift
     — leaves a published session against someone who is not coming in. The
     cell is ringed (cell_state's `clash`) and this line names who, with the
     kind of leave, so an admin can clear the session by hand.
 
     Decided by cell_state, so the header and the cell cannot disagree: an
-    absence-category entry over Breathe leave is agreement, and an absence
-    whose (kind, reason) has no mapping row is still leave.
+    absence-category entry over FindMyShift leave is agreement, and an absence
+    whose reason has no mapping row is still leave.
 
     `resolver` is optional so the grid, which has already built one for the
     week, need not pay for another per day. Built here only for callers
@@ -111,9 +111,9 @@ def _breathe_conflicts(day, entries, resolver=None):
         resolver = AvailabilityResolver(
             PatternSlot.objects.filter(clinician_id__in=clinicians),
             clinicians.values(),
-            BreatheAbsence.objects.filter(clinician_id__in=clinicians,
+            TimeOff.objects.filter(clinician_id__in=clinicians,
                                           start_date__lte=day, end_date__gte=day),
-            BreatheLeaveMapping.as_dict(),
+            TimeOffMapping.as_dict(),
         )
     warnings = []
     for part in ["AM", "PM"]:
@@ -134,7 +134,7 @@ def _breathe_conflicts(day, entries, resolver=None):
             who = ", ".join(f"{initials} ({label})"
                             for initials, name, label in sorted(clashing))
             warnings.append(Warning(
-                "breathe", part, f"On Breathe leave but rostered ({part}): {who}"))
+                "timeoff", part, f"On FindMyShift leave but rostered ({part}): {who}"))
     return warnings
 
 
@@ -229,7 +229,7 @@ def day_warnings(day, include_drafts=True, resolver=None, bundle=None):
                     f"{group.name}: {present}/{group.min_per_session} in ({part})",
                 ))
 
-    warnings.extend(_breathe_conflicts(day, entries, resolver))
+    warnings.extend(_timeoff_conflicts(day, entries, resolver))
     return warnings
 
 

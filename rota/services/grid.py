@@ -11,7 +11,7 @@ from datetime import date, timedelta
 
 from django.db.models import Prefetch
 
-from rota.models import (BreatheAbsence, BreatheLeaveMapping, Clinician,
+from rota.models import (TimeOff, TimeOffMapping, Clinician,
                          ClinicianGroup, ClosedDay, DayNote, LocumRequirement,
                          PatternSlot, PracticeSettings, RotaEntry)
 from rota.services import availability
@@ -102,13 +102,13 @@ class Window:
         self.active = list(Clinician.objects.filter(active=True))
         pattern_rows = list(PatternSlot.objects.filter(
             clinician__in=self.active).order_by("effective_from"))
-        absences = BreatheAbsence.objects.none()
+        absences = TimeOff.objects.none()
         if days:
-            absences = BreatheAbsence.objects.filter(
+            absences = TimeOff.objects.filter(
                 clinician__in=self.active,
                 start_date__lte=self.end, end_date__gte=self.start)
         self.resolver = availability.AvailabilityResolver(
-            pattern_rows, self.active, absences, BreatheLeaveMapping.as_dict())
+            pattern_rows, self.active, absences, TimeOffMapping.as_dict())
         # Day -> reason. Membership is what most of this asks; the header
         # also prints the reason.
         self.closed = dict(ClosedDay.objects.filter(day__in=days)

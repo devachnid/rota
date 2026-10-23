@@ -14,10 +14,10 @@ from django.urls import reverse
 from django.views.generic import TemplateView
 from unfold.views import UnfoldModelAdminViewMixin
 
-from rota.models import (BreatheAbsence, BreatheLeaveMapping, BreatheSyncRun,
+from rota.models import (TimeOff, TimeOffMapping, TimeOffSyncRun,
                          Clinician, Part, PatternSlot)
-from rota.services.breathe import client as breathe_client
-from rota.services.breathe.links import unlinked_clinicians
+from rota.services.findmyshift import client as fms_client
+from rota.services.findmyshift.links import unlinked_clinicians
 from rota.services.patterns import bulk_set_pattern, current_pattern
 
 WEEKDAY_LABELS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday",
@@ -136,28 +136,35 @@ class PatternEditorView(UnfoldModelAdminViewMixin, TemplateView):
         return self.render_to_response(context)
 
 
-def unmapped_absence_count():
-    """Stored BreatheAbsence rows whose (kind, reason) has no mapping row
-    and whose (kind, "") default also has no row — i.e. absences the
-    resolver currently renders as empty cells, findable nowhere else."""
-    mapping = BreatheLeaveMapping.as_dict()
-    return sum(1 for kind, reason in BreatheAbsence.objects.values_list("kind", "reason")
-               if (kind, reason) not in mapping and (kind, "") not in mapping)
+def unmapped_reasons():
+    """The FindMyShift reasons in the overlay that have no mapping row of
+    their own, sorted. With the default row present they render as its
+    chip, which may be the wrong chip (sick leave reading as AL); with the
+    default row gone they render as empty cells. Either way the status page
+    names them, so the rows to add are findable."""
+    mapping = TimeOffMapping.as_dict()
+    seen = set(TimeOff.objects.values_list("reason", flat=True).distinct())
+    return sorted(r for r in seen if r not in mapping)
 
 
-class BreatheStatusView(UnfoldModelAdminViewMixin, TemplateView):
+def unmapped_count():
+    return len(unmapped_reasons())
+
+
+class TimeOffStatusView(UnfoldModelAdminViewMixin, TemplateView):
     title = "Sync status"
-    permission_required = ("rota.view_breathesyncrun",)
-    template_name = "admin/rota/breathesyncrun/status.html"
+    permission_required = ("rota.view_timeoffsyncrun",)
+    template_name = "admin/rota/timeoffsyncrun/status.html"
 
     def get_context_data(self, **kwargs):
-        last_ok = BreatheSyncRun.objects.filter(ok=True).first()
-        last = BreatheSyncRun.objects.first()
+        last_ok = TimeOffSyncRun.objects.filter(ok=True).first()
+        last = TimeOffSyncRun.objects.first()
         return super().get_context_data(
-            configured=breathe_client.from_settings() is not None,
+            configured=fms_client.from_settings() is not None,
             last_ok=last_ok,
             last_error=last if (last and not last.ok) else None,
             unlinked=unlinked_clinicians(),
-            unmapped_count=unmapped_absence_count(),
-            runs=BreatheSyncRun.objects.all()[:20],
+            unmapped=unmapped_reasons(),
+            has_default=TimeOffMapping.objects.filter(reason="").exists(),
+            runs=TimeOffSyncRun.objects.all()[:20],
             **kwargs)

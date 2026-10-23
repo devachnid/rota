@@ -73,12 +73,14 @@ class Clinician(models.Model):
     end_date = models.DateField(
         null=True, blank=True,
         help_text="Do not schedule after this date. Blank means no end bound.")
-    # The Breathe employee this clinician is. Linked by hand in admin (a
-    # dropdown of employees); unique so two clinicians can never share one
-    # person's leave; nullable because a locum or a new starter may have no
-    # Breathe record yet. Unlinked clinicians have no leave and are treated
-    # as available — surfaced as an admin warning, not hidden.
-    breathe_employee_id = models.PositiveIntegerField(null=True, blank=True, unique=True)
+    # The FindMyShift staff member this clinician is. Linked by hand in
+    # admin (a dropdown of staff); unique so two clinicians can never share
+    # one person's time off; nullable because a locum or a new starter may
+    # have no FindMyShift record yet. Unlinked clinicians have no time off
+    # and are treated as available — surfaced as an admin warning, not
+    # hidden. Text, because FindMyShift's ids are documented as text.
+    findmyshift_staff_id = models.CharField(
+        max_length=40, null=True, blank=True, unique=True)
 
     class Meta:
         ordering = ["display_order", "name"]

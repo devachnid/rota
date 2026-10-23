@@ -3,7 +3,7 @@ from datetime import date, timedelta
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 
-from rota.models import (BreatheAbsence, BreatheLeaveMapping, ClosedDay,
+from rota.models import (TimeOff, TimeOffMapping, ClosedDay,
                          PatternSlot, PracticeSettings, RotaEntry,
                          SessionType, SwapRequest)
 from rota.services import availability
@@ -13,14 +13,14 @@ WEEKS_SHOWN = 4
 
 
 def _is_leave_cell(cell):
-    """Whether one cell counts toward "on leave": a Breathe absence, or (for
+    """Whether one cell counts toward "on leave": a FindMyShift time off, or (for
     history predating the overlay) an absence-category entry. Off cells
     (nothing expected there at all) never count — they are dashes, not
     leave.
 
     `on_leave`, not `absence`: `absence` is the mapped chip and is None for a
-    kind whose mapping row is missing, which would turn "On leave all week"
-    back into a session count for someone Breathe says is off. The chips the
+    reason whose mapping row is missing, which would turn "On leave all week"
+    back into a session count for someone FindMyShift says is off. The chips the
     row renders still come from `absence`."""
     absence = SessionType.Category.ABSENCE
     return cell["on_leave"] or (
@@ -39,7 +39,7 @@ def _blocks(clinician, today, open_weekdays, closed, entries_by, resolver):
     rostered to work it is worse than the tidiness of omitting an empty row.
 
     am_cell/pm_cell go through cell_state(), the same as the grid and the
-    day view: Breathe is the source of leave now, and a GP must see their
+    day view: FindMyShift is the source of leave now, and a GP must see their
     own on their own schedule.
     """
     monday = today - timedelta(days=today.weekday())
@@ -64,7 +64,7 @@ def _blocks(clinician, today, open_weekdays, closed, entries_by, resolver):
             worked_cells = [c for c in (am_cell, pm_cell) if not c["off"]]
             # `is_open and`: the same guard today_state applies. A closed day
             # is shown here only because a session is on it, and a session
-            # is not a day off — whatever Breathe says about the date.
+            # is not a day off — whatever FindMyShift says about the date.
             is_leave = is_open and bool(worked_cells) and all(
                 _is_leave_cell(c) for c in worked_cells)
             days.append({"day": day, "am": am, "pm": pm,
@@ -116,14 +116,14 @@ def my_schedule(request):
     entries_by = {(e.day, e.part): e for e in entries}
 
     pattern_rows = list(PatternSlot.objects.filter(clinician=clinician))
-    absences = BreatheAbsence.objects.filter(
+    absences = TimeOff.objects.filter(
         clinician=clinician, start_date__lte=last, end_date__gte=monday)
     resolver = availability.AvailabilityResolver(
-        pattern_rows, [clinician], absences, BreatheLeaveMapping.as_dict())
+        pattern_rows, [clinician], absences, TimeOffMapping.as_dict())
 
     # Same rule as _blocks(): a session the clinician actually has, or an
     # absence covering it, beats the closure. Checked first and
-    # unconditionally, so an entry (or a Breathe absence) on a closed or
+    # unconditionally, so an entry (or a FindMyShift time off) on a closed or
     # non-open "today" still reports "working" and renders, rather than
     # telling a GP the surgery is shut on a day they have a session or
     # leave sitting against them. "closed" and "not_in" are reserved for
@@ -131,7 +131,7 @@ def my_schedule(request):
     #
     # Unlike _blocks()'s inclusion rule, this absence clause is not dead:
     # there is no third "already true" disjunct here keyed off today_closed
-    # the way is_open is there, so on an open today with a half-day Breathe
+    # the way is_open is there, so on an open today with a half-day FindMyShift
     # absence and no RotaEntry, the absence clause is the only route to
     # "working" — dropping it reads a GP as "not_in" on a day they are, in
     # fact, half in.
@@ -142,7 +142,7 @@ def my_schedule(request):
     today_pm_cell = cell_state(clinician.id, today, "PM",
                                entry=entries_by.get((today, "PM")),
                                resolver=resolver, closed=today_closed)
-    # `on_leave` rather than `absence`, so a leave kind with no mapping row
+    # `on_leave` rather than `absence`, so a reason with no mapping row
     # still counts — but explicitly not on a closed day, which `absence`
     # used to carry implicitly (cell_state suppresses the chip there). Left
     # unqualified, a bank holiday inside a leave span would take the

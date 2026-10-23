@@ -1,7 +1,7 @@
 # Leave from BreatheHR
 
 **Date:** 2026-09-02
-**Status:** Approved design, pre-implementation
+**Status:** Built; superseded 2026-10-23 by `2026-10-23-findmyshift-time-off-design.md` (the Breathe integration is deleted)
 **Builds on:** the availability consolidation in `2026-08-30-rota-fixes-design.md`
 and the `cell_state` extraction in `2026-08-31-frontend-phase2-design.md`, both
 merged.

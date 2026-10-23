@@ -1,4 +1,4 @@
-from .breathe import BreatheAbsence, BreatheLeaveMapping, BreatheSyncRun
+from .findmyshift import TimeOff, TimeOffMapping, TimeOffSyncRun
 from .catalog import (ClosedDay, CoverageRule, DayNote, Part, PracticeSettings,
                       SessionType, Site)
 from .commitments import PersonalRequirement, RecurringCommitment
@@ -12,4 +12,4 @@ __all__ = ["ClosedDay", "CoverageRule", "DayNote", "Part", "PracticeSettings",
            "SessionType", "Site", "RecurringCommitment", "PersonalRequirement", "PatternSlot", "Clinician", "ClinicianGroup",
            "RotaEntry", "RotaEntryLog", "LocumRequirement", "SwapRequest",
            "TraineeProfile", "TraineeStageRule",
-           "BreatheAbsence", "BreatheLeaveMapping", "BreatheSyncRun"]
+           "TimeOff", "TimeOffMapping", "TimeOffSyncRun"]

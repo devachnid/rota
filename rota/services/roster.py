@@ -3,7 +3,7 @@
 One place decides it, because two screens answering "who is on leave on
 Tuesday" separately is two chances to disagree. RosterSource fetches what a
 run of days needs in one go — the entries, the clinicians and their
-patterns, Breathe leave, closures and day notes — and day() builds one
+patterns, FindMyShift leave, closures and day notes — and day() builds one
 day's lists from it without a query of its own, so five days cost what one
 does. The rules themselves moved here from rota/views/day.py unchanged.
 """
@@ -11,7 +11,7 @@ does. The rules themselves moved here from rota/views/day.py unchanged.
 from dataclasses import dataclass, field
 from datetime import date
 
-from rota.models import (BreatheAbsence, BreatheLeaveMapping, Clinician,
+from rota.models import (TimeOff, TimeOffMapping, Clinician,
                          ClosedDay, DayNote, PatternSlot, PracticeSettings,
                          RotaEntry, SessionType)
 from rota.services import availability
@@ -69,13 +69,13 @@ class RosterSource:
         self.active = list(Clinician.objects.filter(active=True)
                            .select_related("group").order_by("display_order", "name"))
         pattern_rows = list(PatternSlot.objects.filter(clinician__in=self.active))
-        absences = BreatheAbsence.objects.none()
+        absences = TimeOff.objects.none()
         if self.days:
-            absences = BreatheAbsence.objects.filter(
+            absences = TimeOff.objects.filter(
                 clinician__in=self.active,
                 start_date__lte=max(self.days), end_date__gte=min(self.days))
         self.resolver = availability.AvailabilityResolver(
-            pattern_rows, self.active, absences, BreatheLeaveMapping.as_dict())
+            pattern_rows, self.active, absences, TimeOffMapping.as_dict())
 
         self.closures = {cd.day: cd.reason
                          for cd in ClosedDay.objects.filter(day__in=self.days)}
@@ -103,7 +103,7 @@ class RosterSource:
                 for part in ("AM", "PM")
             ]
             # On-leave means every part the clinician works is covered — either
-            # by a Breathe absence for this day/part, or (for history predating
+            # by a FindMyShift time off for this day/part, or (for history predating
             # the overlay) by an absence-category entry. A cell is "off" when
             # nothing is expected there at all (cell_state already worked that
             # out); a part where off is False is a part they work, and it needs
@@ -115,7 +115,7 @@ class RosterSource:
             # kind's default mapping row missing, a sick clinician read "1 in ·
             # 0 on leave" — the count and the scheduler disagreeing about the
             # same person. What renders is still `absence`; what is counted is
-            # what Breathe said.
+            # what FindMyShift said.
             worked_cells = [cell for cell in cells if not cell["off"]]
             is_on_leave = bool(worked_cells) and all(
                 cell["on_leave"]
@@ -152,7 +152,7 @@ class RosterSource:
         # lost by starting from the rows.
         #
         # The clash travels with the pin: someone rostered on Duty whom
-        # Breathe says is off is on the pinned line, and a line reading "on
+        # FindMyShift says is off is on the pinned line, and a line reading "on
         # Duty" with no sign of it names someone who will not be there.
         result.pinned = sorted(
             ({"clinician": c, "entry": cell["entry"], "note": cell["note"],

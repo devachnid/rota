@@ -23,7 +23,7 @@
 <div class="flash">Ticking mode — click a session to mark it entered in the clinical system; click again to unmark. Turn it off to edit cells.</div>
 {% endif %}
 {% if unlinked_count %}
-<div class="alert alert-warning">{{ unlinked_count }} clinician{{ unlinked_count|pluralize }} not linked to Breathe — no leave is read for them. <a href="{{ unlinked_url }}">Link them</a>.</div>
+<div class="alert alert-warning">{{ unlinked_count }} clinician{{ unlinked_count|pluralize }} not linked to FindMyShift — no time off is read for them. <a href="{{ unlinked_url }}">Link them</a>.</div>
 {% endif %}
 <script src="{% static 'js/grid.js' %}" defer></script>
 <div class="grid-wrap">

@@ -195,7 +195,7 @@ def test_the_day_strip_opens_the_card_it_jumps_to():
 
 
 def test_someone_pinned_but_on_leave_is_marked_and_their_leave_named(gp_client):
-    """Seen in a browser: Breathe had Drew on holiday on a Tuesday he was
+    """Seen in a browser: FindMyShift had Drew on holiday on a Tuesday he was
     also rostered on Duty. The pinned line said he was on Duty and the
     leave line said "Drew Tanner (Duty)"."""
     duty = make_session_type("Duty", code="DUTY", pin_on_day_view=True)

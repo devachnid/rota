@@ -23,7 +23,7 @@ UNFOLD_CSS = (Path(unfold.__file__).resolve().parent
 TEMPLATES = [
     ROOT / "templates" / "admin" / "index.html",
     ROOT / "templates" / "admin" / "rota" / "patternslot" / "editor.html",
-    ROOT / "templates" / "admin" / "rota" / "breathesyncrun" / "status.html",
+    ROOT / "templates" / "admin" / "rota" / "timeoffsyncrun" / "status.html",
     ROOT / "rota" / "templates" / "admin" / "rota" / "widgets" / "ordered_checkboxes.html",
 ]
 

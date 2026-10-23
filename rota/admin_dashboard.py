@@ -10,12 +10,12 @@ from django.utils import timezone
 
 from accounts.mail import email_is_configured
 from feedback.models import Feedback
-from rota.admin_pages import clinicians_without_a_pattern, unmapped_absence_count
-from rota.models import (BreatheSyncRun, Clinician, ClinicianGroup, CoverageRule,
+from rota.admin_pages import clinicians_without_a_pattern, unmapped_count
+from rota.models import (TimeOffSyncRun, Clinician, ClinicianGroup, CoverageRule,
                          LocumRequirement, PracticeSettings, SessionType, Site,
                          TraineeProfile, SwapRequest)
 from rota.services import personal as personal_svc
-from rota.services.breathe.links import (unlinked_changelist_url,
+from rota.services.findmyshift.links import (unlinked_changelist_url,
                                          unlinked_clinicians)
 from rota.services.calendar import is_open
 from rota.services.legibility import grid_legibility
@@ -34,17 +34,17 @@ def setup_steps():
     missing_patterns = clinicians_without_a_pattern().count()
     unlinked = unlinked_clinicians().count()
     any_active = Clinician.objects.filter(active=True).exists()
-    has_key = bool(settings.BREATHE_API_KEY)
-    synced = BreatheSyncRun.objects.filter(ok=True).exists()
+    has_key = bool(settings.FINDMYSHIFT_API_KEY)
+    synced = TimeOffSyncRun.objects.filter(ok=True).exists()
     email_ok = email_is_configured()
     if not has_key:
-        breathe_detail = "BREATHE_API_KEY is not set"
+        fms_detail = "FINDMYSHIFT_API_KEY is not set"
     elif not synced:
-        breathe_detail = "no successful sync yet"
+        fms_detail = "no successful sync yet"
     elif unlinked:
-        breathe_detail = f"{unlinked} not linked"
+        fms_detail = f"{unlinked} not linked"
     else:
-        breathe_detail = "key set, synced, everyone linked"
+        fms_detail = "key set, synced, everyone linked"
     steps = [
         {"title": "Practice settings",
          "done": bool(ps.open_weekday_list()) and ps.default_fill_session_type_id is not None,
@@ -56,7 +56,7 @@ def setup_steps():
          "done": ClinicianGroup.objects.filter(is_locum_group=True).count() == 1,
          "detail": "at least one, and exactly one locum group",
          "url": _cl("cliniciangroup")},
-        # Migration 0022_breathe seeds three ABSENCE-category types (AL/SICK/
+        # Migrations 0022 and 0034 seed three ABSENCE-category types (AL/SICK/
         # OTH), so on a real database this step reduces to "has a clinical
         # type" — the absence half is kept so the checklist stays honest if
         # those seeded rows are ever deleted.
@@ -74,11 +74,11 @@ def setup_steps():
          "detail": (f"{missing_patterns} clinician{'s' if missing_patterns != 1 else ''} "
                     f"without one" if missing_patterns else "everyone has one"),
          "url": reverse("admin:rota_patternslot_bulk") + "?missing=1"},
-        {"title": "Breathe",
+        {"title": "FindMyShift",
          "done": has_key and synced and unlinked == 0,
-         "detail": breathe_detail,
+         "detail": fms_detail,
          "url": (unlinked_changelist_url() if has_key and synced
-                 else reverse("admin:rota_breathesyncrun_status"))},
+                 else reverse("admin:rota_timeoffsyncrun_status"))},
         # Server configuration, not a database row, so nothing to link to.
         {"title": "Outgoing email", "done": email_ok,
          "detail": ("invitations and password resets go by email" if email_ok
@@ -97,17 +97,17 @@ def health():
     week = [monday + timedelta(days=i) for i in range(7)]
     gap_days = sum(1 for d in week if is_open(d) and day_warnings(d, include_drafts=True))
 
-    last = BreatheSyncRun.objects.first()
-    last_ok = BreatheSyncRun.objects.filter(ok=True).first()
-    if not settings.BREATHE_API_KEY:
-        breathe = ("not configured", "warn")
+    last = TimeOffSyncRun.objects.first()
+    last_ok = TimeOffSyncRun.objects.filter(ok=True).first()
+    if not settings.FINDMYSHIFT_API_KEY:
+        findmyshift = ("not configured", "warn")
     elif last is not None and not last.ok:
-        breathe = (f"last run failed: {last.error[:80]}", "warn")
+        findmyshift = (f"last run failed: {last.error[:80]}", "warn")
     elif last_ok is None:
-        breathe = ("no successful sync yet", "warn")
+        findmyshift = ("no successful sync yet", "warn")
     else:
         local_started = timezone.localtime(last_ok.started)
-        breathe = (f"last good sync {local_started:%a %-d %b %H:%M}", "ok")
+        findmyshift = (f"last good sync {local_started:%a %-d %b %H:%M}", "ok")
 
     ps = PracticeSettings.load()
     legibility = grid_legibility()
@@ -118,13 +118,13 @@ def health():
         {"label": "Clinicians with no working pattern",
          "count": clinicians_without_a_pattern().count(),
          "url": reverse("admin:rota_patternslot_bulk") + "?missing=1", "level": "warn"},
-        {"label": "Clinicians not linked to Breathe",
+        {"label": "Clinicians not linked to FindMyShift",
          "count": unlinked_clinicians().count(),
          "url": unlinked_changelist_url(), "level": "warn"},
-        {"label": "Breathe sync", "count": None, "detail": breathe[0],
-         "url": reverse("admin:rota_breathesyncrun_status"), "level": breathe[1]},
-        {"label": "Absences with no mapping", "count": unmapped_absence_count(),
-         "url": _cl("breatheleavemapping"), "level": "warn"},
+        {"label": "FindMyShift sync", "count": None, "detail": findmyshift[0],
+         "url": reverse("admin:rota_timeoffsyncrun_status"), "level": findmyshift[1]},
+        {"label": "Time off reasons with no mapping", "count": unmapped_count(),
+         "url": _cl("timeoffmapping"), "level": "warn"},
         {"label": "Days with staffing gaps this week", "count": gap_days,
          "url": reverse("report-staffing"), "level": "warn"},
         {"label": "Clinicians overdue a personal requirement",

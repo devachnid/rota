@@ -4,7 +4,7 @@ The rota is built four to six weeks ahead, so "next Monday" is nearly
 always a week already done. From next Monday, this finds the first week
 that is under half filled: the number of working sessions — a clinician
 who is active, inside their dates, works that half-day by pattern and is
-not on Breathe leave — against how many of those hold any entry, draft or
+not on FindMyShift leave — against how many of those hold any entry, draft or
 published. A few advance bookings or a booked locum leave a week well
 under half, so it is still picked; a week with no working sessions at all
 (every day closed) is skipped. Bounded at HORIZON_WEEKS, falling back to
@@ -17,7 +17,7 @@ over a range, and this is a scan.
 from dataclasses import dataclass
 from datetime import date, timedelta
 
-from rota.models import (BreatheAbsence, BreatheLeaveMapping, Clinician,
+from rota.models import (TimeOff, TimeOffMapping, Clinician,
                          ClosedDay, PatternSlot, PracticeSettings, RotaEntry)
 from rota.services import availability
 
@@ -48,10 +48,10 @@ def suggest(today=None):
     active = list(Clinician.objects.filter(active=True))
     pattern_rows = list(PatternSlot.objects.filter(clinician__in=active)
                         .order_by("effective_from"))
-    absences = list(BreatheAbsence.objects.filter(
+    absences = list(TimeOff.objects.filter(
         clinician__in=active, start_date__lte=last, end_date__gte=first))
     resolver = availability.AvailabilityResolver(
-        pattern_rows, active, absences, BreatheLeaveMapping.as_dict())
+        pattern_rows, active, absences, TimeOffMapping.as_dict())
     held = set(RotaEntry.objects.filter(day__range=(first, last))
                .values_list("clinician_id", "day", "part"))
 
