@@ -66,19 +66,20 @@ def test_counts_are_recorded():
     _link_everyone()
     run = sync.run(FakeClient())
     assert run.ok, run.error
-    assert run.n_teams == 1 and run.n_records == 13
-    assert run.n_approved == 10, "13 - 1 pending - 1 deleted - 1 assigned to no one"
-    assert run.n_deduped == 10, "TO4 splits in two around its unticked Wednesday; TO10 is TO2 entered twice"
+    assert run.n_teams == 1 and run.n_records == 15
+    assert run.n_approved == 12, "15 - 1 pending - 1 deleted - 1 assigned to no one"
+    assert run.n_deduped == 12, "TO4 splits in two around its unticked Wednesday; TO10 is TO2 entered twice"
     assert run.n_unlinked == 1, "S99"
     assert run.finished is not None
-    assert TimeOff.objects.count() == 9
+    assert TimeOff.objects.count() == 11
 
 
 def test_first_and_last_day_off_are_the_span():
     by_id = _link_everyone()
     sync.run(FakeClient())
     assert _spans(by_id["S1"]) == [(date(2026, 9, 14), date(2026, 9, 22)),
-                                   (date(2026, 9, 28), date(2026, 9, 30))]
+                                   (date(2026, 9, 28), date(2026, 9, 30)),
+                                   (date(2026, 11, 23), date(2026, 11, 23))]
     row = TimeOff.objects.get(clinician=by_id["S1"], start_date=date(2026, 9, 14))
     assert not row.half_start and not row.half_end, "FindMyShift time off is whole days"
     assert row.reason == "Maternity"
@@ -147,6 +148,41 @@ def test_a_record_with_no_type_is_stored_blank():
     assert (row.start_date, row.end_date, row.reason) == (date(2026, 11, 16), date(2026, 11, 20), "")
 
 
+def test_a_morning_or_afternoon_off_is_half_a_day():
+    """FindMyShift's guide: book the whole date and describe it "Morning
+    off" or "Afternoon off". The description is read for that phrase and
+    nothing else."""
+    by_id = _link_everyone()
+    sync.run(FakeClient())
+    pm = TimeOff.objects.get(clinician=by_id["S3"], start_date=date(2026, 10, 14))
+    assert (pm.half_start, pm.half_start_am_pm, pm.half_end) == (True, "PM", False)
+    am = TimeOff.objects.get(clinician=by_id["S1"], start_date=date(2026, 11, 23))
+    assert (am.half_start, am.half_end, am.half_end_am_pm) == (False, True, "AM")
+    assert pm.reason == "Holiday" and am.reason == "Holiday", "the description is not the reason"
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("Morning off", "AM"), ("afternoon off", "PM"), ("Off this AM", "AM"), ("p.m. only", "PM"),
+    ("Holiday", None), ("", None), (None, None), ("Morning and afternoon", None),
+    ("Amsterdam trip", None), ("PMS appointment", None),
+])
+def test_half_day_words(text, expected):
+    assert sync.half_day(text) == expected
+
+
+def test_a_half_day_description_on_a_multi_day_record_is_whole_days(caplog):
+    make_clinician("One", findmyshift_staff_id="S1")
+    row = {"timeOffId": "X", "staffId": "S1", "firstDayOff": "2026-10-05",
+           "lastDayOff": "2026-10-06", "type": "Holiday", "description": "Afternoon off",
+           "dateApproved": "2026-10-01T00:00:00Z"}
+    with caplog.at_level(logging.WARNING, logger="rota.findmyshift"):
+        run = sync.run(FakeClient(**{"time-off": [row]}))
+    assert run.ok
+    stored = TimeOff.objects.get()
+    assert not stored.half_start and not stored.half_end
+    assert "afternoon" in caplog.text and "whole days" in caplog.text
+
+
 def test_a_recurring_record_is_read_once_and_logged(caplog):
     by_id = _link_everyone()
     with caplog.at_level(logging.WARNING, logger="rota.findmyshift"):
@@ -162,8 +198,8 @@ def test_the_managers_notes_never_reach_the_row():
     assert any(r.get("managerNotes") for r in raw), "fixture no longer carries a note to guard against"
     for row in TimeOff.objects.all():
         assert "twice" not in row.reason and "no one" not in row.reason
-    for name in ("managerNotes", "description"):
-        assert name not in [n for names in sync.FIELDS.values() for n in names]
+        assert "off" not in row.reason.lower(), "a description is read for its half-day phrase, never stored"
+    assert "managerNotes" not in [n for names in sync.FIELDS.values() for n in names]
 
 
 def test_a_record_with_no_approval_field_counts_as_approved():
@@ -189,8 +225,8 @@ def test_unlinked_staff_are_counted_not_stored():
     make_clinician("Only Tom", findmyshift_staff_id="S1")
     run = sync.run(FakeClient())
     assert run.ok
-    assert TimeOff.objects.count() == 2, "Tom's maternity leave and his holiday"
-    assert run.n_unlinked == 8, "10 deduped rows, 2 of them Tom's"
+    assert TimeOff.objects.count() == 3, "Tom's maternity leave, his holiday and his morning off"
+    assert run.n_unlinked == 9, "12 deduped rows, 3 of them Tom's"
 
 
 def test_a_failed_fetch_leaves_the_previous_overlay_untouched():
@@ -310,20 +346,20 @@ def test_replace_all_removes_leave_that_disappeared():
 def test_dry_run_writes_nothing_but_reports_counts():
     _link_everyone()
     run = sync.run(FakeClient(), dry_run=True)
-    assert run.ok and run.n_deduped == 10
+    assert run.ok and run.n_deduped == 12
     assert TimeOff.objects.count() == 0
     assert TimeOffSyncRun.objects.count() == 0
 
 
 def test_inspect_names_fields_and_reasons_but_no_values():
     text = sync.inspect(FakeClient())
-    assert "time off: 13 records" in text
+    assert "time off: 15 records" in text
     assert "staff: 7 records; with an id: 7" in text
     assert "time-off types ['Holiday', 'Maternity', 'Personal', 'Sick leave', 'Training', 'Unpaid leave']" in text
     assert "start: read from 'firstDayOff'" in text
     assert "approved: read from 'dateApproved'" in text
     assert "reasons seen: ['', 'Holiday', 'Maternity', 'Sick leave', 'Training', 'Unpaid leave']" in text
-    assert "pending: 1; deleted: 1; for no one: 1; recurring: 1; with a weekday mask: 2" in text
+    assert "pending: 1; deleted: 1; for no one: 1; recurring: 1; with a weekday mask: 2; half days by description: 2" in text
     assert "S99" not in text and "Tom" not in text and "example.org" not in text
     assert "twice" not in text, "a manager's note is a value"
 
@@ -335,7 +371,7 @@ def test_the_management_command_runs_and_reports(capsys):
     with mock.patch("rota.services.findmyshift.client.from_settings", return_value=FakeClient()):
         call_command("findmyshift_sync")
     out = capsys.readouterr().out
-    assert "10 after dedup" in out and "ok" in out.lower()
+    assert "12 after dedup" in out and "ok" in out.lower()
     assert TimeOffSyncRun.objects.count() == 1
 
 

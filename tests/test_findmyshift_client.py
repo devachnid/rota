@@ -93,7 +93,7 @@ def test_staff_without_a_team_sends_no_team_id():
 def test_a_bare_array_is_the_rows():
     c = FindMyShiftClient("k", BASE, opener=fake_opener({"time-off/list": _fixture("time-off")}))
     rows = c.time_off("T1", date(2026, 1, 1), date(2026, 12, 31))
-    assert len(rows) == 13 and rows[0]["timeOffId"] == "TO1"
+    assert len(rows) == 15 and rows[0]["timeOffId"] == "TO1"
 
 
 @pytest.mark.parametrize("body", [

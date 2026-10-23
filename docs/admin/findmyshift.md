@@ -96,6 +96,15 @@ middle of it, and the rota reads it so. Time off assigned to no staff member
 read as its first occurrence only, and the sync log says so; if the practice
 uses repeating time off, say, so its repeat rule can be read too.
 
+**Half days** follow FindMyShift's own convention for part of a day: book
+the whole date and give it the description **Morning off** or **Afternoon
+off** (its guide, *To record part-day leave*). The rota reads a single-day
+record so described as that half only — a morning off ends at midday, an
+afternoon off starts there — and nothing else from the description. A
+description naming both halves, or one on a record spanning several days,
+is read as whole days and noted in the sync log. The "Allowance used"
+fraction is FindMyShift's own bookkeeping and is not read.
+
 `FINDMYSHIFT_MIDDAY` only matters if the API ever sends a record with clock
 times: a start at or after it would leave the first morning working, an end
 at or before it the last afternoon. A measured account sends none.
@@ -109,11 +118,12 @@ who can see the session; the header line is for admins, who clear the session
 by hand. On the day view and on My Schedule the clinician files under "On
 leave", with the ringed session still shown.
 
-Every chip's tooltip names the reason — "Holiday — from FindMyShift", "Sick —
-from FindMyShift", "Jury service — from FindMyShift". The reason is whatever
-the practice set up in FindMyShift; a record with none reads "Time off". The
-free-text comment on a record is never read into the rota: it is where someone
-writes why they are off sick.
+Every chip's tooltip names the reason — "Holiday — from FindMyShift", "Sick
+leave — from FindMyShift", "Training — from FindMyShift". The reason is the
+time-off *type* the practice set up in FindMyShift; a record with none reads
+"Time off". A record's description is read only for the half-day phrase
+above, and its manager's notes are never read: that is where someone writes
+why they are off sick.
 
 ## Reason mapping
 

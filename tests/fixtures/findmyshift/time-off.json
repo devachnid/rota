@@ -618,5 +618,101 @@
   "dateRequested": null,
   "dateApproved": "2026-09-01T09:00:00.000Z",
   "dateDeleted": null
+ },
+ {
+  "timeOffId": "TO14",
+  "timeOffTypeId": "3i57",
+  "type": "Holiday",
+  "staffId": "S3",
+  "firstDayOff": "2026-10-14",
+  "lastDayOff": "2026-10-14",
+  "description": "Afternoon off",
+  "managerNotes": null,
+  "style": "color:#000;background-color:#f5f5dc",
+  "days": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   5,
+   6
+  ],
+  "payableHours": 0,
+  "payRateMultiplier": 1,
+  "payDays": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   5,
+   6
+  ],
+  "allowanceUnit": "day",
+  "allowanceDeduction": 0.5,
+  "allowanceDeductionDays": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   5,
+   6
+  ],
+  "recurrence": null,
+  "recurrenceInterval": null,
+  "recursUntil": null,
+  "dateRequested": null,
+  "dateApproved": "2026-09-01T09:00:00.000Z",
+  "dateDeleted": null
+ },
+ {
+  "timeOffId": "TO15",
+  "timeOffTypeId": "3i57",
+  "type": "Holiday",
+  "staffId": "S1",
+  "firstDayOff": "2026-11-23",
+  "lastDayOff": "2026-11-23",
+  "description": "Morning off",
+  "managerNotes": null,
+  "style": "color:#000;background-color:#f5f5dc",
+  "days": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   5,
+   6
+  ],
+  "payableHours": 0,
+  "payRateMultiplier": 1,
+  "payDays": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   5,
+   6
+  ],
+  "allowanceUnit": "day",
+  "allowanceDeduction": 0.5,
+  "allowanceDeductionDays": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   5,
+   6
+  ],
+  "recurrence": null,
+  "recurrenceInterval": null,
+  "recursUntil": null,
+  "dateRequested": null,
+  "dateApproved": "2026-09-01T09:00:00.000Z",
+  "dateDeleted": null
  }
 ]
