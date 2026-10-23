@@ -12,7 +12,11 @@ the grid shows who is off and assisted fill never assigns them.
    developer portal (`findmyshift.co.uk/developers`, *Getting started*). The
    key reads everything the account that issued it can see, so issue it from
    an account that can see the whole team's time off and nothing it does not
-   need.
+   need. API access is a feature of the account's plan, not of the key: a key
+   from an account whose plan lacks it is accepted and then refused with
+   *401: Your subscriptions do not include API access*, which is what the
+   sync status page will show. (A key FindMyShift does not recognise at all
+   reads *401: Parameter not valid: apiKey*.)
 2. **Put the key in the environment.** Add to `/etc/rota.env`:
    ```
    FINDMYSHIFT_API_KEY=…
