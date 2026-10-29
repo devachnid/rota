@@ -223,13 +223,16 @@ autofill v2 review processes had accumulated:
   (`TimeOffMapping`, keyed on FindMyShift's reason text rather than
   Breathe's three kinds), a `findmyshift_staff_id` link per clinician, and
   the same resolver, chips, clash ring and swap check on top. New in kind:
-  FindMyShift records clock times, not half-day flags, so
-  `services/findmyshift/spans.py` turns a start and end into AM/PM parts
-  around `FINDMYSHIFT_MIDDAY`; and FindMyShift does not publish its
-  response shape, so the sync reads fields by name with alternatives and
-  `findmyshift_sync --inspect` prints what a real account sends (names,
-  never values) before the first run. The free-text comment on a record is
-  never read. Migration `0034_findmyshift` drops the Breathe tables; every
+  FindMyShift does not publish its response shape, so the sync reads fields
+  by name with alternatives and `findmyshift_sync --inspect` prints what a
+  real account sends (names, never values) before the first run. Measured
+  on a real account the same day (PR #58), a record is day-based — a first
+  and last day off, and the weekdays in that range it applies to — with no
+  clock times; part of a day is FindMyShift's own convention, a single date
+  described "Morning off" or "Afternoon off". `services/findmyshift/spans.py`
+  turns that into the rota's AM/PM parts; it would still split a record
+  that carried clock times at `FINDMYSHIFT_MIDDAY`, but none measured
+  does. The free-text comment on a record is never read. Migration `0034_findmyshift` drops the Breathe tables; every
   clinician has to be linked again.
 
 - **Leave moved to BreatheHR** (2026-09-02; superseded above). Requesting, approving and

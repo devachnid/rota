@@ -50,9 +50,10 @@ ones can only use sessions still free:
 1. **Recurring commitments** — personal fixtures, never overwritten
 2. **Trainee VTS** — anchored to a fixed weekday/part where the stage rule sets one
 3. **Coverage rules** — in `priority` order, lowest number first
-4. **Mentoring** — pairs a trainee with a trainer
-5. **Trainee SDL** — placed where it does least damage
-6. **Default fill** — optional, only if you tick the box
+4. **Personal requirements** — one session for each clinician who is due
+5. **Mentoring** — pairs a trainee with a trainer
+6. **Trainee SDL** — placed where it does least damage
+7. **Default fill** — optional, only if you tick the box
 
 If two rules compete for the same person, the one that runs earlier gets them.
 For coverage rules specifically, `priority` decides.
