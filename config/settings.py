@@ -235,8 +235,9 @@ FINDMYSHIFT_API_URL = os.environ.get("FINDMYSHIFT_API_URL",
 # The team to read time off for. Blank reads every team the key can see,
 # which for a practice with one team is the same thing.
 FINDMYSHIFT_TEAM_ID = os.environ.get("FINDMYSHIFT_TEAM_ID", "").strip()
-# Where the morning ends, for turning a time-off record's clock times into
-# the rota's AM/PM parts (rota/services/findmyshift/spans.py). HH:MM.
+# Where the morning ends, should a time-off record carry clock times; the
+# day-based records FindMyShift sends have none, and a half day comes from
+# the description instead (rota/services/findmyshift/spans.py). HH:MM.
 FINDMYSHIFT_MIDDAY = os.environ.get("FINDMYSHIFT_MIDDAY", "13:00").strip() or "13:00"
 
 # Outgoing mail: invitations and password-reset links, and nothing else.

@@ -157,8 +157,8 @@ class AvailabilityResolver:
     def leave_type(self, clinician_id, day, part):
         """The mapped SessionType covering `day`/`part`, or None — either
         because nothing covers it, or because what covers it has no mapping
-        row. Part-aware: FindMyShift records clock times, read as the rota's
-        parts. This is what cell_state renders; on_leave() is what
+        row. Part-aware: a FindMyShift half day ("Morning off") covers one
+        part, not the day. This is what cell_state renders; on_leave() is what
         scheduling depends on, and does not go through the mapping."""
         reason = self.covering(clinician_id, day, part)
         if reason is None:

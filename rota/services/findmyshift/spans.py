@@ -1,8 +1,10 @@
 """FindMyShift's time off, turned into the rota's AM/PM parts.
 
-A FindMyShift time-off record is a start date/time and an end date/time —
-a whole day is midnight to midnight, a half day is a few hours. The rota's
-unit is the half-day part, so this is the one place that reads clock times.
+A FindMyShift time-off record is day-based: a first and last day off, with
+a single date described "Morning off" or "Afternoon off" for half a day
+(sync.normalise reads the description). The rota's unit is the half-day
+part, so this is where a record becomes parts. It still reads clock times,
+splitting at midday, should a record ever carry them; none measured does.
 Everything that asks "is this clinician off on this day, this part?" — the
 resolver, and through it every screen and the fill engine — comes here, so
 the rules below are the whole contract.
