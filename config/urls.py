@@ -16,6 +16,7 @@ urlpatterns = [
     path("oidc/", include("mozilla_django_oidc.urls")),
     path("accounts/", include("accounts.urls")),
     path("feedback/", include("feedback.urls")),
+    path("api/v1/", include("api.urls")),
     path("", include("rota.urls")),
     path("", RedirectView.as_view(url="/rota/", permanent=False)),
 ]

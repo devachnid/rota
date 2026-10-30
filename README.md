@@ -90,8 +90,13 @@ files the app has to read unreadable:
     DB_PATH=/var/lib/rota/db.sqlite3
     ALLOWED_HOSTS=rota.example.org
     CSRF_TRUSTED_ORIGINS=https://rota.example.org
+    ROTA_API_TOKENS=A_LONG_RANDOM_TOKEN_HERE
     EOF
     )
+
+`ROTA_API_TOKENS` is the token Shift Central uses to read GP sessions; generate
+one with `python -c 'import secrets; print(secrets.token_urlsafe(32))'`. Leave it
+out and the sessions feed serves nothing.
 
 Then:
 
@@ -320,6 +325,17 @@ to plain words. `manage.py check --deploy` says so (`rota.E005`).
 `EMAIL_USE_TLS` defaults on (STARTTLS on 587); set `EMAIL_USE_TLS=0` only for a
 relay that has no TLS at all. Links last seven days. With no `EMAIL_HOST`, a
 dev box behaves exactly like production: the admin gets each link on screen.
+
+### Sessions feed
+
+`GET /api/v1/sessions?from=YYYY-MM-DD&to=YYYY-MM-DD` (at most 500 days) returns
+the published sessions of every clinician with a login email, as JSON, to a
+caller sending `Authorization: Bearer <token>` with a token from
+`ROTA_API_TOKENS` (comma-separated, so one can be rotated in before the old one
+goes); it is read-only and rate limited per address
+(`API_RATE_LIMIT_PER_MINUTE`, default 600). See `api/views.py` for the shape of
+the answer and `without_email`, which counts the clinicians left out for want of
+an email.
 
 ### Passkeys and the domain
 

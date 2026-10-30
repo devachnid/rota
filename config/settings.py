@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     "mozilla_django_oidc",
     "accounts",
     "rota",
+    "api",
     "feedback",
 ]
 
@@ -239,6 +240,11 @@ FINDMYSHIFT_TEAM_ID = os.environ.get("FINDMYSHIFT_TEAM_ID", "").strip()
 # day-based records FindMyShift sends have none, and a half day comes from
 # the description instead (rota/services/findmyshift/spans.py). HH:MM.
 FINDMYSHIFT_MIDDAY = os.environ.get("FINDMYSHIFT_MIDDAY", "13:00").strip() or "13:00"
+
+# The sessions feed Shift Central reads (api/). Comma-separated bearer
+# tokens; unset means nothing is served. See api/auth.py.
+ROTA_API_TOKENS = frozenset(t.strip() for t in os.environ.get("ROTA_API_TOKENS", "").split(",") if t.strip())
+API_RATE_LIMIT_PER_MINUTE = int(os.environ.get("API_RATE_LIMIT_PER_MINUTE", "600"))
 
 # Outgoing mail: invitations and password-reset links, and nothing else.
 # Standard Django keys, every one from /etc/rota.env. EMAIL_HOST being set
