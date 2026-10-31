@@ -731,8 +731,8 @@ class TimeOffSyncRunAdmin(ModelAdmin):
             return redirect("admin:rota_timeoffsyncrun_status")
         run = sc_sync.run(client)
         if run.ok:
-            messages.success(request, f"Synced: {run.n_matched} clinicians matched, "
-                                      f"{run.n_unmatched} emails unmatched.")
+            messages.success(request, f"Synced: {run.n_matched} clinician{'' if run.n_matched == 1 else 's'} matched, "
+                                      f"{run.n_unmatched} email{'' if run.n_unmatched == 1 else 's'} unmatched.")
         else:
             messages.error(request, f"Sync failed: {run.error}")
         return redirect("admin:rota_timeoffsyncrun_status")

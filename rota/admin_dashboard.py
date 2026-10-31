@@ -4,7 +4,6 @@ ORM; the template renders what they return."""
 
 from datetime import date, timedelta
 
-from django.conf import settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -15,7 +14,7 @@ from rota.models import (TimeOffSyncRun, Clinician, ClinicianGroup, CoverageRule
                          LocumRequirement, PracticeSettings, SessionType, Site,
                          TraineeProfile, SwapRequest)
 from rota.services import personal as personal_svc
-from rota.services.shift_central import sync as sc_sync
+from rota.services.shift_central import client as sc_client, sync as sc_sync
 from rota.services.shift_central.links import without_email, without_email_changelist_url
 from rota.services.calendar import is_open
 from rota.services.legibility import grid_legibility
@@ -35,11 +34,11 @@ def setup_steps():
     no_email = without_email().count()
     unmatched = len(sc_sync.unmatched_emails())
     any_active = Clinician.objects.filter(active=True).exists()
-    has_token = bool(settings.SHIFT_CENTRAL_TOKEN)
+    has_token = sc_client.from_settings() is not None
     synced = TimeOffSyncRun.objects.filter(ok=True).exists()
     email_ok = email_is_configured()
     if not has_token:
-        sc_detail = "SHIFT_CENTRAL_TOKEN is not set"
+        sc_detail = "SHIFT_CENTRAL_URL or SHIFT_CENTRAL_TOKEN is not set"
     elif not synced:
         sc_detail = "no successful sync yet"
     elif no_email:
@@ -102,7 +101,7 @@ def health():
 
     last = TimeOffSyncRun.objects.first()
     last_ok = TimeOffSyncRun.objects.filter(ok=True).first()
-    if not settings.SHIFT_CENTRAL_TOKEN:
+    if sc_client.from_settings() is None:
         shift_central = ("not configured", "warn")
     elif last is not None and not last.ok:
         shift_central = (f"last run failed: {last.error[:80]}", "warn")
