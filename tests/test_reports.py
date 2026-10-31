@@ -40,8 +40,8 @@ def test_staffing_weeks_clamped(admin_client):
     assert b"next 1 weeks" in resp.content
 
 
-def test_staffing_report_hides_findmyshift_line_from_gps(gp_client, admin_client):
-    """The FindMyShift naming line is admin-only, even on a report every
+def test_staffing_report_hides_shift_central_line_from_gps(gp_client, admin_client):
+    """The Shift Central naming line is admin-only, even on a report every
     clinician can otherwise read — see docs/admin/day-to-day.md."""
     PracticeSettings.load()
     rout = make_session_type("Routine", code="ROUT")
@@ -54,8 +54,8 @@ def test_staffing_report_hides_findmyshift_line_from_gps(gp_client, admin_client
     make_absence(c, d)
     gp_html = gp_client.get("/reports/staffing/").content.decode()
     admin_html = admin_client.get("/reports/staffing/").content.decode()
-    assert "On FindMyShift leave but rostered" not in gp_html
-    assert "On FindMyShift leave but rostered" in admin_html
+    assert "On leave (Shift Central) but rostered" not in gp_html
+    assert "On leave (Shift Central) but rostered" in admin_html
 
 
 def test_fairness_report_hides_drafts_from_gps(gp_client, admin_client):

@@ -149,7 +149,7 @@ def test_query_count_does_not_grow_with_weeks_of_entries(admin_client, admin_use
     c = make_clinician()
     make_pattern(c)
     duty = make_session_type("Duty", code="DUTY")
-    # A FindMyShift clash too, so _timeoff_conflicts runs through the bundle
+    # A Shift Central clash too, so _timeoff_conflicts runs through the bundle
     # like every other warning source this test guards.
     make_absence(c, MON)
     entry = make_entry(c, day=MON, part="AM", session_type=duty)

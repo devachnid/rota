@@ -136,7 +136,7 @@ def navigation(request):
             _item("Personal requirements", "person_check", rl("admin:rota_personalrequirement_changelist")),
             _item("Trainee stage rules", "menu_book", rl("admin:rota_traineestagerule_changelist")),
             _item("Sites", "location_on", rl("admin:rota_site_changelist"))]},
-        {"title": "Time off from FindMyShift", "separator": True, "items": [
+        {"title": "Time off from Shift Central", "separator": True, "items": [
             _item("Sync status", "sync", rl("admin:rota_timeoffsyncrun_status")),
             _item("Reason mapping", "swap_horiz", rl("admin:rota_timeoffmapping_changelist")),
             _item("Time off", "sick", rl("admin:rota_timeoff_changelist"))]},

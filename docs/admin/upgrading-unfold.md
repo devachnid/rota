@@ -38,7 +38,7 @@ To upgrade: bump the pin, `pip install -r requirements.txt`, run the suite.
 `tests/test_admin_render.py` renders every page as a rota admin;
 `tests/test_admin_theme.py` checks the colour variables still reach the
 page; `tests/test_admin_css_classes.py` checks the borrowed Tailwind classes
-still exist in unfold's compiled CSS; the pattern-editor and FindMyShift sync-status tests
+still exist in unfold's compiled CSS; the pattern-editor and Shift Central sync-status tests
 check the custom pages; `tests/test_invitations.py` and
 `tests/test_passkeys_admin.py` check the login-account page's buttons and
 its passkey inline. Then open the dashboard and one change form in both

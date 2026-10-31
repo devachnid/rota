@@ -2,7 +2,7 @@
 
 Before this, the question was answered in the grid and in the fill engine
 separately, and knew only about the working pattern. Clinician date windows
-and FindMyShift time offs both belong in it. Composing them in one place is what
+and Shift Central time offs both belong in it. Composing them in one place is what
 stops `active` and the dates disagreeing.
 """
 
@@ -163,7 +163,7 @@ def test_a_one_shot_iterable_of_pattern_rows_still_populates_has_pattern():
     assert r.works_on(c.id, MON, "AM") is True
 
 
-# --------------------------------------------------------- FindMyShift overlay ---
+# --------------------------------------------------------- Shift Central overlay ---
 
 def _mapping():
     return TimeOffMapping.as_dict()
@@ -216,7 +216,7 @@ def test_leave_does_not_change_works_on():
 def test_an_unmapped_reason_still_blocks_scheduling():
     """Availability must never fail open. A sickness absence whose mapping
     row has been deleted (an admin misconfiguration, or a kind added to
-    FindMyShift with nothing set up for it yet) must still take the clinician
+    Shift Central with nothing set up for it yet) must still take the clinician
     off the rota — a chip having nothing to render is a separate question
     from whether the fill engine may schedule over it."""
     from rota.models import TimeOffMapping as Mapping

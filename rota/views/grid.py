@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 
 from rota.services import grid as grid_svc
-from rota.services.shift_central import sync as sc_sync
+from rota.services.shift_central.links import without_email, without_email_changelist_url
 
 
 @login_required
@@ -35,6 +35,6 @@ def grid(request):
         "is_admin": is_admin,
         "tick": tick,
         "has_clinician": getattr(request.user, "clinician", None) is not None,
-        "unlinked_count": sc_sync.unlinked_clinicians().count() if is_admin else 0,
-        "unlinked_url": sc_sync.unlinked_changelist_url(),
+        "without_email_count": without_email().count() if is_admin else 0,
+        "without_email_url": without_email_changelist_url(),
     })

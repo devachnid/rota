@@ -243,7 +243,7 @@ body.page-grid {
 }
 .wk-pin-who { color: var(--ink); font-weight: 600; }
 .wk-part { color: var(--muted); font-size: var(--fs-xs); font-weight: 500; }
-/* Pinned on a session but off in FindMyShift: the grid rings that chip for
+/* Pinned on a session but off in Shift Central: the grid rings that chip for
    everyone, so the pinned line says it too, in the same colour. */
 .wk-clash { color: var(--danger); font-size: var(--fs-xs); font-weight: 700; }
 .wk-roster { border-top: 1px solid var(--hairline); }

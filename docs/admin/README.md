@@ -21,7 +21,7 @@ This is the *reference* for what each setting means once you are in there.
 | [Session types](session-types.md) | Every flag on a session type, and what each one drives |
 | [Coverage rules](coverage-rules.md) | The rules that tell the fill engine what must be staffed, plus trainee stage rules |
 | [Day to day](day-to-day.md) | Assisted fill, rota entries, day notes, locums, leave, swaps, the audit log, feedback |
-| [Time off from FindMyShift](findmyshift.md) | Linking clinicians, the reason mapping, the sync, what counts as off |
+| [Time off from Shift Central](shift-central.md) | Login emails, the reason mapping, the sync, what counts as off |
 | [Upgrading unfold](upgrading-unfold.md) | How to upgrade the admin package and what to test |
 | [Importing the old rota](old-rota-import.md) | The one-off move from the Google Sheet: sheet to CSV, the mapping, the dry run |
 
@@ -70,6 +70,6 @@ their history stays intact and they drop out of every eligibility pool.
 | A rule never places anything | [Coverage rule frequency and count](coverage-rules.md) — and check `priority` against competing rules |
 | A trainee shows a huge backlog | [`requirements_tracked_from`](people.md#trainee-profile) |
 | A warning you do not want | [Warnings](day-to-day.md#warnings-on-the-grid) — they come from three separate sources |
-| Someone's time off is not on the grid | Are they [linked to FindMyShift](findmyshift.md#setting-it-up-in-this-order)? Is it approved there? Has a sync run since? |
+| Someone's time off is not on the grid | Does their login email match the one in Shift Central ([setup](shift-central.md#setting-it-up-in-this-order))? Is the leave approved there? Has a sync run since? |
 | Someone cannot sign in | [Login accounts](people.md#signing-in-and-lockouts) — an invitation link lasts seven days; a lockout lasts an hour, and a passkey or a password link gets them in meanwhile |
 | An invitation never arrived | Is [outgoing email](../../README.md#outgoing-email) set up? If not, each send shows the link once, to copy; **Send invitation again** mints a fresh one |

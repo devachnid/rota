@@ -103,15 +103,14 @@ not only on the named trainers.
 The trainer dropdown on a trainee profile only offers clinicians with this
 ticked.
 
-### FindMyShift staff member
+### Login email and Shift Central
 
-Which FindMyShift staff member this clinician is. A dropdown of your staff;
-pick one and save. **Unlinked clinicians have no time off read for them and
-are treated as available** — the sync status page and the week grid both
-warn admins about them. Leave it blank for a locum: a locum books their own
-sessions and has no time off to read, so locums are left out of that warning
-and the list shows "locum — not on FindMyShift" for them. See [Time off from
-FindMyShift](findmyshift.md).
+Shift Central names each person's leave by their email address, and the rota
+matches it to the clinician whose linked login has that address. **A clinician
+without a login email has no leave read for them and is treated as
+available** — the sync status page and the week grid both warn admins about
+them. A locum books their own sessions and has no leave to read, so locums are
+left out of that warning. See [Time off from Shift Central](shift-central.md).
 
 ## Login accounts
 

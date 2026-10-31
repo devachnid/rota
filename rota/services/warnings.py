@@ -87,17 +87,17 @@ def _locum_suffix(day, part, session_type, bundle=None):
 
 
 def _timeoff_conflicts(day, entries, resolver=None):
-    """Rostered sessions standing on a clinician FindMyShift says is off.
+    """Rostered sessions standing on a clinician Shift Central says is off.
 
     Leave used to be approved in the rota, and approving it overwrote the
-    entries. FindMyShift owns leave now and nothing overwrites anything, so the
-    ordinary sequence — publish the week, then leave is approved in FindMyShift
+    entries. Shift Central owns leave now and nothing overwrites anything, so the
+    ordinary sequence — publish the week, then leave is approved in Shift Central
     — leaves a published session against someone who is not coming in. The
     cell is ringed (cell_state's `clash`) and this line names who, with the
     kind of leave, so an admin can clear the session by hand.
 
     Decided by cell_state, so the header and the cell cannot disagree: an
-    absence-category entry over FindMyShift leave is agreement, and an absence
+    absence-category entry over Shift Central leave is agreement, and an absence
     whose reason has no mapping row is still leave.
 
     `resolver` is optional so the grid, which has already built one for the
@@ -134,7 +134,7 @@ def _timeoff_conflicts(day, entries, resolver=None):
             who = ", ".join(f"{initials} ({label})"
                             for initials, name, label in sorted(clashing))
             warnings.append(Warning(
-                "timeoff", part, f"On FindMyShift leave but rostered ({part}): {who}"))
+                "timeoff", part, f"On leave (Shift Central) but rostered ({part}): {who}"))
     return warnings
 
 

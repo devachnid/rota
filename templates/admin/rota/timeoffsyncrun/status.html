@@ -9,12 +9,12 @@
 {% component "unfold/components/container.html" %}
   {% component "unfold/components/title.html" %}{{ title }}{% endcomponent %}
 
-  {% component "unfold/components/card.html" with title="FindMyShift" class="mb-6" %}
+  {% component "unfold/components/card.html" with title="Shift Central" class="mb-6" %}
     {% if not configured %}
-      <p class="mb-2"><strong>FindMyShift is not configured.</strong> Set <code>FINDMYSHIFT_API_KEY</code> in <code>/etc/rota.env</code> and restart. Until then no time off is read and every clinician is treated as available.</p>
+      <p class="mb-2"><strong>Shift Central is not configured.</strong> Set <code>SHIFT_CENTRAL_URL</code> and <code>SHIFT_CENTRAL_TOKEN</code> in <code>/etc/rota.env</code> and restart. Until then no leave is read and every clinician is treated as available.</p>
     {% endif %}
     {% if last_ok %}
-      <p class="mb-2"><strong>Last successful sync:</strong> {{ last_ok.started|date:"D j M H:i" }} — {{ last_ok.n_deduped }} absence{{ last_ok.n_deduped|pluralize }} from {{ last_ok.n_records }} time-off record{{ last_ok.n_records|pluralize }} ({{ last_ok.n_approved }} approved) across {{ last_ok.n_teams }} team{{ last_ok.n_teams|pluralize }}; {{ last_ok.n_unlinked }} for unlinked staff.</p>
+      <p class="mb-2"><strong>Last successful sync:</strong> {{ last_ok.started|date:"D j M H:i" }} — {{ last_ok.n_matched }} clinician{{ last_ok.n_matched|pluralize }} matched from {{ last_ok.n_records }} record{{ last_ok.n_records|pluralize }}; {{ last_ok.n_unmatched }} email{{ last_ok.n_unmatched|pluralize }} unmatched; {{ last_ok.n_outside }} outside the window.</p>
     {% elif configured %}
       <p class="mb-2"><strong>No successful sync yet.</strong></p>
     {% endif %}
@@ -24,22 +24,25 @@
     {% if unmapped %}
       <p class="mb-2 {% if not has_default %}text-red-600 dark:text-red-500{% endif %}">{{ unmapped|length }} reason{{ unmapped|length|pluralize }} with no mapping of {{ unmapped|length|pluralize:"its,their" }} own{% if has_default %} — rendering as the default chip{% else %} and no default row — rendering as empty cells{% endif %}: {% for r in unmapped %}<em>{{ r|default:"(blank)" }}</em>{% if not forloop.last %}, {% endif %}{% endfor %}. <a href="{% url 'admin:rota_timeoffmapping_add' %}" class="underline">Add a mapping</a>.</p>
     {% endif %}
+    {% if unmatched %}
+      <p class="mb-2"><strong>Unmatched emails</strong> — Shift Central has leave for these, but no active clinician's login has the email, so it is not shown: {% for e in unmatched %}<code>{{ e }}</code>{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+    {% endif %}
     {% if unlinked %}
-      <p class="mb-2"><strong>Not linked to FindMyShift</strong> — no time off is read for these, so they are always available:
+      <p class="mb-2"><strong>Without a login email</strong> — no leave can be matched for these, so they are always available:
       {% for c in unlinked %}<a class="underline" href="{% url 'admin:rota_clinician_change' c.pk %}">{{ c.name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</p>
     {% endif %}
     <form method="post" action="{% url 'admin:rota_timeoffsyncrun_refresh' %}" class="mt-4">
       {% csrf_token %}
-      <button type="submit" class="bg-primary-600 text-white rounded-default px-4 py-2 font-semibold{% if not configured %} opacity-50{% endif %}"{% if not configured %} disabled title="FINDMYSHIFT_API_KEY is not set"{% endif %}>Refresh now</button>
+      <button type="submit" class="bg-primary-600 text-white rounded-default px-4 py-2 font-semibold{% if not configured %} opacity-50{% endif %}"{% if not configured %} disabled title="SHIFT_CENTRAL_URL or SHIFT_CENTRAL_TOKEN is not set"{% endif %}>Refresh now</button>
     </form>
   {% endcomponent %}
 
   {% component "unfold/components/card.html" with title="Recent runs" %}
     <table class="border-collapse w-full">
-      <thead><tr><th class="text-left py-1">Started</th><th class="text-left py-1">OK</th><th class="text-left py-1">Absences</th><th class="text-left py-1">Unlinked</th><th class="text-left py-1">Error</th></tr></thead>
+      <thead><tr><th class="text-left py-1">Started</th><th class="text-left py-1">OK</th><th class="text-left py-1">Matched</th><th class="text-left py-1">Unmatched</th><th class="text-left py-1">Error</th></tr></thead>
       <tbody>
       {% for r in runs %}
-      <tr class="border-t border-base-200 dark:border-base-800"><td class="py-2">{{ r.started|date:"D j M H:i" }}</td><td class="py-2">{{ r.ok|yesno:"yes,no" }}</td><td class="py-2">{{ r.n_deduped }}</td><td class="py-2">{{ r.n_unlinked }}</td><td class="py-2">{{ r.error }}</td></tr>
+      <tr class="border-t border-base-200 dark:border-base-800"><td class="py-2">{{ r.started|date:"D j M H:i" }}</td><td class="py-2">{{ r.ok|yesno:"yes,no" }}</td><td class="py-2">{{ r.n_matched }}</td><td class="py-2">{{ r.n_unmatched }}</td><td class="py-2">{{ r.error }}</td></tr>
       {% empty %}
       <tr><td colspan="5" class="py-2">No runs yet.</td></tr>
       {% endfor %}

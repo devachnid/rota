@@ -9,7 +9,7 @@ entries exist for correcting things and for looking at history.
 
 `/rota/fill/` — pick a date range, run it. The **From** date opens on the
 first week, from next Monday, that is under half filled — working sessions
-(by pattern, minus FindMyShift time off) against entries, drafts included — and
+(by pattern, minus Shift Central time off) against entries, drafts included — and
 the line under the dates says which week and why. A few advance bookings
 leave a week under half, so it is still offered. When no week in the next
 26 is under half, the form says so and opens on next Monday. **To** is
@@ -85,7 +85,7 @@ drafts, a row above the dates carries that week's **Publish week of …**
 button (publishing only that week) and any per-week ceiling warning; with
 nothing to publish the row is not there. A heavier line marks where each
 week starts; today's date is tinted in the header. A whole day off, or a
-whole day of the same FindMyShift time off, is one chip across both columns.
+whole day of the same Shift Central time off, is one chip across both columns.
 **Earlier** and **Later** move the window four weeks;
 **Today** scrolls to today's column, or reloads on this week when today
 is off the page; the date box jumps to any week. After you save a cell the
@@ -168,10 +168,10 @@ is **amber**: a soft limit you chose, worth a look rather than an alarm.
    clinical-category entries only.
 3. **Group warnings** — "Salaried: 2/3 in (AM)". From a group's [min per
    session](people.md#min-per-session), counting non-absence entries.
-4. **FindMyShift clashes** — "On FindMyShift leave but rostered (AM): TH (Holiday)".
-   A published or drafted session on someone FindMyShift says is off. The cell
+4. **Shift Central clashes** — "On leave (Shift Central) but rostered (AM): TH (Holiday)".
+   A published or drafted session on someone Shift Central says is off. The cell
    itself is ringed for everyone; this header line is yours. See
-   [Time off from FindMyShift](findmyshift.md).
+   [Time off from Shift Central](shift-central.md).
 5. **Ceiling warnings** — "Too many Urgent (PM): 2, max 1" or "Too many
    Urgent today: 3 sessions, max 2". From a session type's
    [ceiling](session-types.md#ceiling). The per-week ceiling has no day to
@@ -198,7 +198,7 @@ card for each open day: the date, how many are in and on leave, the day note,
 and the pinned roles (the session types ticked **Pin on day view** — Duty,
 typically) are visible while the card is closed; tap it for everyone's
 sessions, then "On leave" and "Not in". Today's card starts open, and the strip
-of days at the top jumps to a day and opens it. Someone pinned but on FindMyShift
+of days at the top jumps to a day and opens it. Someone pinned but on Shift Central
 leave is marked "on leave" on the pinned line, as the grid rings their chip.
 
 It is read-only for everyone and shows no staffing warnings — editing stays on
@@ -259,16 +259,16 @@ publishes the session.
 
 **Locum bookings report** — `/reports/locums/` lists every booked requirement
 in a date range (the last 30 days by default): the date and session, which
-locum, who they covered, and what the covered clinician was off for — FindMyShift's
+locum, who they covered, and what the covered clinician was off for — Shift Central's
 reason where it has one, otherwise an absence session on the grid,
 otherwise "No absence recorded". Filter by locum, by who was covered, and by
 kind of absence. Visible to every clinician, like the other reports.
 
 ## Leave
 
-Not managed here. Time off is requested and approved in FindMyShift and read
+Not managed here. Time off is requested and approved in Shift Central and read
 into the rota every fifteen minutes — see [Time off from
-FindMyShift](findmyshift.md). Swaps
+Shift Central](shift-central.md). Swaps
 are still managed here.
 
 ## Swap requests
@@ -305,7 +305,7 @@ and again when it is approved:
 Anything in between is refused with a sentence naming the fact that breaks
 both patterns (*Tom already has a session on Mon 7 Sep AM*). Whatever the
 kind, each GP must still have the session they put forward, no paired
-(mentoring) session may be involved, and neither GP may be on FindMyShift leave
+(mentoring) session may be involved, and neither GP may be on Shift Central leave
 for a session they would take on. A full duty day counts as a whole on either
 side.
 

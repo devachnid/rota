@@ -22,8 +22,8 @@
 {% if tick %}
 <div class="flash">Ticking mode — click a session to mark it entered in the clinical system; click again to unmark. Turn it off to edit cells.</div>
 {% endif %}
-{% if unlinked_count %}
-<div class="alert alert-warning">{{ unlinked_count }} clinician{{ unlinked_count|pluralize }} not linked to FindMyShift — no time off is read for them. <a href="{{ unlinked_url }}">Link them</a>.</div>
+{% if without_email_count %}
+<div class="alert alert-warning">{{ without_email_count }} clinician{{ without_email_count|pluralize }} without a login email — no leave from Shift Central can be matched to them. <a href="{{ without_email_url }}">Add their login</a>.</div>
 {% endif %}
 <script src="{% static 'js/grid.js' %}" defer></script>
 <div class="grid-wrap">

@@ -117,7 +117,9 @@ class ClinicianAdmin(ModelAdmin):
         ("Who", {
             "fields": ("name", "initials", "group", "display_order", "user"),
             "description": "Initials are what the grid shows. Link the login "
-                           "account so this person sees their own schedule.",
+                           "account so this person sees their own schedule. "
+                           "Shift Central matches this person's leave by this "
+                           "login's email.",
         }),
         ("Availability", {
             "fields": ("active", "start_date", "end_date", "pattern_summary"),
@@ -133,11 +135,11 @@ class ClinicianAdmin(ModelAdmin):
         # lookups on `group` itself (group__exact etc.) but not a second
         # hop into a field on the related ClinicianGroup — Django's own
         # lookup_allowed only matches a relation path it finds verbatim in
-        # list_filter. The dashboard's "not linked" links narrow by
-        # group__is_locum_group as well as findmyshift/active, so that lookup
-        # needs allowing explicitly rather than adding a whole extra
-        # sidebar filter box just to license it.
-        if lookup == "group__is_locum_group__exact":
+        # list_filter. The "without a login email" links narrow by
+        # group__is_locum_group and user__isnull as well as active, so those
+        # lookups need allowing explicitly rather than adding whole extra
+        # sidebar filter boxes just to license them.
+        if lookup in ("group__is_locum_group__exact", "user__isnull"):
             return True
         return super().lookup_allowed(lookup, value, request)
 

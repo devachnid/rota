@@ -45,6 +45,11 @@ class ShiftCentralClient:
         except (urllib.error.URLError, OSError) as e:
             log.warning("shift central unreachable: %s", e.__class__.__name__)
             raise ShiftCentralError("Shift Central unreachable") from None
+        except ValueError:
+            # http.client refuses a header value holding CR or LF and says what
+            # it was; the message would carry the token, so say nothing of it.
+            log.warning("shift central token is malformed")
+            raise ShiftCentralError("Shift Central token is malformed") from None
         try:
             body = json.loads(raw)
         except ValueError:
@@ -55,6 +60,7 @@ class ShiftCentralClient:
 
 
 def from_settings():
-    if not settings.SHIFT_CENTRAL_URL or not settings.SHIFT_CENTRAL_TOKEN:
+    token = settings.SHIFT_CENTRAL_TOKEN
+    if not settings.SHIFT_CENTRAL_URL or not token or any(ch.isspace() for ch in token):
         return None
-    return ShiftCentralClient(settings.SHIFT_CENTRAL_URL, settings.SHIFT_CENTRAL_TOKEN)
+    return ShiftCentralClient(settings.SHIFT_CENTRAL_URL, token)

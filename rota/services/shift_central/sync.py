@@ -7,8 +7,6 @@ import logging
 from datetime import date, timedelta
 
 from django.db import transaction
-from django.db.models import Q
-from django.urls import reverse
 from django.utils import timezone
 
 from rota.models import Clinician, TimeOff, TimeOffSyncRun
@@ -110,17 +108,3 @@ def unmatched_emails():
     last = TimeOffSyncRun.objects.filter(ok=True).first()
     return list((last.detail or {}).get("unmatched", [])) if last else []
 
-
-# Stubs for the admin's "who is not matched" counts, until the admin and
-# dashboard are reworked around unmatched emails.
-def unlinked_clinicians():
-    """Active, not a locum, no login email — the people whose leave cannot
-    be matched."""
-    return (Clinician.objects.filter(active=True, group__is_locum_group=False)
-            .filter(Q(user=None) | Q(user__email=""))
-            .order_by("name"))
-
-
-def unlinked_changelist_url():
-    return (reverse("admin:rota_clinician_changelist")
-            + "?active__exact=1&group__is_locum_group__exact=0")

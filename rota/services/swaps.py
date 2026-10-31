@@ -153,7 +153,7 @@ def validate(req, published_only=False):
                         f"{names[e.clinician_id]}'s {when(e.day, e.part)} is a paired "
                         "session (mentoring) and cannot be swapped.")
 
-    # Neither GP may be on FindMyShift leave for a session they would take on:
+    # Neither GP may be on Shift Central leave for a session they would take on:
     # the proposer takes on the colleague's side and vice versa. Checked
     # whatever came before, since it does not depend on the kind.
     people = [p, c]
@@ -170,7 +170,7 @@ def validate(req, published_only=False):
             if resolver.on_leave(clinician.id, day, part):
                 problems.append(
                     f"{clinician.name} is on leave on {when(day, part)} (from "
-                    "FindMyShift) and cannot take that session.")
+                    "Shift Central) and cannot take that session.")
     return problems
 
 

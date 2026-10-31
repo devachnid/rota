@@ -1,7 +1,7 @@
 """The precedence every rota cell obeys, tested once rather than per screen.
 
     entry exists           -> the entry
-    on leave and showable  -> the FindMyShift time off
+    on leave and showable  -> the Shift Central time off
     works_on               -> off=False, nothing allocated
     otherwise              -> off=True
 
@@ -103,7 +103,7 @@ def test_the_partner_is_carried_through():
 
 # ------------------------------------------------ leave under an entry ---
 #
-# A published week, then leave approved in FindMyShift: the entry still stands
+# A published week, then leave approved in Shift Central: the entry still stands
 # (an entry beats leave for what the cell SHOWS, by design) but the cell
 # must know it is standing on leave, or nothing can mark it. `on_leave`
 # used to be forced False whenever an entry existed. It is not any more.
@@ -128,7 +128,7 @@ def test_covering_is_public_and_names_the_absence():
     assert not hasattr(r, "_covering"), "the private name was renamed, not duplicated"
 
 
-def test_an_entry_over_findmyshift_leave_is_a_clash():
+def test_an_entry_over_shift_central_leave_is_a_clash():
     c = make_clinician()
     _works(c)
     e = make_entry(c, day=TUE, part="AM")
@@ -142,8 +142,8 @@ def test_an_entry_over_findmyshift_leave_is_a_clash():
     assert cell["absence"] is None, "the chip shown is still the entry's"
 
 
-def test_an_absence_entry_over_findmyshift_leave_agrees_and_is_not_a_clash():
-    """An admin marking someone AL by hand when FindMyShift also says off is
+def test_an_absence_entry_over_shift_central_leave_agrees_and_is_not_a_clash():
+    """An admin marking someone AL by hand when Shift Central also says off is
     agreement, not a rostered session on a day off."""
     c = make_clinician()
     _works(c)

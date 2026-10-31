@@ -253,7 +253,7 @@ def test_a_rota_admin_can_deactivate_a_login_but_not_promote_it(admin_client, gp
 
 
 GROUPS = ["People", "Working patterns", "Calendar", "Sessions & rules",
-          "Time off from FindMyShift", "Practice settings", "Records"]
+          "Time off from Shift Central", "Practice settings", "Records"]
 
 
 SYSTEM_HEADING = re.compile(r"<h2[^>]*>\s*System\s*<")

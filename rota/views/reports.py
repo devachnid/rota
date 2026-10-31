@@ -205,7 +205,7 @@ def report_trainees(request):
 def _locum_absence_label(cell):
     """What the covered clinician was off for, in the report's words.
 
-    FindMyShift first (the label never goes through the mapping), then an
+    Shift Central first (the label never goes through the mapping), then an
     absence-category entry standing on the cell (a hand-placed AL, or
     history from before the overlay), then nothing we know about.
     """
