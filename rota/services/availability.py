@@ -1,5 +1,5 @@
 from rota.models import Part, PatternSlot
-from rota.services.findmyshift.spans import parts_off
+from rota.services.time_off import parts_off
 
 
 def _current_slot(clinician, weekday, part, as_of):

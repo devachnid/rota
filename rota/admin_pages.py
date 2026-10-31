@@ -16,8 +16,7 @@ from unfold.views import UnfoldModelAdminViewMixin
 
 from rota.models import (TimeOff, TimeOffMapping, TimeOffSyncRun,
                          Clinician, Part, PatternSlot)
-from rota.services.findmyshift import client as fms_client
-from rota.services.findmyshift.links import unlinked_clinicians
+from rota.services.shift_central import client as sc_client, sync as sc_sync
 from rota.services.patterns import bulk_set_pattern, current_pattern
 
 WEEKDAY_LABELS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday",
@@ -160,10 +159,10 @@ class TimeOffStatusView(UnfoldModelAdminViewMixin, TemplateView):
         last_ok = TimeOffSyncRun.objects.filter(ok=True).first()
         last = TimeOffSyncRun.objects.first()
         return super().get_context_data(
-            configured=fms_client.from_settings() is not None,
+            configured=sc_client.from_settings() is not None,
             last_ok=last_ok,
             last_error=last if (last and not last.ok) else None,
-            unlinked=unlinked_clinicians(),
+            unlinked=sc_sync.unlinked_clinicians(),
             unmapped=unmapped_reasons(),
             has_default=TimeOffMapping.objects.filter(reason="").exists(),
             runs=TimeOffSyncRun.objects.all()[:20],

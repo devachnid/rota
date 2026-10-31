@@ -75,14 +75,6 @@ def test_mapping_session_type_must_be_an_absence_type():
         m.full_clean()
 
 
-def test_findmyshift_staff_id_is_unique_but_optional():
-    make_clinician("A", findmyshift_staff_id="S100")
-    make_clinician("B")  # unlinked is fine
-    make_clinician("C")  # two unlinked are fine (NULLs do not collide)
-    with pytest.raises(IntegrityError):
-        make_clinician("D", findmyshift_staff_id="S100")
-
-
 def test_a_blank_reason_is_still_time_off():
     c = make_clinician()
     a = _absence(c, reason="")

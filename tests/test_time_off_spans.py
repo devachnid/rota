@@ -1,17 +1,17 @@
-"""FindMyShift's start/end times, read as the rota's AM/PM parts.
+"""A start/end pair, read as the rota's AM/PM parts.
 
-The table in rota/services/findmyshift/spans.py is the whole contract: a
+The table in rota/services/time_off.py is the whole contract: a
 time at or after midday keeps the first morning, a time at or before
 midday keeps the last afternoon, anything else on a boundary day is that
 whole day, and an end at midnight is the exclusive form of "to the end of
 the day before".
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, time
 
 import pytest
 
-from rota.services.findmyshift.spans import Span, parts_off
+from rota.services.time_off import MIDDAY, Span, parts_off
 
 MON, TUE, WED = date(2026, 9, 14), date(2026, 9, 15), date(2026, 9, 16)
 
@@ -84,11 +84,11 @@ def test_a_morning_only_single_day():
     assert parts_off(s, MON) == {"AM"}
 
 
-def test_the_midday_boundary_is_a_setting(settings):
-    settings.FINDMYSHIFT_MIDDAY = "14:00"
-    s = Span.from_times(datetime(2026, 9, 14, 13, 30), datetime(2026, 9, 14, 17, 0))
-    assert parts_off(s, MON) == {"AM", "PM"}, "13:30 is still the morning when it ends at 14:00"
-    s = Span.from_times(datetime(2026, 9, 14, 14, 0), datetime(2026, 9, 14, 17, 0))
+def test_midday_is_fixed_at_one_in_the_afternoon():
+    assert MIDDAY == time(13, 0)
+    s = Span.from_times(datetime(2026, 9, 14, 12, 59), datetime(2026, 9, 14, 17, 0))
+    assert parts_off(s, MON) == {"AM", "PM"}, "12:59 is still the morning, so the whole day is off"
+    s = Span.from_times(datetime(2026, 9, 14, 13, 0), datetime(2026, 9, 14, 17, 0))
     assert parts_off(s, MON) == {"PM"}
 
 

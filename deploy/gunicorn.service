@@ -43,10 +43,8 @@ UMask=0077
 #   DB_PATH=/var/lib/rota/db.sqlite3
 #   ALLOWED_HOSTS=rota.example.org
 #   CSRF_TRUSTED_ORIGINS=https://rota.example.org
-#   FINDMYSHIFT_API_KEY=…        # from FindMyShift: your account's API key (developers page)
-#   FINDMYSHIFT_API_URL=https://www.findmyshift.co.uk/api/1.4
-#   FINDMYSHIFT_TEAM_ID=         # blank: every team the key can see
-#   FINDMYSHIFT_MIDDAY=13:00     # where AM ends, for half-day time off
+#   SHIFT_CENTRAL_URL=https://shifts.example.org   # Shift Central, which holds GP leave
+#   SHIFT_CENTRAL_TOKEN=…        # one of Shift Central's LEAVE_API_TOKENS
 #
 # DEBUG defaults to 0 in config/settings.py, so omitting it is safe — but set
 # it explicitly so the file states the intent.

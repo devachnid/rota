@@ -1,5 +1,5 @@
 [Unit]
-Description=Read time off from FindMyShift into the GP rota
+Description=Read GP leave from Shift Central into the GP rota
 After=network-online.target
 
 [Service]
@@ -12,10 +12,10 @@ WorkingDirectory=/srv/rota
 StateDirectory=rota
 StateDirectoryMode=0700
 UMask=0077
-# FINDMYSHIFT_API_KEY and the other FINDMYSHIFT_* settings live in the same environment file as
+# SHIFT_CENTRAL_URL and SHIFT_CENTRAL_TOKEN live in the same environment file as
 # SECRET_KEY, readable only by root. See gunicorn.service for why.
 EnvironmentFile=/etc/rota.env
-ExecStart=/srv/rota/.venv/bin/python manage.py findmyshift_sync
+ExecStart=/srv/rota/.venv/bin/python manage.py shift_central_sync
 
 # Sandbox: identical in every rota unit (tests/test_deploy_units.py).
 NoNewPrivileges=yes

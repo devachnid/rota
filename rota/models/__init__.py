@@ -1,4 +1,4 @@
-from .findmyshift import TimeOff, TimeOffMapping, TimeOffSyncRun
+from .time_off import TimeOff, TimeOffMapping, TimeOffSyncRun
 from .catalog import (ClosedDay, CoverageRule, DayNote, Part, PracticeSettings,
                       SessionType, Site)
 from .commitments import PersonalRequirement, RecurringCommitment

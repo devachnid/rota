@@ -64,7 +64,7 @@ def _directives(path):
 def test_there_are_five_services():
     assert [p.name for p in SERVICES] == [
         "gunicorn.service", "rota-backup.service", "rota-clearsessions.service",
-        "rota-findmyshift.service", "rota-pbs.service"]
+        "rota-pbs.service", "rota-shift-central.service"]
 
 
 @pytest.mark.parametrize("unit", SERVICES, ids=lambda p: p.name)

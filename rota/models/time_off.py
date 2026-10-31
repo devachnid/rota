@@ -1,4 +1,4 @@
-"""Time off as read from FindMyShift. Written only by the sync; never by a view.
+"""Time off as read from Shift Central. Written only by the sync; never by a view.
 
 These rows are an overlay, not rota entries. Putting leave in the entry
 table as well as here would be two answers to one question — the failure
@@ -7,14 +7,14 @@ the availability consolidation exists to prevent.
 
 from django.db import models
 
-from rota.services.findmyshift.spans import Span
+from rota.services.time_off import Span
 
 
 class TimeOff(models.Model):
     clinician = models.ForeignKey(
         "rota.Clinician", on_delete=models.CASCADE, related_name="time_off")
-    # The span is what FindMyShift's start and end date/times come to in
-    # the rota's parts (services/findmyshift/spans.py). The am_pm fields
+    # The span is what Shift Central's first day, last day and part come to
+    # in the rota's parts (services/time_off.py). The am_pm fields
     # are "AM", "PM" or "" — never null, so two full-day rows (both "")
     # collide on the content key instead of silently bypassing it.
     start_date = models.DateField()
@@ -23,13 +23,15 @@ class TimeOff(models.Model):
     half_start_am_pm = models.CharField(max_length=2, blank=True, default="")
     half_end = models.BooleanField(default=False)
     half_end_am_pm = models.CharField(max_length=2, blank=True, default="")
-    # FindMyShift's time-off reason — the category the practice set up
-    # there (Holiday, Sick, …), as FindMyShift names it. Blank when the
-    # record has none. The free-text comment on a record is never read
-    # into the rota: it is where someone writes why they are off sick.
-    reason = models.CharField(max_length=100, blank=True, default="")
-    # Diagnostic: which FindMyShift ids this row was built from.
-    # Comma-separated, because two records covering the same parts
+    # The Shift Central leave type's name — the category set up there
+    # (Holiday, Sick leave, …). Blank when the record has none. No note on a
+    # record is ever read into the rota: it is where someone writes why
+    # they are off sick.
+    reason = models.CharField(
+        max_length=100, blank=True, default="",
+        help_text="The Shift Central leave type's name.")
+    # Diagnostic: the feed's first_day for the record this row was built
+    # from. Comma-separated, because two records covering the same parts
     # deduplicate to one row.
     source_ids = models.CharField(max_length=100, blank=True, default="")
 
@@ -55,13 +57,13 @@ class TimeOff(models.Model):
 
 
 class TimeOffMapping(models.Model):
-    """How a FindMyShift reason becomes a chip: reason -> an absence type.
+    """How a Shift Central leave type becomes a chip: reason -> an absence type.
     The row with a blank reason is the default. Resolution: exact, then
     default."""
     reason = models.CharField(
         max_length=100, blank=True, default="",
-        help_text="The reason exactly as FindMyShift names it. Leave blank for "
-                  "the default, which any reason without its own row uses.")
+        help_text="The Shift Central leave type exactly as it is named there. Leave "
+                  "blank for the default, which any reason without its own row uses.")
     session_type = models.ForeignKey(
         "rota.SessionType", on_delete=models.PROTECT, related_name="+",
         limit_choices_to={"category": "ABSENCE"})
@@ -89,15 +91,17 @@ class TimeOffSyncRun(models.Model):
     started = models.DateTimeField()
     finished = models.DateTimeField(null=True, blank=True)
     ok = models.BooleanField(default=False)
-    n_teams = models.PositiveIntegerField(default=0)
     n_records = models.PositiveIntegerField(default=0)
-    n_approved = models.PositiveIntegerField(default=0)
-    n_deduped = models.PositiveIntegerField(default=0)
-    n_unlinked = models.PositiveIntegerField(default=0)
+    n_matched = models.PositiveIntegerField(default=0)
+    n_unmatched = models.PositiveIntegerField(default=0)
+    n_outside = models.PositiveIntegerField(default=0)
     error = models.TextField(blank=True, default="")
+    # Emails of the records nobody here matched: a record value, kept out of
+    # `error` and the journal, shown on the status page to the rota's admins.
+    detail = models.JSONField(default=dict, blank=True)
 
     class Meta:
-        verbose_name = "FindMyShift sync run"
+        verbose_name = "Shift Central sync run"
         ordering = ["-started"]
 
     def __str__(self):

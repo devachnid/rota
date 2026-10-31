@@ -6,11 +6,11 @@ User = get_user_model()
 
 
 @pytest.fixture(autouse=True)
-def _findmyshift_off(settings):
-    """The suite never talks to FindMyShift. Tests that need a configured client
-    set the key themselves, always with an injected opener or a patched
+def _shift_central_off(settings):
+    """The suite never talks to Shift Central. Tests that need a configured client
+    set the token themselves, always with an injected opener or a patched
     from_settings."""
-    settings.FINDMYSHIFT_API_KEY = ""
+    settings.SHIFT_CENTRAL_TOKEN = ""
 
 
 @pytest.fixture

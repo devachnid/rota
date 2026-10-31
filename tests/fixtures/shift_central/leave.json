@@ -1,0 +1,9 @@
+{"from": "2026-10-01", "to": "2028-10-31", "generated_at": "2027-01-05T12:00:00+00:00",
+ "leave": [
+  {"email": "alice@example.org", "first_day": "2027-03-10", "last_day": "2027-03-12", "part": "whole", "type": "Holiday"},
+  {"email": "ALICE@example.org", "first_day": "2027-03-15", "last_day": "2027-03-15", "part": "am", "type": "Training"},
+  {"email": "bob@example.org", "first_day": "2027-04-01", "last_day": "2027-04-01", "part": "pm", "type": "Sick leave"},
+  {"email": "nobody@example.org", "first_day": "2027-04-02", "last_day": "2027-04-02", "part": "whole", "type": "Holiday"},
+  {"email": "alice@example.org", "first_day": "2020-01-06", "last_day": "2020-01-06", "part": "whole", "type": "Holiday"},
+  {"email": "alice@example.org", "first_day": "2027-03-10", "last_day": "2027-03-12", "part": "whole", "type": "Holiday"}
+ ]}
