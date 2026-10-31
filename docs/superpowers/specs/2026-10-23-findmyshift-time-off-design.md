@@ -1,7 +1,7 @@
 # Time off from FindMyShift
 
 **Date:** 2026-10-23
-**Status:** Built (PR #57)
+**Status:** Built (PR #57); superseded by Shift Central's leave feed (PR #61) — the FindMyShift reader is deleted
 **Replaces:** `2026-09-02-breathe-leave-design.md`. The Breathe integration is
 deleted, not kept beside this.
 

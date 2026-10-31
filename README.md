@@ -267,7 +267,8 @@ database beside the code. Moving one takes a few minutes with the site down.
    stale one.
 
        cp deploy/gunicorn.service /etc/systemd/system/rota.service
-       cp deploy/rota-backup.service deploy/rota-clearsessions.service deploy/rota-shift-central.service /etc/systemd/system/
+       cp deploy/rota-backup.service deploy/rota-clearsessions.service /etc/systemd/system/
+       cp deploy/rota-shift-central.service deploy/rota-shift-central.timer /etc/systemd/system/
        systemctl daemon-reload
        deploy/manage collectstatic --noinput
        deploy/manage migrate
