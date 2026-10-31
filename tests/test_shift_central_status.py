@@ -37,11 +37,11 @@ def test_locums_are_not_listed_as_missing_an_email(staff_client):
     assert "Nobody Linked" in html and "Loose Locum" not in html
 
 
-def test_a_clinician_with_a_login_email_is_not_listed_as_missing_one(staff_client):
-    make_clinician("Has Email", user=User.objects.create_user(email="has@example.org", password="pw"))
-    make_clinician("Blank Email", user=User.objects.create_user(email="", password="pw"))
+def test_a_clinician_with_a_login_is_never_listed_as_missing_one(staff_client):
+    make_clinician("Has Login", user=User.objects.create_user(email="has@example.org", password="pw"))
+    make_clinician("No Login")
     html = staff_client.get(STATUS).content.decode()
-    assert "Blank Email" in html and "Has Email" not in html
+    assert "No Login" in html and "Has Login" not in html
 
 
 def test_the_status_page_shows_the_last_error(staff_client):
@@ -71,6 +71,14 @@ def test_refresh_now_reports_the_counts(staff_client, settings):
         run.return_value = TimeOffSyncRun(ok=True, n_records=5, n_matched=3, n_unmatched=2, n_outside=0, started=timezone.now())
         html = staff_client.post(REFRESH, follow=True).content.decode()
     assert "Synced: 3 clinicians matched, 2 emails unmatched." in html
+
+
+def test_refresh_now_pluralises_the_counts(staff_client, settings):
+    settings.SHIFT_CENTRAL_URL, settings.SHIFT_CENTRAL_TOKEN = "https://shifts.example", "t"
+    with mock.patch("rota.services.shift_central.sync.run") as run:
+        run.return_value = TimeOffSyncRun(ok=True, n_records=2, n_matched=1, n_unmatched=1, n_outside=0, started=timezone.now())
+        html = staff_client.post(REFRESH, follow=True).content.decode()
+    assert "Synced: 1 clinician matched, 1 email unmatched." in html
 
 
 def test_refresh_now_refuses_within_sixty_seconds_of_a_run(staff_client, settings):

@@ -77,9 +77,9 @@ def _with_email(name, email, **kw):
 def test_shift_central_step_needs_token_sync_and_everyone_matched(settings):
     _with_email("Ann Able", "ann@example.org")
     assert not _step("Shift Central")["done"]
-    assert _step("Shift Central")["detail"] == "SHIFT_CENTRAL_TOKEN is not set"
+    assert _step("Shift Central")["detail"] == "SHIFT_CENTRAL_URL or SHIFT_CENTRAL_TOKEN is not set"
     assert _step("Shift Central")["url"].endswith("/timeoffsyncrun/status/")
-    settings.SHIFT_CENTRAL_TOKEN = "set"
+    settings.SHIFT_CENTRAL_URL, settings.SHIFT_CENTRAL_TOKEN = "https://shifts.example", "set"
     assert not _step("Shift Central")["done"]
     assert _step("Shift Central")["detail"] == "no successful sync yet"
     assert _step("Shift Central")["url"].endswith("/timeoffsyncrun/status/")
@@ -93,7 +93,7 @@ def test_shift_central_step_needs_token_sync_and_everyone_matched(settings):
 
 
 def test_shift_central_step_is_not_done_while_emails_are_unmatched(settings):
-    settings.SHIFT_CENTRAL_TOKEN = "set"
+    settings.SHIFT_CENTRAL_URL, settings.SHIFT_CENTRAL_TOKEN = "https://shifts.example", "set"
     _with_email("Ann Able", "ann@example.org")
     TimeOffSyncRun.objects.create(started=timezone.now(), finished=timezone.now(), ok=True,
                                   n_unmatched=2, detail={"unmatched": ["x@example.org", "y@example.org"]})
@@ -150,7 +150,7 @@ def test_the_shift_central_health_line_uses_local_time_not_utc(settings):
     aware UTC 14:20 is a local 15:20. The dashboard must show the local
     hour, matching the |date filter the status page uses, not the raw
     UTC one."""
-    settings.SHIFT_CENTRAL_TOKEN = "set"
+    settings.SHIFT_CENTRAL_URL, settings.SHIFT_CENTRAL_TOKEN = "https://shifts.example", "set"
     started = dt.datetime(2026, 7, 1, 14, 20, tzinfo=dt.timezone.utc)
     finished = dt.datetime(2026, 7, 1, 14, 25, tzinfo=dt.timezone.utc)
     TimeOffSyncRun.objects.create(started=started, finished=finished, ok=True)
@@ -177,7 +177,7 @@ def test_the_dashboard_collapses_when_setup_is_complete(admin_client, settings):
     CoverageRule.objects.create(session_type=make_session_type("Duty"))
     c = _with_email("Ann Able", "ann@example.org")
     make_pattern(c)
-    settings.SHIFT_CENTRAL_TOKEN = "set"
+    settings.SHIFT_CENTRAL_URL, settings.SHIFT_CENTRAL_TOKEN = "https://shifts.example", "set"
     settings.EMAIL_HOST = "smtp.example"
     TimeOffSyncRun.objects.create(started=timezone.now(), finished=timezone.now(), ok=True)
 
@@ -221,3 +221,23 @@ def test_the_email_step_follows_email_host(settings, admin_client):
     assert "Outgoing email" in html
     settings.EMAIL_HOST = "smtp.example"
     assert _step("Outgoing email")["done"]
+
+
+def test_a_token_with_whitespace_or_no_url_reads_as_not_configured_everywhere(settings):
+    settings.SHIFT_CENTRAL_URL, settings.SHIFT_CENTRAL_TOKEN = "https://shifts.example", "bad token"
+    assert _step("Shift Central")["detail"] == "SHIFT_CENTRAL_URL or SHIFT_CENTRAL_TOKEN is not set"
+    assert {h["label"]: h for h in health()}["Shift Central sync"]["detail"] == "not configured"
+    settings.SHIFT_CENTRAL_URL, settings.SHIFT_CENTRAL_TOKEN = "", "good"
+    assert _step("Shift Central")["detail"] == "SHIFT_CENTRAL_URL or SHIFT_CENTRAL_TOKEN is not set"
+    assert {h["label"]: h for h in health()}["Shift Central sync"]["detail"] == "not configured"
+
+
+def test_the_dashboards_link_lists_exactly_the_clinicians_without_a_login(admin_client):
+    from rota.services.shift_central.links import without_email
+    make_clinician("Has No Login")
+    _with_email("Has A Login", "login@example.org")
+    lines = {h["label"]: h for h in health()}
+    line = lines["Clinicians without a login email"]
+    assert line["count"] == without_email().count() == 1
+    body = admin_client.get(line["url"]).content.decode()
+    assert "Has No Login" in body and "Has A Login" not in body
