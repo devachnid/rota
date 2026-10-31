@@ -88,3 +88,11 @@ def test_a_bad_record_fails_the_run_without_naming_anyone():
     payload = {"leave": [{"email": "alice@example.org", "first_day": "nope", "last_day": "2027-03-12", "part": "whole", "type": "Holiday"}]}
     run = sync.run(FakeClient(payload), now=NOW)
     assert not run.ok and "record 1" in run.error and "alice" not in run.error
+
+
+def test_a_login_with_a_blank_email_matches_no_record_not_even_a_blank_one():
+    # accounts.User does not insist on an email, and a blank one must not become the key "" that a blank feed email finds.
+    blank = make_clinician("No Email", user=User.objects.create_user(email="", password="pw"))
+    payload = {"leave": [{"email": "", "first_day": "2027-03-10", "last_day": "2027-03-10", "part": "whole", "type": "Holiday"}]}
+    run = sync.run(FakeClient(payload), now=NOW)
+    assert run.ok and run.n_matched == 0 and not TimeOff.objects.filter(clinician=blank).exists()
