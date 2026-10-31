@@ -18,28 +18,36 @@ the grid shows who is off and assisted fill never assigns them.
    SHIFT_CENTRAL_URL=https://shifts.example.org
    SHIFT_CENTRAL_TOKEN=…
    ```
-   and restart gunicorn. The URL must be `https`: the token is never sent over
-   anything else, even by a redirect, and `check --deploy` flags a plain-http
-   URL (`rota.E007`). A token with a space or a line break in it is treated as
-   not set, and the status page says so.
-3. **Migrate.** `deploy/manage migrate`, as root, from `/srv/rota` (see the
-   README's Deploy section for why not plain `manage.py`).
-4. **Give every clinician a login whose email matches Shift Central's.**
+   The URL must be `https`: the token is never sent over anything else, even
+   by a redirect, and `check --deploy` flags a plain-http URL (`rota.E007`). A
+   token with a space or a line break in it is treated as not set, and the
+   status page says so. Gunicorn is restarted in step 4, once the database has
+   been migrated.
+3. **Install the timer's units.** From `/srv/rota`:
+   ```
+   cp deploy/rota-shift-central.service deploy/rota-shift-central.timer /etc/systemd/system/
+   systemctl daemon-reload
+   ```
+   Without this, step 8 has no timer to enable.
+4. **Migrate, then restart.** `deploy/manage migrate`, as root, from `/srv/rota`
+   (see the README's Deploy section for why not plain `manage.py`), then
+   `systemctl restart rota`.
+5. **Give every clinician a login whose email matches Shift Central's.**
    `/admin/rota/clinician/` — each clinician's **login account** is the link.
    Shift Central names each person's leave by their email address, and the rota
    matches it to the clinician whose login has that address (case does not
    matter). Locums are left out: a locum books their own sessions and has no
    leave to read. The status page lists every other clinician who still has no
    login email.
-5. **Map the leave types.** `/admin/rota/timeoffmapping/` — see [Reason
+6. **Map the leave types.** `/admin/rota/timeoffmapping/` — see [Reason
    mapping](#reason-mapping). A reason is the name of a Shift Central leave
-   type (Annual leave, Sickness, …).
-6. **Run the first sync.** `/admin/rota/timeoffsyncrun/status/` → **Refresh
+   type (Holiday, Sick leave, TOIL, Training, …).
+7. **Run the first sync.** `/admin/rota/timeoffsyncrun/status/` → **Refresh
    now**, or `deploy/manage shift_central_sync`. Add `--dry-run` to fetch and
    count without writing.
-7. **Enable the timer.** `systemctl enable --now rota-shift-central.timer`.
+8. **Enable the timer.** `systemctl enable --now rota-shift-central.timer`.
 
-Step 4 before step 6 matters: a sync before anyone has an email reads
+Step 5 before step 7 matters: a sync before anyone has an email reads
 everything and stores nothing, reporting every address as unmatched.
 
 ### Moving from FindMyShift
@@ -55,7 +63,7 @@ systemctl daemon-reload
 Remove the `FINDMYSHIFT_*` lines from `/etc/rota.env` (they are ignored, but a
 key that no longer does anything should not sit in a file). Migration `0035`
 drops the clinicians' staff links; nothing needs linking again beyond giving
-each clinician a login email, as in step 4 above.
+each clinician a login email, as in step 5 above.
 
 ## What counts as off
 
