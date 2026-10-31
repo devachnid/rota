@@ -68,11 +68,11 @@ def test_a_ceiling_in_the_week_header_is_amber(admin_client):
     assert 'class="alert alert-compact alert-warning">Too many Urgent this week' in html
 
 
-def test_the_findmyshift_banner_is_a_warning_not_a_gap(admin_client):
+def test_the_no_email_banner_is_a_warning_not_a_gap(admin_client):
     PracticeSettings.load()
     make_clinician("Alice Adams")
     html = admin_client.get(f"/rota/?week={MON}").content.decode()
-    assert '<div class="alert alert-warning">1 clinician not linked to FindMyShift' in html
+    assert '<div class="alert alert-warning">1 clinician without a login email' in html
 
 
 def test_the_cell_forms_prompt_to_save_again_is_announced_as_a_warning(admin_client):

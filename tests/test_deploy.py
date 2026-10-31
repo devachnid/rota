@@ -22,7 +22,7 @@ def test_login_still_works_with_axes(client, gp_user):
 @pytest.mark.django_db(transaction=True)
 def test_sqlite_transactions_begin_immediate():
     # Django's default DEFERRED transaction reads first and takes the write lock
-    # later; if another writer (the FindMyShift sync, a second gunicorn worker) got
+    # later; if another writer (the Shift Central sync, a second gunicorn worker) got
     # there in between, SQLite raises "database is locked" at once instead of
     # waiting out the busy timeout. IMMEDIATE takes the lock at BEGIN, so a
     # second writer queues behind the first.

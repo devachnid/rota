@@ -1,7 +1,7 @@
 """What a rota cell shows, decided once.
 
     entry exists                -> the entry
-    on leave and showable       -> the FindMyShift time off (`absence`, mapped)
+    on leave and showable       -> the Shift Central time off (`absence`, mapped)
     on leave, mapped or not     -> `on_leave`, entry or no entry
     entry AND on leave          -> `clash`, unless the entry is itself an absence
     works_on                    -> not off: here, nothing allocated
@@ -16,11 +16,11 @@ from rota.models import SessionType
 
 
 def leave_label(reason):
-    """The words for FindMyShift time off — a tooltip, a warning line.
+    """The words for Shift Central time off — a tooltip, a warning line.
 
     Never goes through the mapping: an absence whose reason has lost its
     mapping row renders no chip, but it is still leave and still says which.
-    The reason is FindMyShift's own category name; a record with none is
+    The reason is Shift Central's own category name; a record with none is
     plain "Time off". The free-text comment on a record never gets here —
     it is not read into the rota at all.
     """
@@ -35,15 +35,15 @@ def cell_state(clinician_id, day, part, *, entry, resolver, closed,
     # Two different questions, and they must not be answered by one value:
     # `absence` is what to *render* on an empty cell and goes through the
     # mapping, so a reason with no mapping row is None; `on_leave` is whether
-    # FindMyShift says the clinician is off, never touches the mapping, and is
+    # Shift Central says the clinician is off, never touches the mapping, and is
     # answered whether or not an entry stands on the cell. It used to be
     # forced False under an entry — which is exactly why a published
     # session over later-approved leave could not be marked anywhere.
     on_leave = covering is not None
     leave_type = resolver.leave_type(clinician_id, day, part) if entry is None else None
 
-    # A rostered session on someone FindMyShift says is off. An absence-category
-    # entry (an admin marking AL by hand) over FindMyShift leave is agreement,
+    # A rostered session on someone Shift Central says is off. An absence-category
+    # entry (an admin marking AL by hand) over Shift Central leave is agreement,
     # not a clash.
     clash = (entry is not None and on_leave
              and entry.session_type.category != SessionType.Category.ABSENCE)
@@ -128,7 +128,7 @@ def one_block(am, pm):
 
 def one_empty_block(am, pm):
     """Whether two entry-less halves read as one chip: a whole day off by
-    pattern, or the same FindMyShift time off chip on both halves. Drawn like a
+    pattern, or the same Shift Central time off chip on both halves. Drawn like a
     matching pair of sessions — one chip across both columns, its form
     opening on the whole day. A closed day stays two blank cells, and a
     half-day off beside a worked or absent half stays two cells."""

@@ -1,7 +1,7 @@
 """The fill engine must not schedule someone who is unavailable.
 
 Two new reasons to be unavailable: outside the contractual date window, and
-on a FindMyShift time off. The absence check is deliberately independent of rota
+on a Shift Central time off. The absence check is deliberately independent of rota
 entries — entries only exist where the pattern said the clinician works, so a
 pattern widened after the absence was written would otherwise expose it to
 a re-run.

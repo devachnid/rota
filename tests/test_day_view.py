@@ -123,7 +123,7 @@ def test_a_clinician_on_leave_all_day_is_in_the_leave_group_not_the_roster(
     assert "Anwer Al-Hasani" in _on_leave_tbody(html)
 
 
-def test_a_clinician_on_findmyshift_leave_all_day_shows_the_chip_in_the_leave_group(
+def test_a_clinician_on_shift_central_leave_all_day_shows_the_chip_in_the_leave_group(
         gp_client, gp_user):
     """The on-leave table has its own cell markup, separate from the
     roster's — it must render the overlay chip too, not just fall through to
@@ -134,7 +134,7 @@ def test_a_clinician_on_findmyshift_leave_all_day_shows_the_chip_in_the_leave_gr
     make_absence(c, TUE)
     html = _html(gp_client)
     assert "Beatrice Okafor" in _on_leave_tbody(html)
-    assert "from FindMyShift" in _on_leave_tbody(html)
+    assert "from Shift Central" in _on_leave_tbody(html)
 
 
 def test_half_a_day_of_leave_keeps_the_clinician_in_the_roster(gp_client, gp_user):
@@ -188,7 +188,7 @@ def test_a_clinician_with_no_pattern_and_approved_leave_is_a_ghost_in_the_roster
     make_absence(c, TUE)
     html = _html(gp_client)
     assert "Locum Newcomer" in _roster_tbody(html)
-    assert "from FindMyShift" in _roster_tbody(html)
+    assert "from Shift Central" in _roster_tbody(html)
     not_in_line = html[html.index('class="day-not-in"'):]
     assert "Locum Newcomer" not in not_in_line
 
@@ -477,7 +477,7 @@ def test_the_stepper_terminates_when_the_practice_has_no_open_weekdays(
 
 
 def test_a_clash_files_under_on_leave_with_the_marker(gp_client, gp_user):
-    """FindMyShift says they are off, so the section says so; the ringed chip
+    """Shift Central says they are off, so the section says so; the ringed chip
     is what makes the session the visible anomaly."""
     make_clinician("Viewer", user=gp_user)
     c = make_clinician("Cara Clash")
@@ -490,7 +490,7 @@ def test_a_clash_files_under_on_leave_with_the_marker(gp_client, gp_user):
     leave = _on_leave_tbody(html)
     assert "Cara Clash" in leave
     assert "is-clash" in leave
-    assert "On FindMyShift leave: Holiday" in leave
+    assert "On leave (Shift Central): Holiday" in leave
     assert "0 in &middot; 1 on leave" in html
 
 

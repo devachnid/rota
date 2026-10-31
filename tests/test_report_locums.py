@@ -93,7 +93,7 @@ def test_a_malformed_date_falls_back_to_the_default(admin_client, world):
     assert "Larry Locum" in resp.content.decode()
 
 
-def test_absence_comes_from_findmyshift_first(admin_client, world):
+def test_absence_comes_from_shift_central_first(admin_client, world):
     make_absence(world["ann"], MON, reason="Jury service")
     world["book"](covering=world["ann"])
 

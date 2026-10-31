@@ -17,6 +17,7 @@ from unfold.views import UnfoldModelAdminViewMixin
 from rota.models import (TimeOff, TimeOffMapping, TimeOffSyncRun,
                          Clinician, Part, PatternSlot)
 from rota.services.shift_central import client as sc_client, sync as sc_sync
+from rota.services.shift_central.links import without_email
 from rota.services.patterns import bulk_set_pattern, current_pattern
 
 WEEKDAY_LABELS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday",
@@ -136,7 +137,7 @@ class PatternEditorView(UnfoldModelAdminViewMixin, TemplateView):
 
 
 def unmapped_reasons():
-    """The FindMyShift reasons in the overlay that have no mapping row of
+    """The Shift Central reasons in the overlay that have no mapping row of
     their own, sorted. With the default row present they render as its
     chip, which may be the wrong chip (sick leave reading as AL); with the
     default row gone they render as empty cells. Either way the status page
@@ -162,7 +163,8 @@ class TimeOffStatusView(UnfoldModelAdminViewMixin, TemplateView):
             configured=sc_client.from_settings() is not None,
             last_ok=last_ok,
             last_error=last if (last and not last.ok) else None,
-            unlinked=sc_sync.unlinked_clinicians(),
+            unlinked=without_email(),
+            unmatched=sc_sync.unmatched_emails(),
             unmapped=unmapped_reasons(),
             has_default=TimeOffMapping.objects.filter(reason="").exists(),
             runs=TimeOffSyncRun.objects.all()[:20],

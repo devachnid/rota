@@ -16,6 +16,7 @@ from rota.models import (TimeOffSyncRun, Clinician, ClinicianGroup, CoverageRule
                          TraineeProfile, SwapRequest)
 from rota.services import personal as personal_svc
 from rota.services.shift_central import sync as sc_sync
+from rota.services.shift_central.links import without_email, without_email_changelist_url
 from rota.services.calendar import is_open
 from rota.services.legibility import grid_legibility
 from rota.services.warnings import day_warnings
@@ -31,19 +32,22 @@ def _cl(name, **params):
 def setup_steps():
     ps = PracticeSettings.load()
     missing_patterns = clinicians_without_a_pattern().count()
-    unlinked = sc_sync.unlinked_clinicians().count()
+    no_email = without_email().count()
+    unmatched = len(sc_sync.unmatched_emails())
     any_active = Clinician.objects.filter(active=True).exists()
-    has_key = bool(settings.SHIFT_CENTRAL_TOKEN)
+    has_token = bool(settings.SHIFT_CENTRAL_TOKEN)
     synced = TimeOffSyncRun.objects.filter(ok=True).exists()
     email_ok = email_is_configured()
-    if not has_key:
-        fms_detail = "SHIFT_CENTRAL_TOKEN is not set"
+    if not has_token:
+        sc_detail = "SHIFT_CENTRAL_TOKEN is not set"
     elif not synced:
-        fms_detail = "no successful sync yet"
-    elif unlinked:
-        fms_detail = f"{unlinked} not linked"
+        sc_detail = "no successful sync yet"
+    elif no_email:
+        sc_detail = f"{no_email} without a login email"
+    elif unmatched:
+        sc_detail = f"{unmatched} email{'s' if unmatched != 1 else ''} unmatched"
     else:
-        fms_detail = "key set, synced, everyone linked"
+        sc_detail = "token set, synced, everyone matched"
     steps = [
         {"title": "Practice settings",
          "done": bool(ps.open_weekday_list()) and ps.default_fill_session_type_id is not None,
@@ -73,10 +77,10 @@ def setup_steps():
          "detail": (f"{missing_patterns} clinician{'s' if missing_patterns != 1 else ''} "
                     f"without one" if missing_patterns else "everyone has one"),
          "url": reverse("admin:rota_patternslot_bulk") + "?missing=1"},
-        {"title": "FindMyShift",
-         "done": has_key and synced and unlinked == 0,
-         "detail": fms_detail,
-         "url": (sc_sync.unlinked_changelist_url() if has_key and synced
+        {"title": "Shift Central",
+         "done": has_token and synced and unmatched == 0 and no_email == 0,
+         "detail": sc_detail,
+         "url": (without_email_changelist_url() if has_token and synced and no_email
                  else reverse("admin:rota_timeoffsyncrun_status"))},
         # Server configuration, not a database row, so nothing to link to.
         {"title": "Outgoing email", "done": email_ok,
@@ -99,14 +103,14 @@ def health():
     last = TimeOffSyncRun.objects.first()
     last_ok = TimeOffSyncRun.objects.filter(ok=True).first()
     if not settings.SHIFT_CENTRAL_TOKEN:
-        findmyshift = ("not configured", "warn")
+        shift_central = ("not configured", "warn")
     elif last is not None and not last.ok:
-        findmyshift = (f"last run failed: {last.error[:80]}", "warn")
+        shift_central = (f"last run failed: {last.error[:80]}", "warn")
     elif last_ok is None:
-        findmyshift = ("no successful sync yet", "warn")
+        shift_central = ("no successful sync yet", "warn")
     else:
         local_started = timezone.localtime(last_ok.started)
-        findmyshift = (f"last good sync {local_started:%a %-d %b %H:%M}", "ok")
+        shift_central = (f"last good sync {local_started:%a %-d %b %H:%M}", "ok")
 
     ps = PracticeSettings.load()
     legibility = grid_legibility()
@@ -117,11 +121,11 @@ def health():
         {"label": "Clinicians with no working pattern",
          "count": clinicians_without_a_pattern().count(),
          "url": reverse("admin:rota_patternslot_bulk") + "?missing=1", "level": "warn"},
-        {"label": "Clinicians not linked to FindMyShift",
-         "count": sc_sync.unlinked_clinicians().count(),
-         "url": sc_sync.unlinked_changelist_url(), "level": "warn"},
-        {"label": "FindMyShift sync", "count": None, "detail": findmyshift[0],
-         "url": reverse("admin:rota_timeoffsyncrun_status"), "level": findmyshift[1]},
+        {"label": "Clinicians without a login email",
+         "count": without_email().count(),
+         "url": without_email_changelist_url(), "level": "warn"},
+        {"label": "Shift Central sync", "count": None, "detail": shift_central[0],
+         "url": reverse("admin:rota_timeoffsyncrun_status"), "level": shift_central[1]},
         {"label": "Time off reasons with no mapping", "count": unmapped_count(),
          "url": _cl("timeoffmapping"), "level": "warn"},
         {"label": "Days with staffing gaps this week", "count": gap_days,

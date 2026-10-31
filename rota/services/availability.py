@@ -90,7 +90,7 @@ class AvailabilityResolver:
     """The one answer to "can this clinician be given this session?".
 
     Composes, cheapest check first: `active`, the contractual date window, the
-    working pattern, then FindMyShift time off. All four are read at one moment by
+    working pattern, then Shift Central time off. All four are read at one moment by
     one call, so they cannot disagree — which is the risk in `active` and the
     date window being separate concepts.
 
@@ -142,7 +142,7 @@ class AvailabilityResolver:
         return self._patterns.works_on(clinician_id, day, part)
 
     def covering(self, clinician_id, day, part):
-        """The reason of the absence covering `day`/`part` — FindMyShift's
+        """The reason of the absence covering `day`/`part` — Shift Central's
         name for it, "" when it has none — or None when nothing covers it.
         The one place both leave_type() and on_leave() read the overlay, so
         they cannot disagree about which absence applies — only about
@@ -157,7 +157,7 @@ class AvailabilityResolver:
     def leave_type(self, clinician_id, day, part):
         """The mapped SessionType covering `day`/`part`, or None — either
         because nothing covers it, or because what covers it has no mapping
-        row. Part-aware: a FindMyShift half day ("Morning off") covers one
+        row. Part-aware: a Shift Central half day ("Morning off") covers one
         part, not the day. This is what cell_state renders; on_leave() is what
         scheduling depends on, and does not go through the mapping."""
         reason = self.covering(clinician_id, day, part)

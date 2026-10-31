@@ -4,7 +4,7 @@ The rota is built four to six weeks ahead, so "next Monday" is nearly
 always a week already done. From next Monday, this finds the first week
 that is under half filled: the number of working sessions — a clinician
 who is active, inside their dates, works that half-day by pattern and is
-not on FindMyShift leave — against how many of those hold any entry, draft or
+not on Shift Central leave — against how many of those hold any entry, draft or
 published. A few advance bookings or a booked locum leave a week well
 under half, so it is still picked; a week with no working sessions at all
 (every day closed) is skipped. Bounded at HORIZON_WEEKS, falling back to

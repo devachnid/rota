@@ -1,8 +1,8 @@
-"""A published entry standing on FindMyShift leave.
+"""A published entry standing on Shift Central leave.
 
 Leave used to be approved in the rota, and approving it overwrote the
-entries. FindMyShift owns leave now, and the ordinary sequence — publish the
-week, then leave is approved in FindMyShift — leaves a session against someone
+entries. Shift Central owns leave now, and the ordinary sequence — publish the
+week, then leave is approved in Shift Central — leaves a session against someone
 who is not coming in. The cell is marked and the header names who — see the
 spec. Non-admins see the cell, never the header line: judgement signals are
 the admin's.
@@ -19,12 +19,12 @@ from tests.factories import (MON, make_absence, make_clinician, make_entry,
 
 pytestmark = pytest.mark.django_db
 
-TEXT = "On FindMyShift leave but rostered"
+TEXT = "On leave (Shift Central) but rostered"
 
 
 @pytest.fixture(autouse=True)
 def _quiet_other_warnings(db):
-    """Only the FindMyShift rule is under test here."""
+    """Only the Shift Central rule is under test here."""
     PracticeSettings.objects.update_or_create(
         pk=1, defaults={"min_clinical_per_session": 0})
 
@@ -39,22 +39,22 @@ def _rostered_on_leave(**absence_kw):
     return c
 
 
-def _findmyshift(day=MON, **kw):
+def _shift_central(day=MON, **kw):
     return [w for w in day_warnings(day, **kw) if w.code == "timeoff"]
 
 
 def test_a_published_entry_over_a_full_day_absence_warns_for_both_parts():
     _rostered_on_leave()
-    warnings = _findmyshift()
+    warnings = _shift_central()
     assert [w.part for w in warnings] == ["AM", "PM"]
-    assert warnings[0].message == "On FindMyShift leave but rostered (AM): AA (Holiday)"
-    assert warnings[1].message == "On FindMyShift leave but rostered (PM): AA (Holiday)"
+    assert warnings[0].message == "On leave (Shift Central) but rostered (AM): AA (Holiday)"
+    assert warnings[1].message == "On leave (Shift Central) but rostered (PM): AA (Holiday)"
 
 
 def test_a_pm_only_absence_warns_for_pm_only():
     _rostered_on_leave(half_start=True, half_start_am_pm="PM",
                        half_end=True, half_end_am_pm="PM")
-    assert [w.part for w in _findmyshift()] == ["PM"]
+    assert [w.part for w in _shift_central()] == ["PM"]
 
 
 def test_a_draft_entry_counts_too():
@@ -65,15 +65,15 @@ def test_a_draft_entry_counts_too():
     make_entry(c, day=MON, part="AM", is_published=False,
                session_type=make_session_type("Routine", code="ROUT"))
     make_absence(c, MON)
-    assert [w.part for w in _findmyshift()] == ["AM"]
-    assert _findmyshift(include_drafts=False) == [], "a GP's view has no draft to conflict with"
+    assert [w.part for w in _shift_central()] == ["AM"]
+    assert _shift_central(include_drafts=False) == [], "a GP's view has no draft to conflict with"
 
 
 def test_no_entry_no_warning():
     c = make_clinician("Ann Able")
     make_pattern(c)
     make_absence(c, MON)
-    assert _findmyshift() == []
+    assert _shift_central() == []
 
 
 def test_an_unmapped_absence_still_warns():
@@ -81,13 +81,13 @@ def test_an_unmapped_absence_still_warns():
     chip is still someone who is not coming in."""
     TimeOffMapping.objects.filter(reason__in=["Holiday", ""]).delete()
     _rostered_on_leave()
-    assert [w.part for w in _findmyshift()] == ["AM", "PM"]
+    assert [w.part for w in _shift_central()] == ["AM", "PM"]
 
 
 def test_the_warning_appears_in_the_admin_grids_day_header(admin_client):
     _rostered_on_leave()
     html = admin_client.get(f"/rota/?week={MON.isoformat()}").content.decode()
-    assert "On FindMyShift leave but rostered (AM): AA (Holiday)" in html
+    assert "On leave (Shift Central) but rostered (AM): AA (Holiday)" in html
 
 
 def test_a_non_admin_grid_carries_no_such_text(gp_client, gp_user):
@@ -140,8 +140,8 @@ def test_the_warning_names_everyone_in_initials_order():
         make_entry(c, day=MON, part="AM",
                    session_type=make_session_type("Routine", code="ROUT"))
         make_absence(c, MON, **kw)
-    (w,) = _findmyshift()
-    assert w.message == "On FindMyShift leave but rostered (AM): AA (Holiday), BB (Sick)"
+    (w,) = _shift_central()
+    assert w.message == "On leave (Shift Central) but rostered (AM): AA (Holiday), BB (Sick)"
 
 
 def test_two_clinicians_sharing_initials_both_appear():
@@ -154,25 +154,25 @@ def test_two_clinicians_sharing_initials_both_appear():
         make_entry(c, day=MON, part="AM",
                    session_type=make_session_type("Routine", code="ROUT"))
         make_absence(c, MON, **kw)
-    (w,) = _findmyshift()
+    (w,) = _shift_central()
     assert "AA (Holiday)" in w.message
     assert "AA (Sick)" in w.message
 
 
-def test_an_absence_entry_over_findmyshift_leave_is_agreement_not_a_clash():
-    """An admin marked AL by hand and FindMyShift agrees. Nothing to fix."""
+def test_an_absence_entry_over_shift_central_leave_is_agreement_not_a_clash():
+    """An admin marked AL by hand and Shift Central agrees. Nothing to fix."""
     c = make_clinician("Ann Able")
     make_pattern(c)
     al = make_session_type("Annual Leave", code="AL", category="ABSENCE")
     make_entry(c, day=MON, part="AM", session_type=al)
     make_absence(c, MON)
-    assert _findmyshift() == []
+    assert _shift_central() == []
 
 
 def test_an_unmapped_absence_still_names_its_reason():
     TimeOffMapping.objects.filter(reason__in=["Holiday", ""]).delete()
     _rostered_on_leave()
-    assert _findmyshift()[0].message.endswith("AA (Holiday)")
+    assert _shift_central()[0].message.endswith("AA (Holiday)")
 
 
 def test_the_conflict_check_adds_no_queries_per_open_day(admin_client):
@@ -208,5 +208,5 @@ def test_the_conflict_check_adds_no_queries_per_open_day(admin_client):
                        session_type=rout)
     assert queries() == one_day, (
         "the grid issues more queries when more open days carry entries — "
-        "the FindMyShift rule is building a resolver per day again"
+        "the Shift Central rule is building a resolver per day again"
     )

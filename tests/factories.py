@@ -54,7 +54,7 @@ def make_entry(clinician, day=MON, part="AM", session_type=None, **kw):
 
 
 def make_absence(clinician, start, end=None, reason="Holiday", **half):
-    """A FindMyShift time-off row, as the sync would write it. `half` takes
+    """A Shift Central time-off row, as the sync would write it. `half` takes
     the span's half-day fields directly (half_start=True,
     half_start_am_pm="PM"), which is what a 13:00 start comes to."""
     from rota.models import TimeOff

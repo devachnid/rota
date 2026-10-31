@@ -1,4 +1,4 @@
-"""One chip template. The session chip and the FindMyShift time off chip were
+"""One chip template. The session chip and the Shift Central time off chip were
 written out five times across the grid, the day view and My Schedule, and
 the copies had drifted — the clash tooltip on some and not others, the site
 marker missing from the day view's on-leave table. They are one include
@@ -55,7 +55,7 @@ def _clash_setup():
 def test_the_day_view_puts_the_clash_on_the_chip(gp_client):
     _clash_setup()
     html = gp_client.get(f"/rota/day/{MON}/").content.decode()
-    assert 'class="chip is-clash" title="On FindMyShift leave: Holiday"' in html
+    assert 'class="chip is-clash" title="On leave (Shift Central): Holiday"' in html
 
 
 def test_the_grid_keeps_the_clash_in_the_cell_tooltip_not_the_chip(admin_client):
@@ -65,7 +65,7 @@ def test_the_grid_keeps_the_clash_in_the_cell_tooltip_not_the_chip(admin_client)
     html = admin_client.get(f"/rota/?week={MON}").content.decode()
     assert 'class="chip is-clash"' in html
     assert 'class="chip is-clash" title=' not in html
-    assert "— On FindMyShift leave: Holiday" in html
+    assert "— On leave (Shift Central): Holiday" in html
 
 
 def test_the_strike_is_the_grids_and_the_admins(admin_client, gp_client, admin_user):
