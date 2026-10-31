@@ -29,9 +29,19 @@ the grid shows who is off and assisted fill never assigns them.
    systemctl daemon-reload
    ```
    Without this, step 8 has no timer to enable.
-4. **Migrate, then restart.** `deploy/manage migrate`, as root, from `/srv/rota`
-   (see the README's Deploy section for why not plain `manage.py`), then
-   `systemctl restart rota`.
+4. **Redeploy, then restart.** On a box that ran the old time-off reader,
+   first disable its timer, as the section just after these steps says, so it
+   cannot run against the migrated database. Then, as root, from
+   `/srv/rota`, the README's *Redeploying* steps (`deploy/manage`, not plain
+   `manage.py`; see the README's Deploy section for why). This release changes
+   the rota's CSS, so `collectstatic` is not optional:
+   ```
+   .venv/bin/pip install -r requirements.txt
+   deploy/manage migrate
+   deploy/manage collectstatic --noinput
+   deploy/manage check --deploy
+   systemctl restart rota
+   ```
 5. **Give every clinician a login whose email matches Shift Central's.**
    `/admin/rota/clinician/` — each clinician's **login account** is the link.
    Shift Central names each person's leave by their email address, and the rota
