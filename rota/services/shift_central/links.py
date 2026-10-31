@@ -1,6 +1,8 @@
 """Who should have a login so Shift Central's leave can be matched to them
-by its email (a login always has one). A locum books their own sessions and has no leave to read, so is left
-out of every count, as before."""
+by its email. A clinician with no login at all is listed. A login whose email
+is blank is possible too (the user model does not insist on one); it matches
+nothing, and the sync ignores it, but it is not listed here. A locum books
+their own sessions and has no leave to read, so is left out of every count."""
 
 from django.urls import reverse
 
