@@ -31,8 +31,8 @@ class TimeOff(models.Model):
         max_length=100, blank=True, default="",
         help_text="The Shift Central leave type's name.")
     # Diagnostic: the feed's first_day for the record this row was built
-    # from. Comma-separated, because two records covering the same parts
-    # deduplicate to one row.
+    # from. Two records covering the same parts deduplicate to one row: the
+    # sync keeps the first and appends nothing, so this is one date.
     source_ids = models.CharField(max_length=100, blank=True, default="")
 
     class Meta:
