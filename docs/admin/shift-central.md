@@ -23,7 +23,8 @@ the grid shows who is off and assisted fill never assigns them.
    token with a space or a line break in it is treated as not set, and the
    status page says so. Gunicorn is restarted in step 4, once the database has
    been migrated.
-3. **Install the timer's units.** From `/srv/rota`:
+3. **Install the timer's units.** From `/srv/rota`, with this release pulled (`git pull`;
+   a fresh install already has it):
    ```
    cp deploy/rota-shift-central.service deploy/rota-shift-central.timer /etc/systemd/system/
    systemctl daemon-reload
