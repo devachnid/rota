@@ -74,6 +74,7 @@ def test_a_plain_http_url_is_allowed_in_debug_only(settings):
 
 
 def test_the_client_never_follows_a_redirect():
+    assert any(isinstance(h, sc_client._RefuseRedirects) for h in sc_client._OPENER.handlers)
     handler = sc_client._RefuseRedirects()
     req = urllib.request.Request("https://shifts.example/api/v1/leave", headers={"Authorization": "Bearer t"})
     assert handler.redirect_request(req, None, 302, "Found", {}, "http://elsewhere.example/") is None
