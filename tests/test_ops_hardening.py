@@ -1,7 +1,7 @@
 """The low-risk items from the 2026-09-27 security review: an HTTPS redirect
 of the app's own, no published development key, a request log that keeps
 password links out of it, security events that reach the journal, and a
-FindMyShift key that cannot leak through an error message."""
+Shift Central token that cannot leak through an error message."""
 
 import logging
 import os
@@ -20,7 +20,8 @@ def _settings_value(expr, env):
     """A setting as a production process sees it: a fresh interpreter that is
     not running pytest, so config/settings.py's _TESTING is false."""
     base = {k: v for k, v in os.environ.items()
-            if k not in ("DEBUG", "SECRET_KEY", "DB_PATH", "FINDMYSHIFT_API_KEY")}
+            if k not in ("DEBUG", "SECRET_KEY", "DB_PATH",
+                         "SHIFT_CENTRAL_URL", "SHIFT_CENTRAL_TOKEN")}
     base.update({"DJANGO_SETTINGS_MODULE": "config.settings", **env})
     return subprocess.run(
         [sys.executable, "-c", f"from config import settings as s; print(repr({expr}))"],
@@ -36,12 +37,14 @@ def test_production_redirects_http_to_https_itself():
                            {"DEBUG": "0", "SECRET_KEY": "x" * 50}) == "True"
 
 
-def test_the_findmyshift_key_is_stripped():
-    """A key pasted with a line ending would make http.client refuse the
-    header, quoting the key in its error."""
-    assert _settings_value("s.FINDMYSHIFT_API_KEY",
-                           {"DEBUG": "0", "SECRET_KEY": "x" * 50,
-                            "FINDMYSHIFT_API_KEY": "k-123\r\n"}) == "'k-123'"
+def test_the_shift_central_settings_are_stripped():
+    """A token pasted with a line ending would make http.client refuse the
+    header, quoting the token in its error; a trailing slash on the URL
+    would double up in the path."""
+    env = {"DEBUG": "0", "SECRET_KEY": "x" * 50,
+           "SHIFT_CENTRAL_TOKEN": "k-123\r\n", "SHIFT_CENTRAL_URL": "https://shifts.example.org/\r\n"}
+    assert _settings_value("s.SHIFT_CENTRAL_TOKEN", env) == "'k-123'"
+    assert _settings_value("s.SHIFT_CENTRAL_URL", env) == "'https://shifts.example.org'"
 
 
 def test_the_dev_key_is_private_to_the_checkout(tmp_path, monkeypatch):
@@ -91,37 +94,36 @@ def test_a_csrf_failure_reaches_the_security_log(caplog):
     assert any(r.name == "django.security.csrf" for r in caplog.records)
 
 
-# --- the FindMyShift key in errors ------------------------------------------------------------
+# --- the Shift Central token in errors ------------------------------------------------------
 
-def test_an_error_body_never_repeats_the_key():
-    """FindMyShift's error bodies are plain text that may echo a parameter
-    back. The client quotes the start of the body, so it strikes the key
-    out of it first."""
+def test_an_error_body_never_reaches_the_error():
+    """A server's error body may echo a header back. The client never quotes
+    a body at all: the error is the status code and nothing else."""
     import io
     from urllib.error import HTTPError
-    from rota.services.findmyshift.client import FindMyShiftClient, FindMyShiftError
+    from datetime import date
+    from rota.services.shift_central.client import ShiftCentralClient, ShiftCentralError
 
     def opener(req):
         raise HTTPError(req.full_url, 400, "x", {},
-                        io.BytesIO(b"400: apiKey SUPERSECRETKEY is not valid"))
+                        io.BytesIO(b"400: bearer SUPERSECRETKEY is not valid"))
 
-    with pytest.raises(FindMyShiftError) as exc:
-        FindMyShiftClient("SUPERSECRETKEY", "https://www.findmyshift.co.uk/api/1.4",
-                          opener=opener).teams()
+    with pytest.raises(ShiftCentralError) as exc:
+        ShiftCentralClient("https://shifts.example.org", "SUPERSECRETKEY",
+                           opener=opener).leave(date(2027, 1, 1), date(2027, 2, 1))
     assert "SUPERSECRETKEY" not in str(exc.value)
-    assert "not valid" in str(exc.value)
+    assert str(exc.value) == "Shift Central returned 400 for leave"
 
 
 @pytest.mark.django_db
-def test_a_failed_sync_strikes_the_key_from_the_stored_error(settings):
-    from rota.services.findmyshift import sync
+def test_a_failed_sync_never_stores_the_token():
+    from urllib.error import URLError
+    from rota.services.shift_central import sync
+    from rota.services.shift_central.client import ShiftCentralClient
 
-    settings.FINDMYSHIFT_API_KEY = "SUPERSECRETKEY"
+    def opener(req):
+        raise URLError("could not connect with SUPERSECRETKEY")
 
-    class Leaky:
-        def teams(self):
-            raise RuntimeError("something quoted SUPERSECRETKEY back")
-
-    result = sync.run(Leaky())
+    result = sync.run(ShiftCentralClient("https://shifts.example.org", "SUPERSECRETKEY", opener=opener))
     assert not result.ok
-    assert "SUPERSECRETKEY" not in result.error and "[FINDMYSHIFT_API_KEY]" in result.error
+    assert "SUPERSECRETKEY" not in result.error and result.error == "Shift Central unreachable"

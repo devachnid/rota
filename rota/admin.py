@@ -23,12 +23,10 @@ from .models import (TimeOff, TimeOffMapping, TimeOffSyncRun,
                      SessionType, Site, SwapRequest, TraineeProfile, TraineeStageRule)
 from . import mail as swap_mail
 from .services import swaps as swaps_svc
-from .services.findmyshift import client as fms_client, sync as findmyshift_sync
-from .services.findmyshift.links import expects_link
+from .services.shift_central import client as sc_client, sync as sc_sync
 from .admin_forms import (WEEKDAYS, CoverageRuleForm, PersonalRequirementForm,
                           PracticeSettingsForm)
-from .admin_widgets import (StaffSelect, TintSwatchSelect,
-                            findmyshift_staff, staff_label)
+from .admin_widgets import TintSwatchSelect
 
 WEEKDAY_LABELS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday",
                   "Saturday", "Sunday"]
@@ -105,31 +103,12 @@ class RecurringCommitmentInline(TabularInline):
         return super().formfield_for_dbfield(db_field, request, **kwargs)
 
 
-class FindMyShiftLinkedFilter(admin.SimpleListFilter):
-    title = "FindMyShift"
-    parameter_name = "findmyshift"
-
-    def lookups(self, request, model_admin):
-        # Labels avoid the bare word "Linked": a clinician can genuinely be
-        # named that, and the sidebar renders every option on every page —
-        # including the "not linked" filtered view — so a literal "Linked"
-        # label would show up there regardless of which clinicians matched.
-        return [("linked", "Has a link"), ("unlinked", "No link")]
-
-    def queryset(self, request, qs):
-        if self.value() == "linked":
-            return qs.exclude(findmyshift_staff_id=None)
-        if self.value() == "unlinked":
-            return qs.filter(findmyshift_staff_id=None)
-        return qs
-
-
 @admin.register(Clinician)
 class ClinicianAdmin(ModelAdmin):
     list_display = ("name", "initials", "group", "display_order", "active",
-                    "is_trainer", "pattern_column", "findmyshift_link")
+                    "is_trainer", "pattern_column")
     list_editable = ("display_order",)
-    list_filter = ("group", "active", "is_trainer", FindMyShiftLinkedFilter)
+    list_filter = ("group", "active", "is_trainer")
     search_fields = ("name", "initials", "user__email")
     inlines = [TraineeProfileInline, RecurringCommitmentInline]
     actions = ["deactivate_clinicians"]
@@ -147,13 +126,6 @@ class ClinicianAdmin(ModelAdmin):
                            "deleting. Dates bound when they can be scheduled.",
         }),
         ("Roles", {"fields": ("is_trainer",)}),
-        ("Time off from FindMyShift", {
-            "fields": ("findmyshift_staff_id",),
-            "description": "Time off is read from FindMyShift for linked clinicians "
-                           "only. An unlinked clinician is treated as always "
-                           "available. Locums book their own sessions and have no "
-                           "time off to read — leave this blank for them.",
-        }),
     )
 
     def lookup_allowed(self, lookup, value, request=None):
@@ -189,66 +161,6 @@ class ClinicianAdmin(ModelAdmin):
         url = reverse("admin:rota_patternslot_bulk")
         return format_html('{} &nbsp; <a href="{}?clinician_id={}">Edit pattern</a>',
                            text, url, obj.pk)
-
-    def formfield_for_dbfield(self, db_field, request, **kwargs):
-        if db_field.name == "findmyshift_staff_id":
-            staff = findmyshift_staff()
-            if staff is None:
-                field = super().formfield_for_dbfield(db_field, request, **kwargs)
-                field.help_text = ("Could not reach FindMyShift, so this is the raw staff id. "
-                                   "The dropdown returns when FindMyShift is reachable.")
-                return field
-            kwargs["widget"] = StaffSelect(staff)
-            kwargs["help_text"] = "The FindMyShift staff member whose time off this clinician's is."
-        return super().formfield_for_dbfield(db_field, request, **kwargs)
-
-    def get_form(self, request, obj=None, **kwargs):
-        form = super().get_form(request, obj, **kwargs)
-        # Suggest by exact email match — only for a clinician with no link, and
-        # only as an initial value the admin must still submit.
-        #
-        # Setting `field.initial` (form.base_fields[...].initial) has no
-        # effect here: for a change view Django builds the form as
-        # ModelForm(instance=obj), and BaseModelForm.__init__ seeds
-        # self.initial from model_to_dict(instance) *before* anything looks
-        # at the field's own .initial — so self.initial already holds
-        # findmyshift_staff_id: None, and dict.get(key, default) returns that
-        # stored None rather than falling through to field.initial. The
-        # suggestion has to land in self.initial on the bound form instance
-        # instead, which is why this subclasses rather than touching
-        # base_fields.
-        if obj is not None and obj.findmyshift_staff_id is None and obj.user_id:
-            staff = findmyshift_staff() or []
-            email = (obj.user.email or "").lower()
-            match = next((s for s in staff
-                          if (s.get("emailAddress") or "").lower() == email), None)
-            if match and "findmyshift_staff_id" in form.base_fields:
-                suggested_id = str(match["id"])
-
-                class SuggestingForm(form):
-                    def __init__(self, *args, **kw):
-                        super().__init__(*args, **kw)
-                        # Only the empty GET render, never a submitted POST —
-                        # a bound form's initial is irrelevant to what gets
-                        # saved, but leaving this unconditional would still
-                        # be harmless; the guard just documents the intent.
-                        if not self.is_bound:
-                            self.initial["findmyshift_staff_id"] = suggested_id
-
-                return SuggestingForm
-        return form
-
-    @admin.display(description="FindMyShift")
-    def findmyshift_link(self, obj):
-        if obj.findmyshift_staff_id is None:
-            # A locum has no time off to read (they book their own sessions),
-            # so "not linked" would read as something to fix.
-            return format_html(
-                '<span style="color: var(--color-base-500)">{}</span>',
-                "not linked" if expects_link(obj) else "locum — not on FindMyShift")
-        staff = findmyshift_staff() or []
-        s = next((x for x in staff if str(x.get("id")) == obj.findmyshift_staff_id), None)
-        return staff_label(s) if s else f"#{obj.findmyshift_staff_id}"
 
     @admin.action(description="Deactivate selected clinicians")
     def deactivate_clinicians(self, request, queryset):
@@ -784,7 +696,7 @@ class TimeOffMappingAdmin(ModelAdmin):
 
 @admin.register(TimeOffSyncRun)
 class TimeOffSyncRunAdmin(ModelAdmin):
-    list_display = ("started", "ok", "n_deduped", "n_unlinked", "error")
+    list_display = ("started", "ok", "n_matched", "n_unmatched", "error")
     readonly_fields = [f.name for f in TimeOffSyncRun._meta.fields]
 
     def has_add_permission(self, request):
@@ -811,14 +723,14 @@ class TimeOffSyncRunAdmin(ModelAdmin):
         if recent:
             messages.warning(request, "A sync ran less than a minute ago; not running another.")
             return redirect("admin:rota_timeoffsyncrun_status")
-        client = fms_client.from_settings()
+        client = sc_client.from_settings()
         if client is None:
-            messages.error(request, "FindMyShift is not configured (FINDMYSHIFT_API_KEY unset).")
+            messages.error(request, "Shift Central is not configured (SHIFT_CENTRAL_URL or SHIFT_CENTRAL_TOKEN unset).")
             return redirect("admin:rota_timeoffsyncrun_status")
-        run = findmyshift_sync.run(client)
+        run = sc_sync.run(client)
         if run.ok:
-            messages.success(request, f"Synced: {run.n_deduped} absences, "
-                                      f"{run.n_unlinked} for unlinked staff.")
+            messages.success(request, f"Synced: {run.n_matched} clinicians matched, "
+                                      f"{run.n_unmatched} emails unmatched.")
         else:
             messages.error(request, f"Sync failed: {run.error}")
         return redirect("admin:rota_timeoffsyncrun_status")

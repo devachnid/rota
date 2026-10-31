@@ -15,8 +15,7 @@ from rota.models import (TimeOffSyncRun, Clinician, ClinicianGroup, CoverageRule
                          LocumRequirement, PracticeSettings, SessionType, Site,
                          TraineeProfile, SwapRequest)
 from rota.services import personal as personal_svc
-from rota.services.findmyshift.links import (unlinked_changelist_url,
-                                         unlinked_clinicians)
+from rota.services.shift_central import sync as sc_sync
 from rota.services.calendar import is_open
 from rota.services.legibility import grid_legibility
 from rota.services.warnings import day_warnings
@@ -32,13 +31,13 @@ def _cl(name, **params):
 def setup_steps():
     ps = PracticeSettings.load()
     missing_patterns = clinicians_without_a_pattern().count()
-    unlinked = unlinked_clinicians().count()
+    unlinked = sc_sync.unlinked_clinicians().count()
     any_active = Clinician.objects.filter(active=True).exists()
-    has_key = bool(settings.FINDMYSHIFT_API_KEY)
+    has_key = bool(settings.SHIFT_CENTRAL_TOKEN)
     synced = TimeOffSyncRun.objects.filter(ok=True).exists()
     email_ok = email_is_configured()
     if not has_key:
-        fms_detail = "FINDMYSHIFT_API_KEY is not set"
+        fms_detail = "SHIFT_CENTRAL_TOKEN is not set"
     elif not synced:
         fms_detail = "no successful sync yet"
     elif unlinked:
@@ -77,7 +76,7 @@ def setup_steps():
         {"title": "FindMyShift",
          "done": has_key and synced and unlinked == 0,
          "detail": fms_detail,
-         "url": (unlinked_changelist_url() if has_key and synced
+         "url": (sc_sync.unlinked_changelist_url() if has_key and synced
                  else reverse("admin:rota_timeoffsyncrun_status"))},
         # Server configuration, not a database row, so nothing to link to.
         {"title": "Outgoing email", "done": email_ok,
@@ -99,7 +98,7 @@ def health():
 
     last = TimeOffSyncRun.objects.first()
     last_ok = TimeOffSyncRun.objects.filter(ok=True).first()
-    if not settings.FINDMYSHIFT_API_KEY:
+    if not settings.SHIFT_CENTRAL_TOKEN:
         findmyshift = ("not configured", "warn")
     elif last is not None and not last.ok:
         findmyshift = (f"last run failed: {last.error[:80]}", "warn")
@@ -119,8 +118,8 @@ def health():
          "count": clinicians_without_a_pattern().count(),
          "url": reverse("admin:rota_patternslot_bulk") + "?missing=1", "level": "warn"},
         {"label": "Clinicians not linked to FindMyShift",
-         "count": unlinked_clinicians().count(),
-         "url": unlinked_changelist_url(), "level": "warn"},
+         "count": sc_sync.unlinked_clinicians().count(),
+         "url": sc_sync.unlinked_changelist_url(), "level": "warn"},
         {"label": "FindMyShift sync", "count": None, "detail": findmyshift[0],
          "url": reverse("admin:rota_timeoffsyncrun_status"), "level": findmyshift[1]},
         {"label": "Time off reasons with no mapping", "count": unmapped_count(),

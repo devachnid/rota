@@ -1,34 +1,30 @@
-"""FindMyShift's time off, turned into the rota's AM/PM parts.
+"""Time off as the rota stores it, whatever feeds it: a date range with four
+half-day fields.
 
-A FindMyShift time-off record is day-based: a first and last day off, with
-a single date described "Morning off" or "Afternoon off" for half a day
-(sync.normalise reads the description). The rota's unit is the half-day
-part, so this is where a record becomes parts. It still reads clock times,
-splitting at midday, should a record ever carry them; none measured does.
-Everything that asks "is this clinician off on this day, this part?" — the
-resolver, and through it every screen and the fill engine — comes here, so
-the rules below are the whole contract.
+Shift Central's leave is day-based: a first and last day off, and a part
+(whole, am, pm) for a single day (services/shift_central/sync.py builds the
+Span). The rota's unit is the half-day part, so this is where a stored
+range becomes parts. `Span.from_times` still reads clock times, splitting at
+MIDDAY, should a record ever carry them. Everything that asks "is this
+clinician off on this day, this part?" — the resolver, and through it every
+screen and the fill engine — comes here, so the rules below are the whole
+contract.
 
 A Span is the stored shape: a date range with four half-day fields, the
 same four the overlay keeps so that two records covering the same parts
-collide on one content key. `Span.from_times` is the only way one is built
-from the API.
+collide on one content key.
 """
 
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 
-from django.conf import settings
-
 ALL = frozenset({"AM", "PM"})
 
 
-def midday() -> time:
-    """Where the morning ends. Time off that starts at or after it leaves the
-    morning working; time off that ends at or before it leaves the afternoon
-    working. FINDMYSHIFT_MIDDAY, "13:00" unless the practice's afternoon
-    starts elsewhere."""
-    return time.fromisoformat(settings.FINDMYSHIFT_MIDDAY)
+# Where the morning ends. Time off that starts at or after it leaves the
+# morning working; time off that ends at or before it leaves the afternoon
+# working.
+MIDDAY = time(13, 0)
 
 
 @dataclass(frozen=True)
@@ -46,14 +42,14 @@ class Span:
 
         A date with no time is a whole day at that end. An end at exactly
         midnight on a later day is the exclusive form of "to the end of the
-        day before" — FindMyShift's own all-day records are read either way,
-        inclusive 23:59 or exclusive 00:00, and land on the same span. A
+        day before" — an all-day record is read either way,
+        inclusive 23:59 or exclusive 00:00, and lands on the same span. A
         start at or after midday keeps the first morning; an end at or
         before midday keeps the last afternoon. Anything else on a boundary
         day is that whole day: a record from 09:00 or to 17:00 is not half
         a day the rota can express, and off is the safer reading.
         """
-        noon = midday()
+        noon = MIDDAY
         if isinstance(start, datetime):
             start_date, start_time = start.date(), start.time()
         else:

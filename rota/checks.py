@@ -211,22 +211,22 @@ def stored_ranges_parse(app_configs, **kwargs):
     return []
 
 
-# The FindMyShift key reads every staff member's record and all their time
-# off. The client will not send it anywhere but https
-# (services/findmyshift/client.py), so a plain-http FINDMYSHIFT_API_URL
-# would fail every sync quietly, in the status page's error line. Say so
-# where someone is deploying. Quiet when the integration is off.
+# The Shift Central token reads every clinician's leave. The client will not
+# send it anywhere but https (services/shift_central/client.py), so a
+# plain-http SHIFT_CENTRAL_URL would fail every sync quietly, in the status
+# page's error line. Say so where someone is deploying. Quiet when the
+# integration is off.
 @register(deploy=True)
-def findmyshift_url_is_https(app_configs, **kwargs):
+def shift_central_url_is_https(app_configs, **kwargs):
     from urllib.parse import urlparse
 
-    if not settings.FINDMYSHIFT_API_KEY:
+    if not settings.SHIFT_CENTRAL_TOKEN:
         return []
-    if urlparse(settings.FINDMYSHIFT_API_URL).scheme != "https":
+    if urlparse(settings.SHIFT_CENTRAL_URL).scheme != "https":
         return [Error(
-            f"FINDMYSHIFT_API_URL is {settings.FINDMYSHIFT_API_URL!r}, which is not https; "
-            "the FindMyShift key is never sent over it, so every sync will fail.",
-            hint="Set FINDMYSHIFT_API_URL=https://www.findmyshift.co.uk/api/1.4 in /etc/rota.env.",
+            f"SHIFT_CENTRAL_URL is {settings.SHIFT_CENTRAL_URL!r}, which is not https; "
+            "the token is never sent over it, so every sync will fail.",
+            hint="Set SHIFT_CENTRAL_URL=https://… in /etc/rota.env.",
             id="rota.E007",
         )]
     return []

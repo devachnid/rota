@@ -122,7 +122,7 @@ DATABASES = {
             # WAL lets readers and the single writer proceed together.
             "init_command": "PRAGMA journal_mode=WAL;",
             # SQLite's default DEFERRED transaction only takes the write lock at
-            # the first write, and if another connection (the FindMyShift sync, the
+            # the first write, and if another connection (the Shift Central sync, the
             # other gunicorn worker) got there first it fails at once with
             # "database is locked" rather than waiting out the busy timeout.
             # IMMEDIATE takes the lock at BEGIN, so writers queue instead.
@@ -225,21 +225,11 @@ TRUSTED_PROXY_IPS = frozenset(
     ).split(",") if h.strip()
 )
 
-# FindMyShift, which owns time off. Read-only. The key comes from
+# Shift Central, which owns leave. Read-only. The token comes from
 # /etc/rota.env like SECRET_KEY and never from a file in this repository;
-# with no key the integration is off and every consumer degrades quietly.
-# Stripped: a key pasted with a trailing newline or CR (a CRLF-edited
-# /etc/rota.env) would otherwise go into the request body as pasted.
-FINDMYSHIFT_API_KEY = os.environ.get("FINDMYSHIFT_API_KEY", "").strip()
-FINDMYSHIFT_API_URL = os.environ.get("FINDMYSHIFT_API_URL",
-                                     "https://www.findmyshift.co.uk/api/1.4")
-# The team to read time off for. Blank reads every team the key can see,
-# which for a practice with one team is the same thing.
-FINDMYSHIFT_TEAM_ID = os.environ.get("FINDMYSHIFT_TEAM_ID", "").strip()
-# Where the morning ends, should a time-off record carry clock times; the
-# day-based records FindMyShift sends have none, and a half day comes from
-# the description instead (rota/services/findmyshift/spans.py). HH:MM.
-FINDMYSHIFT_MIDDAY = os.environ.get("FINDMYSHIFT_MIDDAY", "13:00").strip() or "13:00"
+# with no token the integration is off and every consumer degrades quietly.
+SHIFT_CENTRAL_URL = os.environ.get("SHIFT_CENTRAL_URL", "").strip().rstrip("/")
+SHIFT_CENTRAL_TOKEN = os.environ.get("SHIFT_CENTRAL_TOKEN", "").strip()
 
 # The sessions feed Shift Central reads (api/). Comma-separated bearer
 # tokens; unset means nothing is served. See api/auth.py.

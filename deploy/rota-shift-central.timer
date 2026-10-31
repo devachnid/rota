@@ -1,0 +1,10 @@
+[Unit]
+Description=Read GP leave from Shift Central every fifteen minutes
+
+[Timer]
+OnCalendar=*-*-* *:11/15:00
+Persistent=true
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target
