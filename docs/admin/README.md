@@ -73,3 +73,57 @@ their history stays intact and they drop out of every eligibility pool.
 | Someone's time off is not on the grid | Does their login email match the one in Shift Central ([setup](shift-central.md#setting-it-up-in-this-order))? Is the leave approved there? Has a sync run since? |
 | Someone cannot sign in | [Login accounts](people.md#signing-in-and-lockouts) — an invitation link lasts seven days; a lockout lasts an hour, and a passkey or a password link gets them in meanwhile |
 | An invitation never arrived | Is [outgoing email](../../README.md#outgoing-email) set up? If not, each send shows the link once, to copy; **Send invitation again** mints a fresh one |
+
+## Demo data for a staging box
+
+    deploy/manage seed_demo --email-base tom@example.org --yes-this-is-staging
+
+(`DEBUG=1 python manage.py seed_demo …` on a dev box.) It gives a **staging**
+database the GP side of a shared fictional practice: three GPs (Dr Priya Nair,
+a partner, and Dr Callum Ross and Dr Helen Okafor, salaried), the practice
+setup the dashboard's **Setup** card asks for, their working patterns (8, 6 and
+5 sessions a week), and **published** rota entries for this week and the next
+eight, with one duty-doctor day a week rotating between them. It is for a
+box whose people, leave and logins are all fictional; it is never run on
+production.
+
+- **The flags.** `--email-base` is `local@domain`, with exactly one `@` and no
+  `+`. Each GP's login is `local+first.last@domain` in lower case — for the
+  base above, `tom+priya.nair@example.org`, `tom+callum.ross@example.org` and
+  `tom+helen.okafor@example.org` — so every message to them reaches one inbox.
+  The same rule makes the Practice HR and Shift Central seeds' emails, which
+  is how Shift Central matches the sessions feed to people (see [Time off
+  from Shift Central](shift-central.md#setting-it-up-in-this-order)).
+  `--yes-this-is-staging` is the confirmation. Without both, it stops and
+  changes nothing.
+- **What it creates.** One site (Main Surgery); the groups Partners, Salaried
+  and Locums (the one locum group the checklist wants, with nobody in it);
+  the session types Morning surgery, Afternoon surgery, Duty doctor, Admin and
+  Home visits; three coverage rules (a morning surgery and an afternoon
+  surgery in every session, and one duty-doctor day a week); a login for each
+  GP, linked to their clinician; and the patterns and entries above. Practice
+  settings get a floor of one clinical GP per session — three GPs have 19
+  sessions between them for the 20 that two in every session would need — and
+  Admin as the default fill type.
+- **The Setup card.** Seven of the nine steps read complete. **Shift Central**
+  and **Outgoing email** depend on the environment and are left to it. The
+  leave-type mapping in [Time off from Shift Central](shift-central.md) is
+  yours to do by hand; no time off is written. Trainees, commitments,
+  requirements and locums are day-to-day work and are not seeded.
+- **Gaps.** With the practice settings it creates, no day on the grid has a
+  warning. If a settings row already exists with the usual floor of two, Friday
+  morning (Dr Okafor alone) shows "Only 1 clinical GP(s)" every week; lower
+  the floor under [Practice settings](practice-settings.md#minimum-clinical-per-session)
+  or add a GP.
+- **It sends nothing.** The logins have no password and no invitation is sent;
+  they are what the sessions feed reports. Sending one later, from
+  [Login accounts](people.md#login-accounts), is a separate act and does email
+  that inbox. Whatever `EMAIL_*` names, the command itself uses the in-memory
+  mail backend while it runs.
+- **Safe to repeat.** It refuses, changing nothing, if the database holds any
+  clinician outside the three, or if one of the three already has a login under
+  a different base. It only creates: anything it finds by name is left exactly
+  as it is, and a second run with the same base writes nothing, apart from the
+  weeks that have come into the nine-week window. It runs as one transaction.
+- **Clearing it.** Delete the staging database and migrate a new one. There is
+  no undo command, by design.
