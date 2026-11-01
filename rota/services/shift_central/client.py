@@ -12,6 +12,11 @@ from django.conf import settings
 
 log = logging.getLogger("rota.shift_central")
 
+# An honest product name: Cloudflare's bot checks in front of the tunnel refuse
+# the standard library's default ("Python-urllib/3.x") with a 403 before the
+# request reaches Shift Central.
+USER_AGENT = "GPRota/1.0"
+
 
 class _RefuseRedirects(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
@@ -35,7 +40,9 @@ class ShiftCentralClient:
         url = f"{self.base_url}/api/v1/leave?" + urlencode({"from": start.isoformat(), "to": end.isoformat()})
         if urlparse(url).scheme != "https" and not settings.DEBUG:
             raise ShiftCentralError("SHIFT_CENTRAL_URL is not https; the token was not sent")
-        req = urllib.request.Request(url, method="GET", headers={"Accept": "application/json", "Authorization": f"Bearer {self._token}"})
+        req = urllib.request.Request(url, method="GET", headers={
+            "Accept": "application/json", "Authorization": f"Bearer {self._token}",
+            "User-Agent": USER_AGENT})
         try:
             with self._open(req) as resp:
                 raw = resp.read()
