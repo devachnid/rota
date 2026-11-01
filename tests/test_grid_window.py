@@ -138,7 +138,7 @@ def test_the_week_ceiling_warning_sits_in_its_week_header(admin_client):
 
 def test_the_table_declares_its_column_count_and_start(admin_client):
     html = _page(admin_client)
-    assert 'style="--cols: 80"' in html
+    assert 'style="--cols: 80; --view-cols: 20; --name-ch: 0;"' in html
     assert f'data-start="{MON - timedelta(days=7)}"' in html
 
 
