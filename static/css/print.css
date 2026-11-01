@@ -60,8 +60,10 @@ body {
 body.page-grid { height: auto; }
 .page-grid .main { display: block; }
 .grid-wrap { overflow: visible; }
+/* On paper the table is the page's width, not the screen's eight weeks
+   of --col-w: the other weeks are hidden below. */
 .table-grid {
-  min-width: 0;
+  width: 100%;
   font-size: var(--fs-sm);
 }
 .table-grid thead,

@@ -15,6 +15,7 @@ def grid(request):
     window = grid_svc.Window(anchor, is_admin, request.user)
     step = timedelta(days=7 * grid_svc.STEP_WEEKS)
     weeks = window.weeks()
+    sections = window.sections()
     return render(request, "rota/grid.html", {
         "anchor": anchor,
         "start": window.start,
@@ -28,9 +29,14 @@ def grid(request):
         # warnings, so it is rendered only when some week has one.
         "show_week_row": is_admin and any(w["drafts"] or w["warnings"] for w in weeks),
         "day_headers": window.day_headers(),
-        "sections": window.sections(),
+        "sections": sections,
         "locum_cells": window.locum_cells(),
         "cols": len(window.days) * 2,
+        "view_cols": window.view_cols,
+        # The longest row label on the page, which sizes the name column
+        # (components.css). Initials fit its 5.5rem floor; only a locum's
+        # "S Jones" widens it, and only while they have a row.
+        "name_ch": max((len(row["label"]) for s in sections for row in s["rows"]), default=0),
         "colspan": len(window.days) * 2 + 1,
         "is_admin": is_admin,
         "tick": tick,

@@ -7,6 +7,7 @@ than in the view because the "entered in the clinical system" endpoint
 re-renders one row through the same path, and the two must not drift.
 """
 
+import re
 from datetime import date, timedelta
 
 from django.db.models import Prefetch
@@ -22,6 +23,11 @@ from rota.services.warnings import WarningBundle, day_warnings, week_warnings
 WEEKS_BEFORE = 1
 WEEKS_AFTER = 6
 STEP_WEEKS = 4
+# How many weeks the pane shows at once, however wide the screen: the
+# columns are sized so this many weeks of open days fill it
+# (static/css/components.css, .table-grid). The rest of the window
+# scrolls sideways.
+VIEW_WEEKS = 2
 # Warning lines a day header shows before it says "+N more". A table row
 # is as tall as its tallest cell, and the sticky header row spans every
 # day in the window: an unfilled week's days each carry a dozen lines,
@@ -48,6 +54,23 @@ def parse_anchor(raw, today=None):
     return week_monday(anchor)
 
 
+_TITLE = re.compile(r"(?i)(dr|mr|mrs|ms|miss|mx|prof)\.?$")
+
+
+def locum_label(name):
+    """A locum's row label: the first name's initial and the rest of the
+    name as written — "Sarah Jones" reads "S Jones", "Jan van der Berg"
+    reads "J van der Berg". The rest, not the last word, so a two-part
+    surname keeps both parts. A leading title is dropped, unless it is the
+    whole name. One word is left alone."""
+    words = name.split()
+    if len(words) > 1 and _TITLE.match(words[0]):
+        words = words[1:]
+    if len(words) < 2:
+        return " ".join(words)
+    return " ".join([words[0][0], *words[1:]])
+
+
 class Window:
     def __init__(self, anchor, is_admin, user, today=None):
         self.anchor = anchor
@@ -61,6 +84,9 @@ class Window:
         self.mondays = [anchor + timedelta(days=7 * i)
                         for i in range(-WEEKS_BEFORE, WEEKS_AFTER + 1)]
         self.days = sorted(m + timedelta(days=o) for m in self.mondays for o in offsets)
+        # Half-day columns in VIEW_WEEKS weeks. At least one, so the CSS
+        # never divides by zero for a practice with no open days set.
+        self.view_cols = max(VIEW_WEEKS * len(offsets) * 2, 1)
         # min()/max(), not [0]/[-1]: `days` can be empty (open_weekdays ""
         # parses to [] and PracticeSettings.clean() accepts it).
         self.start = min(self.days) if self.days else anchor
@@ -201,6 +227,10 @@ class Window:
                               "today": d == self.today, "anchor_week": anchor_week})
         return {
             "clinician": clinician,
+            # What the name column says. Initials for the practice's own
+            # clinicians, whom everyone knows by them; a locum's mean
+            # nothing to anyone, so they read "S Jones".
+            "label": locum_label(clinician.name) if is_locum else clinician.initials,
             "mine": clinician.user_id == self.user.id,
             "cells": cells,
         }

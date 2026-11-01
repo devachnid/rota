@@ -30,6 +30,12 @@
      fills whole cells. Text on it is --ink-soft: --muted drops to 3.1:1
      here. tests/test_chrome_contrast.py holds both. */
   --closed:      #CBD0D8;
+  /* The OFF chip: a usual non-working session. The darkest chip on the
+     grid, darker than every session tint, --slot and --closed, so a day
+     off can never be read as a gap. tests/test_chrome_contrast.py holds
+     it darkest and --off-ink on it to AA, in both themes. */
+  --off:         #3D4452;
+  --off-ink:     #F3F4F7;
   --hairline:    #ECEDF1;
   /* Form-control boundaries, deliberately NOT --hairline. WCAG 1.4.11 holds
      the visible boundary of a UI component to 3:1, and --hairline (#ECEDF1)
@@ -122,6 +128,10 @@
     --sunken:      #21252C;
     --slot:        #262B33;
     --closed:      #373D49;
+    /* Near-black, below the page ground: where --slot sits above the cell,
+       OFF sits under it. */
+    --off:         #0B0C0F;
+    --off-ink:     #9AA1AF;
     --hairline:    #2C313A;
     /* 3.18:1 on the dark --surface, 3.38:1 on --ground. See the light block. */
     --field-border: #626C7D;
@@ -148,6 +158,8 @@
   --sunken:      #21252C;
   --slot:        #262B33;
   --closed:      #373D49;
+  --off:         #0B0C0F;
+  --off-ink:     #9AA1AF;
   --hairline:    #2C313A;
   --field-border: #626C7D;
   --danger:      #F09A82;  --danger-soft:  #35201B;

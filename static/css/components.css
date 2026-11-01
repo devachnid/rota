@@ -445,32 +445,36 @@ fieldset.field {
    width (static/rota.css on master), the ten day columns were auto, and the
    surplus split equally at ~114px each.
 
-   So the horizontal floor has to live on the table, not on the day columns:
-   42rem = 5.5rem for the initials + 10 x 3.5rem for the sessions (the same
-   per-session floor the colspan arithmetic used to give) + 12 x 2px of
-   border-spacing = 88 + 560 + 24 = 672px. Below 672px .grid-wrap
-   (overflow: auto, screens.css) takes over and scrolls sideways, which is the
-   phone case; above it the table sits at width: 100% and the day columns
-   divide the slack equally again. 672px clears the 1208px available on the
-   target 1080p screen with room to spare — even with the vertical scrollbar a
-   week taller than the pane puts on .grid-wrap (the pane is the room left
-   under the toolbar, screens.css) — so the floor never bites on a desktop. min-width on the
-   *cells* would have been the inert version of this: it is not an input to
-   the fixed-layout algorithm.
+   So the sizing has to live on the table, not on the day columns. The
+   pane (.grid-wrap, overflow: auto, screens.css) holds eight weeks and
+   shows two: --col-w is one session column when two weeks of them fill
+   the pane — the table's 100% is the pane's width, less the name column
+   and a 2px border-spacing per column, over --view-cols, the half-days in
+   two weeks (grid.html; services/grid.py VIEW_WEEKS) — and the table is
+   that times --cols, every half-day column in the window. So a wider
+   screen gets wider sessions, not more of them: ~86px a column at 1920px,
+   ~119px at the grid page's 2560px cap (screens.css), against the ~54px
+   every screen got when the page stopped at 1280px. The 3.5rem floor is
+   that old width, so a laptop that cannot fit two weeks at it shows less
+   and scrolls, as before, and a phone scrolls as it always has. The
+   percentage resolves only in the table's own width — --col-w is
+   substituted there and nowhere else. min-width on the *cells* would have
+   been the inert version of all this: it is not an input to the
+   fixed-layout algorithm.
 
-   The floor is a calc() over --cols, which the template sets to the number
-   of half-day columns in the window (grid.html): 3.5rem per column after
-   the 5.5rem name column is exactly what the old 42rem floor gave each of
-   ten columns, so a one-week window would render as before and an
-   eight-week one is eight times wider than the pane and scrolls inside
-   it. A practice open six or seven days gets the same 3.5rem per column
-   instead of squeezing.
+   --name-w is the name column: initials need 5.5rem; a locum's "S Jones"
+   (services/grid.py locum_label) needs its length, which the template
+   passes as --name-ch, in character widths, plus the cell's padding;
+   capped at 10rem, past which the label ends in an ellipsis and the full
+   name is the row's tooltip.
 
    No declaration here touches position/top/left/z-index, so the sticky
    <thead> and sticky .grid-clin below are unaffected. */
 .table-grid { border-collapse: separate; border-spacing: 2px;
-              font-variant-numeric: tabular-nums; width: 100%;
-              min-width: calc(5.5rem + var(--cols, 10) * 3.5rem);
+              font-variant-numeric: tabular-nums;
+              --name-w: max(5.5rem, min(10rem, calc(var(--name-ch, 0) * 1ch + 2 * var(--sp-3))));
+              --col-w: max(3.5rem, (100% - var(--name-w) - (var(--view-cols, 10) + 2) * 2px) / var(--view-cols, 10));
+              width: calc(var(--name-w) + var(--cols, 10) * var(--col-w) + (var(--cols, 10) + 2) * 2px);
               table-layout: fixed; }
 .table-grid tbody tr { height: var(--row-h); }
 /* thead carries its own background as well as the cells: border-spacing: 2px
@@ -482,7 +486,8 @@ fieldset.field {
 .table-grid thead th { background: var(--surface); }
 .table-grid .grid-clin { position: sticky; left: 0; z-index: 1;
                          background: var(--surface); text-align: left;
-                         width: 5.5rem; }
+                         width: var(--name-w);
+                         overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .table-grid thead .grid-clin { z-index: 3; }
 /* A closed day (bank holiday, practice-closed) must read as closed in the
    header, where the day is actually named, not only in the body cells.
@@ -546,18 +551,21 @@ fieldset.field {
 }
 /* Three empty states. Blank means closed, or not employed that day; OFF
    means a usual non-working half-day (cells.py's off_pattern); grey means
-   "working, nothing allocated" — the state that wants attention, so it is
-   the one that carries weight. Grey has its own token, not --sunken:
-   --sunken is a panel ground and sits at 1.06:1 on the white cell in light
-   mode, which is to say invisible (tokens.css). OFF sits on --sunken on
-   purpose — it is not asking for anything — with the chip's fallback
-   --muted foreground (muted on sunken is a checked pairing in
-   tests/test_chrome_contrast.py). */
+   "working, nothing allocated" — the state that wants attention. Grey has
+   its own token, not --sunken: --sunken is a panel ground and sits at
+   1.06:1 on the white cell in light mode, which is to say invisible
+   (tokens.css). OFF used to sit on --sunken, the palest grey on the page,
+   and beside the slot grey the two were read as each other — a usual day
+   off looked like a missing shift. It is now the darkest chip on the grid
+   (--off, tokens.css), at the far end from the slot, so the two cannot be
+   confused; tests/test_chrome_contrast.py holds it darkest and its text
+   to AA in both themes. */
 .chip.is-off {
   background: transparent;
 }
 .chip.is-off.is-not-working {
-  background: var(--sunken);
+  background: var(--off);
+  color: var(--off-ink);
 }
 .chip.empty-slot {
   background: var(--slot);

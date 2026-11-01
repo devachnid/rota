@@ -50,6 +50,11 @@ Name appears in reports and dropdowns; **initials appear in the grid**, where
 space is tight. Keep initials genuinely short and unambiguous — two clinicians
 sharing initials is legal but will confuse whoever reads the rota.
 
+A locum's row is the exception: it reads the initial and the rest of the
+name — "Sarah Jones" shows as **S Jones** — because a locum's initials mean
+nothing to anyone. A leading "Dr" is left off. The name column widens to fit
+while a locum is on the page; the full name is always the row's tooltip.
+
 ### Group
 
 Which band they belong to. Drives grid position, the group minimum warning, and

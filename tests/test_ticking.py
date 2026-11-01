@@ -8,7 +8,8 @@ import pytest
 
 from rota.models import PracticeSettings, RotaEntry
 from rota.services import entries as entries_svc
-from tests.factories import MON, make_clinician, make_entry, make_pattern, make_session_type
+from tests.factories import (MON, make_clinician, make_entry, make_group, make_pattern,
+                             make_session_type)
 
 pytestmark = pytest.mark.django_db
 TUE = MON + timedelta(days=1)
@@ -74,6 +75,19 @@ def test_posting_toggles_and_returns_the_row(admin_client, admin_user):
         "clinician_id": c.id, "day": str(TUE), "part": "AM", "week": str(MON)})
     e.refresh_from_db()
     assert e.entered_at is None
+
+
+def test_a_ticked_locum_row_keeps_its_name(admin_client):
+    """The tick answers with the one row re-rendered through the grid's own
+    row builder, so a locum's row must come back labelled as the grid
+    labels it, not as initials."""
+    PracticeSettings.load()
+    busy = make_clinician("Busy Locum",
+                          group=make_group("Locum", is_locum_group=True, display_order=99))
+    make_entry(busy, day=TUE, part="AM", session_type=make_session_type("Routine", code="ROUT"))
+    html = admin_client.post("/rota/entered/", {
+        "clinician_id": busy.id, "day": str(TUE), "part": "AM", "week": str(MON)}).content.decode()
+    assert 'title="Busy Locum">B Locum</th>' in html
 
 
 def test_a_whole_day_post_marks_both_halves_and_unmarks_when_all_marked(admin_client, admin_user):

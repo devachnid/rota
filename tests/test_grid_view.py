@@ -5,6 +5,7 @@ import pytest
 from tests.factories import (MON, make_clinician, make_entry, make_group,
                              make_pattern, make_session_type, make_site)
 from rota.models import ClosedDay, LocumRequirement, PracticeSettings
+from rota.services import grid as grid_svc
 
 pytestmark = pytest.mark.django_db
 URL = f"/rota/?week={MON}"
@@ -145,6 +146,66 @@ def test_a_booked_locum_has_a_row_that_week(admin_client):
     make_entry(busy, day=MON, part="AM", session_type=make_session_type("Routine"))
     html = admin_client.get(URL).content.decode()
     assert 'title="Busy Locum"' in html
+
+
+# ------------------------------------------------------------ row labels ---
+
+@pytest.mark.parametrize("name,label", [
+    ("Busy Locum", "B Locum"),
+    ("Dr Sarah Jones", "S Jones"),
+    ("dr. sarah jones", "s jones"),
+    ("Jan van der Berg", "J van der Berg"),
+    ("  Anna   Lee ", "A Lee"),
+    ("Cher", "Cher"),
+    ("Dr Jones", "Jones"),
+    ("Dr", "Dr"),
+])
+def test_a_locum_label_is_the_initial_and_the_rest_of_the_name(name, label):
+    """Everything after the first word, not the last word alone: a
+    two-part surname must not lose its first part. A leading title is not
+    a first name."""
+    assert grid_svc.locum_label(name) == label
+
+
+def test_a_locum_row_reads_initial_and_surname_and_everyone_else_initials(admin_client):
+    """Locums come and go and their initials mean nothing to anyone, so the
+    rota manager asked for a name. The full name stays in the tooltip."""
+    PracticeSettings.load()
+    make_pattern(make_clinician("Alice Adams"))
+    locums = make_group("Locum", is_locum_group=True, display_order=99)
+    busy = make_clinician("Busy Locum", group=locums)
+    make_entry(busy, day=MON, part="AM", session_type=make_session_type("Routine"))
+    html = admin_client.get(URL).content.decode()
+    assert '<th class="grid-clin" scope="row" title="Busy Locum">B Locum</th>' in html
+    assert '<th class="grid-clin" scope="row" title="Alice Adams">AA</th>' in html
+
+
+def test_the_name_column_widens_only_for_a_locum_row_on_screen(admin_client):
+    """The table carries the longest row label's length, and the CSS sizes
+    the name column from it. An idle locum has no row this window, so their
+    name must not widen it."""
+    PracticeSettings.load()
+    make_pattern(make_clinician("Alice Adams"))
+    assert "--name-ch: 2;" in admin_client.get(URL).content.decode()
+    locums = make_group("Locum", is_locum_group=True, display_order=99)
+    make_clinician("Idle Longername-Locum", group=locums)
+    busy = make_clinician("Bartholomew Richardson", group=locums)
+    make_entry(busy, day=MON, part="AM", session_type=make_session_type("Routine"))
+    html = admin_client.get(URL).content.decode()
+    assert f"--name-ch: {len('B Richardson')};" in html
+
+
+def test_the_table_says_how_many_columns_two_weeks_are(admin_client):
+    """Two weeks of open days fill the pane (components.css); the page holds
+    eight. A practice open six days a week has 24 half-days in a view, not
+    20."""
+    s = PracticeSettings.load()
+    html = admin_client.get(URL).content.decode()
+    assert "--cols: 80;" in html and "--view-cols: 20;" in html
+    s.open_weekdays = "0,1,2,3,4,5"
+    s.save()
+    html = admin_client.get(URL).content.decode()
+    assert "--cols: 96;" in html and "--view-cols: 24;" in html
 
 
 # ----------------------------------------------------- start / end dates ---
