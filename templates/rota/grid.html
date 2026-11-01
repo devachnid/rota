@@ -27,7 +27,7 @@
 {% endif %}
 <script src="{% static 'js/grid.js' %}" defer></script>
 <div class="grid-wrap">
-<table class="table-grid" style="--cols: {{ cols }}" data-start="{{ start|date:'Y-m-d' }}">
+<table class="table-grid" style="--cols: {{ cols }}; --view-cols: {{ view_cols }}; --name-ch: {{ name_ch }};" data-start="{{ start|date:'Y-m-d' }}">
 <caption class="visually-hidden">Rota for the weeks of {{ start|date:"j F Y" }} to {{ end|date:"j F Y" }}</caption>
 <thead>
 {% if show_week_row %}

@@ -44,7 +44,8 @@ class Clinician(models.Model):
     )
     initials = models.CharField(
         max_length=5,
-        help_text="Up to five characters — what the week grid shows.",
+        help_text="Up to five characters — what the week grid shows. "
+                  "A locum's row shows their initial and surname instead.",
     )
     group = models.ForeignKey(
         ClinicianGroup, on_delete=models.PROTECT, related_name="clinicians",

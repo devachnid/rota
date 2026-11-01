@@ -89,7 +89,8 @@ PAIRS = [
     ("ink-soft", "sunken", ".btn:hover, .btn-quiet:hover"),
     ("muted", "ground", ".empty, .field-help, .stat-label on the page ground"),
     ("muted", "surface", ".nav-menu-sub, .btn-quiet, .grid-part, .grid-group td, .badge, .alert-more"),
-    ("muted", "sunken", ".badge default, .closed body cells, .chip fallback fg, the OFF chip"),
+    ("muted", "sunken", ".badge default, .closed body cells, .chip fallback fg"),
+    ("off-ink", "off", "the OFF chip: a usual non-working session"),
     ("accent", "ground", "a, .report-nav a:hover"),
     ("accent", "surface", ".nav-link.is-active, links in a card"),
     ("accent", "sunken", "links over a sunken cell"),
@@ -336,3 +337,29 @@ def test_the_empty_slot_is_visibly_darker_than_the_cell_in_both_themes():
     assert slots[1] == slots[2] and surfaces[1] == surfaces[2]
     components = _strip_comments((CSS_DIR / "components.css").read_text())
     assert "background: var(--slot)" in _block(components, ".chip.empty-slot")
+
+
+# --------------------------------------------------------------------------
+# OFF is the darkest chip on the grid
+# --------------------------------------------------------------------------
+
+def test_the_off_chip_is_the_darkest_chip_in_both_themes():
+    """OFF sat on --sunken, the palest grey on the page, beside the mid-grey
+    "working, nothing allocated" slot, and the two were read as each other:
+    a usual day off looked like a missing shift. The rota manager asked for
+    OFF to be the darkest chip, so it is held darker than every session
+    tint, the slot, a closed day and the page itself, in both themes — in
+    dark mode that makes it a near-black well below the cell, where the slot
+    sits above it."""
+    offs = _token_values("off")
+    assert len(offs) == 3 and offs[1] == offs[2], offs
+    lum = lambda hex_value: palette.relative_luminance(palette.hex_to_rgb(hex_value))
+    for theme, off in (("light", offs[0]), ("dark", offs[1])):
+        tokens = THEMES["light" if theme == "light" else "dark (data-theme)"]
+        tints = [t.bg if theme == "light" else t.dark_bg for t in palette.TINTS.values()]
+        grounds = [tokens[name] for name in ("slot", "closed", "sunken", "surface", "ground")]
+        lighter = [c for c in tints + grounds if lum(c) <= lum(off)]
+        assert not lighter, f"{theme}: --off {off} is not darker than {lighter}"
+    components = _strip_comments((CSS_DIR / "components.css").read_text())
+    rule = _block(components, ".chip.is-off.is-not-working")
+    assert "background: var(--off)" in rule and "color: var(--off-ink)" in rule, rule

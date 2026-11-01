@@ -80,11 +80,14 @@ clicking a cell on the grid; the admin view is for bulk corrections and for
 seeing the fields the grid hides.
 
 The grid shows **eight weeks at once** — one before the week you asked for
-and six after — in one sideways-scrolling table. While a week holds
+and six after — in one sideways-scrolling table, sized so two weeks fill the
+screen: a wider monitor gets wider sessions, not more of them. While a week holds
 drafts, a row above the dates carries that week's **Publish week of …**
 button (publishing only that week) and any per-week ceiling warning; with
 nothing to publish the row is not there. A heavier line marks where each
-week starts; today's date is tinted in the header. A whole day off, or a
+week starts; today's date is tinted in the header. **OFF**, the darkest
+chip, is a session the clinician does not usually work; a light grey chip is
+one they do work with nothing allocated yet. A whole day off, or a
 whole day of the same Shift Central time off, is one chip across both columns.
 **Earlier** and **Later** move the window four weeks;
 **Today** scrolls to today's column, or reloads on this week when today

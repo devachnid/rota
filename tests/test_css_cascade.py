@@ -368,6 +368,14 @@ def test_main_has_an_explicit_width():
     assert declares(".main", "max-width") == "1280px"
 
 
+def test_the_grid_page_alone_lifts_the_width_cap():
+    """At 1280px the grid showed two weeks in ~54px columns on any monitor,
+    with the rest of a wide screen empty either side. The week page takes up
+    to 2560px and sizes its columns from what it gets (section 5); every
+    other page keeps the 1280px measure."""
+    assert declares(".page-grid .main", "max-width") == "2560px"
+
+
 # --------------------------------------------------------------------------
 # 5. the grid's column widths
 # --------------------------------------------------------------------------
@@ -377,21 +385,20 @@ def test_the_grid_uses_fixed_table_layout():
     `.chip`'s ellipsis can never fire because white-space: nowrap sets the
     cell's min-content width to the chip's full text."""
     assert declares(".table-grid", "table-layout") == "fixed"
-    assert declares(".table-grid", "width") == "100%"
 
 
 def test_only_the_clinician_column_is_given_a_width():
-    """The regression that motivated the min-width below. Fixed layout splits
-    surplus table width proportionally among columns that have a width, and
-    equally among those that do not (CSS 2.2 §17.5.2.1). With a width on both
-    `.grid-clin` and `.grid-day` there were no auto columns left, so a 560px
-    surplus on a 1080p screen went out 88/648 to the initials column — pushing
-    a two-letter initial to ~164px — instead of splitting evenly over the ten
-    session columns. Leaving the day columns auto is the whole fix, so any
-    rule that re-introduces a width on one fails here. The week header cell
-    joins the rule: it spans a week's columns and a width on it would be a
-    floor on the whole week."""
-    assert declares(".table-grid .grid-clin", "width") == "5.5rem"
+    """The regression that motivated sizing the table, not the columns. Fixed
+    layout splits surplus table width proportionally among columns that have
+    a width, and equally among those that do not (CSS 2.2 §17.5.2.1). With a
+    width on both `.grid-clin` and `.grid-day` there were no auto columns
+    left, so a 560px surplus on a 1080p screen went out 88/648 to the
+    initials column — pushing a two-letter initial to ~164px — instead of
+    splitting evenly over the ten session columns. Leaving the day columns
+    auto is the whole fix, so any rule that re-introduces a width on one
+    fails here. The week header cell joins the rule: it spans a week's
+    columns and a width on it would be a floor on the whole week."""
+    assert declares(".table-grid .grid-clin", "width") == "var(--name-w)"
     offenders = [
         r for r in RULES
         if re.search(r"\.grid-(day|part|week)\b", r.selector)
@@ -402,23 +409,53 @@ def test_only_the_clinician_column_is_given_a_width():
     )
 
 
-def test_the_grid_has_its_horizontal_floor_on_the_table():
-    """With the day columns auto there is no per-column floor left, so the
-    floor lives on the table: `.grid-wrap` is `overflow: auto`, and a table
-    wider than it scrolls sideways inside it. min-width on the *cells* would
-    be inert — it is not an input to the fixed-layout algorithm. The floor
-    used to be one length sized for a five-day week (42rem); the grid now
-    renders a window of weeks, so the template sets `--cols` to the number
-    of half-day columns and the floor is a calc() over it. The per-column
-    term is what the old floor gave each of ten columns after the 5.5rem
-    name column, so a one-week window would render exactly as before and an
-    eight-week one is eight times wider than the pane."""
-    floor = declares(".table-grid", "min-width")
-    m = re.fullmatch(r"calc\(5\.5rem \+ var\(--cols(?:,\s*\d+)?\) \* ([\d.]+)rem\)", floor)
-    assert m, floor
-    assert float(m.group(1)) >= 3.5, floor
+def test_two_weeks_of_columns_fill_the_pane():
+    """The table is eight weeks wide inside a pane that scrolls sideways, and
+    the pane should show two of them whatever the screen. So a session
+    column is the pane's width (100% — the table's containing block is
+    `.grid-wrap`) less the name column and the border-spacing, over the
+    number of half-days in two weeks (`--view-cols`, set by the template);
+    the table is that times every column on the page (`--cols`). The 3.5rem
+    floor is what a column got before: below it the pane shows less than two
+    weeks and scrolls, which is the laptop and phone case, unchanged.
+    min-width on the *cells* would be inert — it is not an input to the
+    fixed-layout algorithm — so all of this lives on the table."""
+    col = declares(".table-grid", "--col-w")
+    assert col.startswith("max(3.5rem, "), col
+    for term in ("100%", "var(--name-w)", "var(--view-cols, 10)"):
+        assert term in col, (term, col)
+    width = declares(".table-grid", "width")
+    for term in ("var(--name-w)", "var(--cols, 10) * var(--col-w)"):
+        assert term in width, (term, width)
+    assert "min-width" not in rule(".table-grid").declarations, (
+        "the floor is in --col-w now; a min-width beside it is a second floor"
+    )
     wrap = rule(".grid-wrap")
     assert wrap.declarations.get("overflow") == "auto", wrap.declarations
+
+
+def test_the_name_column_fits_its_longest_label_and_no_more():
+    """Locum rows read "S Jones" where everyone else reads initials, so the
+    template sets `--name-ch` to the longest row label on the page and the
+    column is that many character widths plus its padding — never under the
+    5.5rem the initials always had, never over 10rem. Past 10rem the label
+    ends in an ellipsis; the full name is the row's tooltip."""
+    assert declares(".table-grid", "--name-w") == (
+        "max(5.5rem, min(10rem, calc(var(--name-ch, 0) * 1ch + 2 * var(--sp-3))))")
+    clin = rule(".table-grid .grid-clin").declarations
+    assert clin.get("overflow") == "hidden", clin
+    assert clin.get("text-overflow") == "ellipsis", clin
+    assert clin.get("white-space") == "nowrap", clin
+
+
+def test_a_phone_keeps_the_narrow_name_column():
+    """The name column is sticky, so on a phone a locum's full label would
+    take a third of the screen off every row. Below the breakpoint it stays
+    at the initials' 5.5rem and a long label ends in an ellipsis."""
+    phone = [r for r in RULES if r.selector == ".page-grid .table-grid"]
+    assert len(phone) == 1 and phone[0].media == "(max-width: 640px)", phone
+    assert phone[0].declarations.get("--name-w") == "5.5rem", phone[0].declarations
+    assert specificity(".page-grid .table-grid") > specificity(".table-grid")
 
 
 def test_week_boundary_and_today_marks_do_not_touch_positioning():

@@ -39,6 +39,12 @@ body.page-grid {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  /* Wider than every other page's 1280px: the grid's columns are sized so
+     two weeks fill whatever width it is given (components.css,
+     .table-grid), so a wide monitor buys wider sessions instead of empty
+     margins. Capped where a column would pass ~120px and a two-letter code
+     would float in it. */
+  max-width: 2560px;
 }
 .page-grid .grid-wrap {
   flex: 0 1 auto;
@@ -790,6 +796,14 @@ body.page-grid {
      descendant form matches the same <main class="main"> element and
      out-ranks the base rule's shorthand padding on specificity alone. */
   body .main { padding-left: var(--sp-4); padding-right: var(--sp-4); }
+
+  /* The name column stays at the initials' width on a phone, locum or not:
+     it is sticky, and "B Richardson" at full width would take a third of a
+     390px screen off the sessions for every row. A long label ends in an
+     ellipsis here (components.css, .table-grid .grid-clin). Written as
+     `.page-grid .table-grid` for the same one-selector-one-rule reason as
+     `body .main` above, and it out-ranks the base rule on specificity. */
+  .page-grid .table-grid { --name-w: 5.5rem; }
 
   .day-roster td { width: auto; }
 
